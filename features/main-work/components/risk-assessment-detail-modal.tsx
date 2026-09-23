@@ -2,11 +2,15 @@
 
 import * as React from "react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { Stethoscope } from "lucide-react";
 import {
    RiskAssessmentResult,
    AssessmentInput,
 } from "@/store/api/risk-factor-assessment/type";
+import { useGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { CustomButton } from "@/components/common/custom-button";
+import { CloverLoading } from "@/components/common/clover-loading";
 import {
    Dialog,
    DialogContent,
@@ -108,16 +112,46 @@ const getRiskBadge = (level?: string) => {
 export interface RiskAssessmentDetailModalProps {
    isOpen: boolean;
    onClose: () => void;
-   assessment: RiskAssessmentResult | null;
+   assessment?: RiskAssessmentResult | null;
+   assessmentId?: string | null;
    onEvaluate?: (assessment: RiskAssessmentResult) => void;
+   onStartExamination?: (assessment: RiskAssessmentResult) => void;
+   showStartExamination?: boolean;
 }
 
 export function RiskAssessmentDetailModal({
    isOpen,
    onClose,
-   assessment,
+   assessment: propAssessment,
+   assessmentId,
    onEvaluate,
+   onStartExamination,
+   showStartExamination = true,
 }: RiskAssessmentDetailModalProps) {
+   const router = useRouter();
+
+   const { data: fetchedAssessment, isLoading } =
+      useGetRiskAssessmentDetailQuery(assessmentId ?? "", {
+         skip: !assessmentId || !!propAssessment || !isOpen,
+      });
+
+   const assessment = propAssessment || fetchedAssessment || null;
+
+   if (!isOpen) return null;
+
+   if (isLoading && !assessment) {
+      return (
+         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="sm:min-w-md rounded-lg p-8 flex flex-col items-center justify-center gap-3">
+               <CloverLoading size="md" />
+               <span className="text-xs text-slate-500 font-medium">
+                  Đang tải thông tin phân tầng nguy cơ...
+               </span>
+            </DialogContent>
+         </Dialog>
+      );
+   }
+
    if (!assessment) return null;
 
    const input = assessment.assessmentInput;
@@ -132,6 +166,25 @@ export function RiskAssessmentDetailModal({
          formattedDate = dateStr;
       }
    }
+
+   const handleStartExam = () => {
+      onClose();
+      if (onStartExamination) {
+         onStartExamination(assessment);
+      } else {
+         const profileId =
+            assessment.healthProfileId ||
+            assessment.healthProfile?.id ||
+            assessment.assessmentInput?.healthProfileId;
+         if (profileId) {
+            router.push(
+               `/work?profileId=${profileId}&action=create&assessmentId=${assessment.id}`,
+            );
+         } else {
+            router.push(`/work?action=create&assessmentId=${assessment.id}`);
+         }
+      }
+   };
 
    return (
       <Dialog
@@ -377,6 +430,18 @@ export function RiskAssessmentDetailModal({
                >
                   Đóng
                </CustomButton>
+
+               {showStartExamination && (
+                  <CustomButton
+                     type="button"
+                     size="sm"
+                     className="h-8 text-xs font-semibold px-4 cursor-pointer bg-primary hover:bg-primary/90 text-white flex items-center gap-1.5"
+                     onClick={handleStartExam}
+                  >
+                     <Stethoscope className="w-3.5 h-3.5" />
+                     Khám ngay
+                  </CustomButton>
+               )}
 
                {onEvaluate && (
                   <CustomButton

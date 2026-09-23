@@ -73,7 +73,7 @@ export const CreateDirectConversationDialog: React.FC<
 
    return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-         <DialogContent className="sm:min-w-2xl bg-white">
+         <DialogContent className="sm:min-w-2xl bg-white rounded-sm">
             <DialogHeader>
                <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-800">
                   Mở hội thoại trực tiếp 1-1 với Bệnh nhân

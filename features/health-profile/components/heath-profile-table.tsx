@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
    useGetHealthProfilesQuery,
    useDeleteHealthProfileMutation,
@@ -75,12 +76,20 @@ export function HealthProfileTable({
    const [debouncedSearch, setDebouncedSearch] = useState("");
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
-   const [isFormOpen, setIsFormOpen] = useState(false);
+   const searchParams = useSearchParams();
+   const querySelectedId =
+      searchParams.get("selectedId") ||
+      searchParams.get("profileId") ||
+      searchParams.get("id");
+
+   const [prevQuerySelectedId, setPrevQuerySelectedId] =
+      useState(querySelectedId);
+   const [isFormOpen, setIsFormOpen] = useState(Boolean(querySelectedId));
    const [selectedProfileId, setSelectedProfileId] = useState<
       string | undefined
-   >(undefined);
+   >(querySelectedId || undefined);
    const [formMode, setFormMode] = useState<"create" | "update" | "view">(
-      "create",
+      querySelectedId ? "view" : "create",
    );
    const [deletingProfile, setDeletingProfile] = useState<HealthProfile | null>(
       null,
@@ -88,6 +97,15 @@ export function HealthProfileTable({
    const [linkingProfile, setLinkingProfile] = useState<HealthProfile | null>(
       null,
    );
+
+   if (prevQuerySelectedId !== querySelectedId) {
+      setPrevQuerySelectedId(querySelectedId);
+      if (querySelectedId) {
+         setSelectedProfileId(querySelectedId);
+         setFormMode("view");
+         setIsFormOpen(true);
+      }
+   }
 
    useEffect(() => {
       const timer = setTimeout(() => setDebouncedSearch(searchText), 400);

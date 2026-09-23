@@ -13,14 +13,13 @@ export const getSocketBaseUrl = (): string => {
 };
 
 export const getChatSocket = (token?: string | null): Socket | null => {
-   if (typeof window === "undefined") {
-      return null;
-   }
+   if (typeof window === "undefined") return null;
 
    const effectiveToken =
       token ||
-      localStorage.getItem("accessToken") ||
-      null;
+      (typeof localStorage !== "undefined"
+         ? localStorage.getItem("accessToken")
+         : null);
 
    if (!effectiveToken) {
       if (socketInstance) {
@@ -31,10 +30,8 @@ export const getChatSocket = (token?: string | null): Socket | null => {
       return null;
    }
 
-   // Chuẩn hóa token theo CHAT_MODULE_GUIDE.md (bỏ tiền tố Bearer để jwt.decode/verify hợp lệ)
    const cleanToken = effectiveToken.replace(/^Bearer\s+/i, "").trim();
 
-   // Nếu token thay đổi hoặc socket chưa tạo, tạo mới
    if (!socketInstance || currentToken !== cleanToken) {
       if (socketInstance) {
          socketInstance.disconnect();
@@ -43,17 +40,15 @@ export const getChatSocket = (token?: string | null): Socket | null => {
       const socketUrl = `${getSocketBaseUrl()}/chat`;
 
       socketInstance = io(socketUrl, {
-         auth: {
-            token: cleanToken,
-         },
-         extraHeaders: {
-            authorization: `Bearer ${cleanToken}`,
-         },
+         auth: { token: cleanToken },
+         extraHeaders: { authorization: `Bearer ${cleanToken}` },
          transports: ["websocket", "polling"],
          autoConnect: true,
          reconnection: true,
-         reconnectionAttempts: 10,
+         reconnectionAttempts: Infinity,
          reconnectionDelay: 1000,
+         reconnectionDelayMax: 5000,
+         timeout: 20000,
       });
 
       currentToken = cleanToken;
@@ -73,3 +68,4 @@ export const disconnectChatSocket = () => {
       currentToken = null;
    }
 };
+

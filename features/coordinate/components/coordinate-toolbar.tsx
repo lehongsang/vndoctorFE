@@ -9,7 +9,6 @@ interface CoordinateToolbarProps {
    refetch?: () => void;
    isFetching?: boolean;
    disabled?: boolean;
-   onClickCreate?: () => void;
 }
 
 export function CoordinateToolbar({
@@ -18,7 +17,6 @@ export function CoordinateToolbar({
    refetch,
    isFetching,
    disabled = false,
-   onClickCreate,
 }: CoordinateToolbarProps) {
    return (
       <div className="w-full flex flex-wrap items-center gap-3">
@@ -29,9 +27,6 @@ export function CoordinateToolbar({
             className="h-10 max-w-72 px-4 bg-white"
             placeholder="Tìm theo mã, tên bệnh, mã ICD-10..."
          />
-         <CustomButton onClick={onClickCreate} className="h-10 w-28">
-            Thêm mới
-         </CustomButton>
          <CustomButton
             variant="outline"
             className="h-10 w-28"

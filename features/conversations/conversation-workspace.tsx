@@ -7,6 +7,7 @@ import {
    useGetConversationsQuery,
    useGetConversationByIdQuery,
    useGetMessagesQuery,
+   useLazyGetMessagesQuery,
    useSendMessageMutation,
    usePinMessageMutation,
    useDeleteMessageMutation,
@@ -136,12 +137,18 @@ export const ConversationWorkspace: React.FC = () => {
       [conversations, activeId],
    );
 
+   // Quản lý trạng thái phân trang tin nhắn cũ (infinite scroll upwards)
+   const [isEndReached, setIsEndReached] = useState(false);
+   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+
    // Điều chỉnh state khi activeId thay đổi ngay trong render (chuẩn React 19, không dùng effect gây cascading render)
    const [prevActiveId, setPrevActiveId] = useState(activeId);
    if (activeId !== prevActiveId) {
       setPrevActiveId(activeId);
       setRealtimeMessages([]);
       setReplyingMessage(null);
+      setIsEndReached(false);
+      setIsLoadingOlder(false);
    }
 
    const handleSelectConversation = useCallback((conv: Conversation) => {
@@ -188,10 +195,26 @@ export const ConversationWorkspace: React.FC = () => {
          { skip: !activeConversation?.id },
       );
 
+   const [triggerGetMessages] = useLazyGetMessagesQuery();
+
+   // Tính toán hasMoreOlder trực tiếp trong render (React 19 pattern: You Might Not Need an Effect)
+   const hasMoreOlder = useMemo(() => {
+      if (isEndReached) return false;
+      if (!messagesData?.data) return true;
+      if (messagesData.data.length < 30) return false;
+      if (
+         messagesData.total !== undefined &&
+         messagesData.data.length >= messagesData.total
+      ) {
+         return false;
+      }
+      return true;
+   }, [isEndReached, messagesData?.data, messagesData?.total]);
+
    // 3. Socket: Callback khi nhận tin nhắn realtime mới
    const handleNewRealtimeMessage = useCallback(
       (message: Message) => {
-         // Cập nhật tin nhắn cuối cùng và thứ tự trong danh sách bên trái (áp dụng cho mọi tin nhắn nhận được)
+         // Cập nhật tin nhắn cuối cùng và thứ tự trong danh sách bên trái
          dispatch(
             conversationApi.util.updateQueryData(
                "getConversations",
@@ -217,72 +240,65 @@ export const ConversationWorkspace: React.FC = () => {
             ),
          );
 
-         // Chỉ cập nhật danh sách tin nhắn nếu thuộc cuộc hội thoại đang mở
-         if (message.conversationId === activeId) {
+         // Cập nhật cache getMessages của RTK Query
+         dispatch(
+            conversationApi.util.updateQueryData(
+               "getMessages",
+               { conversationId: message.conversationId },
+               (draft) => {
+                  if (!draft.data) draft.data = [];
+                  if (!draft.data.some((m) => m.id === message.id)) {
+                     draft.data.push(message);
+                  }
+               },
+            ),
+         );
+
+         // Cập nhật state nếu thuộc cuộc hội thoại đang mở
+         const isActive = message.conversationId === activeId;
+
+         if (isActive) {
             setRealtimeMessages((prev) => {
                if (prev.some((m) => m.id === message.id)) return prev;
 
-               const isFromMe =
-                  Boolean(
-                     message.senderUserId &&
-                     message.senderUserId === effectiveUserId,
-                  ) ||
-                  Boolean(
-                     message.senderId && message.senderId === effectiveUserId,
-                  );
+               // Thay thế tin tạm (temp-) cùng nội dung nếu có
+               const tempIndex = prev.findIndex(
+                  (m) =>
+                     m.id.startsWith("temp-") &&
+                     m.content === message.content,
+               );
 
-               if (isFromMe) {
-                  const alreadyExists = prev.some(
-                     (m) =>
-                        !m.id.startsWith("temp-") &&
-                        m.content === message.content &&
-                        Math.abs(
-                           new Date(m.createdAt).getTime() -
-                              new Date(message.createdAt).getTime(),
-                        ) < 10000,
-                  );
-                  if (alreadyExists) {
-                     return prev;
-                  }
-
-                  const tempIndex = prev.findIndex(
-                     (m) =>
-                        m.id.startsWith("temp-") &&
-                        m.content === message.content,
-                  );
-                  if (tempIndex !== -1) {
-                     const next = [...prev];
-                     next[tempIndex] = message;
-                     return next;
-                  }
+               if (tempIndex !== -1) {
+                  const next = [...prev];
+                  next[tempIndex] = {
+                     ...message,
+                     replyToMessage:
+                        prev[tempIndex].replyToMessage ||
+                        message.replyToMessage,
+                     replyToMessageId:
+                        message.replyToMessageId ||
+                        prev[tempIndex].replyToMessageId,
+                  };
+                  return next;
                }
 
                return [...prev, message];
             });
-
-            // Đồng bộ vào cache getMessages của RTK Query
-            dispatch(
-               conversationApi.util.updateQueryData(
-                  "getMessages",
-                  { conversationId: message.conversationId },
-                  (draft) => {
-                     if (!draft.data) draft.data = [];
-                     if (!draft.data.some((m) => m.id === message.id)) {
-                        draft.data.push(message);
-                     }
-                  },
-               ),
-            );
          }
       },
-      [dispatch, conversationParams, activeId, effectiveUserId],
+      [dispatch, conversationParams, activeId],
    );
 
-   const { isConnected, isSomeoneTyping, emitTyping, emitMessageRead } =
-      useChatSocket({
-         conversationId: activeConversation?.id,
-         onNewMessage: handleNewRealtimeMessage,
-      });
+   const {
+      isConnected,
+      isSomeoneTyping,
+      sendSocketMessage,
+      emitTyping,
+      emitMessageRead,
+   } = useChatSocket({
+      conversationId: activeConversation?.id,
+      onNewMessage: handleNewRealtimeMessage,
+   });
 
    // Kết hợp tin nhắn từ REST API & Realtime Socket (loại trừ trùng ID và tin tạm)
    const allMessages = useMemo(() => {
@@ -291,7 +307,6 @@ export const ConversationWorkspace: React.FC = () => {
       apiMsgs.forEach((msg) => msgMap.set(msg.id, msg));
       realtimeMessages.forEach((msg) => {
          if (!msgMap.has(msg.id)) {
-            // Nếu là tin tạm (temp-), nhưng đã có tin thật từ API cùng nội dung và vừa tạo, bỏ qua
             if (
                msg.id.startsWith("temp-") &&
                apiMsgs.some(
@@ -324,12 +339,66 @@ export const ConversationWorkspace: React.FC = () => {
       }
    }, [allMessages, activeConversation?.id, effectiveUserId, emitMessageRead]);
 
+   // Tải thêm tin nhắn cũ hơn khi người dùng cuộn lên trên cùng
+   const handleLoadOlderMessages = useCallback(async () => {
+      if (!activeConversation || isLoadingOlder || !hasMoreOlder) return;
+
+      const persistentMessages = allMessages.filter(
+         (m) => !m.id.startsWith("temp-"),
+      );
+      if (persistentMessages.length === 0) return;
+
+      const oldestMsg = persistentMessages[0];
+      const beforeCursor = oldestMsg.createdAt || oldestMsg.id;
+
+      setIsLoadingOlder(true);
+      try {
+         const res = await triggerGetMessages({
+            conversationId: activeConversation.id,
+            params: { before: beforeCursor, limit: 30 },
+         }).unwrap();
+
+         const olderData = res.data || [];
+         if (olderData.length < 30) {
+            setIsEndReached(true);
+         }
+
+         if (olderData.length > 0) {
+            dispatch(
+               conversationApi.util.updateQueryData(
+                  "getMessages",
+                  { conversationId: activeConversation.id },
+                  (draft) => {
+                     if (!draft.data) draft.data = [];
+                     const existingIds = new Set(draft.data.map((m) => m.id));
+                     const uniqueOlder = olderData.filter(
+                        (m) => !existingIds.has(m.id),
+                     );
+                     draft.data = [...uniqueOlder, ...draft.data];
+                  },
+               ),
+            );
+         }
+      } catch (err) {
+         console.error("Lỗi khi tải tin nhắn cũ:", err);
+      } finally {
+         setIsLoadingOlder(false);
+      }
+   }, [
+      activeConversation,
+      isLoadingOlder,
+      hasMoreOlder,
+      allMessages,
+      triggerGetMessages,
+      dispatch,
+   ]);
+
    // 4. Mutations
    const [sendRestMessage] = useSendMessageMutation();
    const [pinMessageMutation] = usePinMessageMutation();
    const [deleteMessageMutation] = useDeleteMessageMutation();
 
-   // Gửi tin nhắn chuẩn kèm Optimistic Update (hiển thị ngay tức thì 0ms)
+   // Gửi tin nhắn: Ưu tiên WebSocket Gateway để phát sóng realtime tức thì; Fallback REST API nếu socket ngắt kết nối
    const handleSendMessage = async (payload: {
       content: string;
       messageType?: MessageType;
@@ -364,67 +433,47 @@ export const ConversationWorkspace: React.FC = () => {
          updatedAt: new Date().toISOString(),
       };
 
-      // 1. Chèn ngay lập tức vào state để người dùng thấy tin nhắn ngay lập tức
+      // 1. Chèn tức thì vào UI (Optimistic UI 0ms)
       setRealtimeMessages((prev) => [...prev, optimisticMessage]);
 
-      try {
-         // 2. Gửi qua REST API chuẩn POST /conversations/:id/messages
-         const sent = await sendRestMessage({
-            conversationId: activeConversation.id,
-            body: payload,
-         }).unwrap();
+      // 2. Thử gửi qua WebSocket trước để server broadcast realtime tới phòng chat
+      const sentViaSocket = sendSocketMessage(payload);
 
-         // 3. Gắn thông tin người gửi chuẩn theo user đang đăng nhập (Doctor/Staff)
-         const enrichedSent: Message = {
-            ...sent,
-            senderType: "STAFF",
-            senderUserId: sent.senderUserId || effectiveUserId,
-            senderUser: {
-               id: effectiveUserId,
-               fullName: effectiveFullName,
-               role: effectiveRole,
-               staffCode: effectiveUser?.staffCode,
-               username: effectiveUser?.username,
-            },
-            replyToMessageId: sent.replyToMessageId || payload.replyToMessageId,
-            replyToMessage: sent.replyToMessage || replyingMessage,
-            isDeleted: false,
-         };
+      if (!sentViaSocket) {
+         // Nếu socket chưa kết nối, fallback gửi qua REST API
+         try {
+            const sent = await sendRestMessage({
+               conversationId: activeConversation.id,
+               body: payload,
+            }).unwrap();
 
-         // 4. Thay thế tin nhắn tạm bằng tin nhắn chính thức từ server (hoặc gỡ bỏ nếu socket đã thêm)
-         setRealtimeMessages((prev) => {
-            if (prev.some((m) => m.id === enrichedSent.id)) {
-               return prev.filter((m) => m.id !== tempId);
-            }
-            return prev.map((m) => (m.id === tempId ? enrichedSent : m));
-         });
-
-         // 5. Cập nhật preview cuộc hội thoại trong danh sách bên trái ngay lập tức (0ms)
-         dispatch(
-            conversationApi.util.updateQueryData(
-               "getConversations",
-               conversationParams,
-               (draft) => {
-                  if (!draft.data) return;
-                  const convIndex = draft.data.findIndex(
-                     (c) => c.id === activeConversation.id,
-                  );
-                  if (convIndex !== -1) {
-                     const conv = { ...draft.data[convIndex] };
-                     conv.lastMessage = enrichedSent;
-                     conv.lastMessagePreview = enrichedSent.content;
-                     conv.lastMessageAt = enrichedSent.createdAt;
-                     conv.updatedAt = enrichedSent.createdAt;
-                     draft.data.splice(convIndex, 1);
-                     draft.data.unshift(conv);
-                  }
+            const enrichedSent: Message = {
+               ...sent,
+               senderType: "STAFF",
+               senderUserId: sent.senderUserId || effectiveUserId,
+               senderUser: {
+                  id: effectiveUserId,
+                  fullName: effectiveFullName,
+                  role: effectiveRole,
+                  staffCode: effectiveUser?.staffCode,
+                  username: effectiveUser?.username,
                },
-            ),
-         );
-      } catch {
-         // Nếu lỗi, gỡ tin nhắn tạm ra và báo lỗi
-         setRealtimeMessages((prev) => prev.filter((m) => m.id !== tempId));
-         toast.error("Không thể gửi tin nhắn. Vui lòng thử lại!");
+               replyToMessageId: sent.replyToMessageId || payload.replyToMessageId,
+               replyToMessage: sent.replyToMessage || replyingMessage,
+               isDeleted: false,
+            };
+
+            setRealtimeMessages((prev) => {
+               const filtered = prev.filter((m) => m.id !== tempId);
+               if (!filtered.some((m) => m.id === enrichedSent.id)) {
+                  filtered.push(enrichedSent);
+               }
+               return filtered;
+            });
+         } catch {
+            setRealtimeMessages((prev) => prev.filter((m) => m.id !== tempId));
+            toast.error("Không thể gửi tin nhắn. Vui lòng thử lại!");
+         }
       }
    };
 
@@ -487,7 +536,7 @@ export const ConversationWorkspace: React.FC = () => {
          <div className="lg:col-span-4 xl:col-span-3 h-full overflow-hidden">
             <ConversationList
                conversations={displayConversations}
-               isLoading={isLoadingConversations || isFetchingConversations}
+               isLoading={isLoadingConversations && displayConversations.length === 0}
                selectedConversationId={activeId}
                searchQuery={searchQuery}
                onSearchChange={setSearchQuery}
@@ -512,6 +561,9 @@ export const ConversationWorkspace: React.FC = () => {
                      conversation={activeConversation}
                      messages={allMessages}
                      isLoading={isLoadingMessages && allMessages.length === 0}
+                     isLoadingMore={isLoadingOlder}
+                     hasMore={hasMoreOlder}
+                     onLoadMore={handleLoadOlderMessages}
                      isSomeoneTyping={isSomeoneTyping}
                      onReply={setReplyingMessage}
                      onPin={handlePinMessage}

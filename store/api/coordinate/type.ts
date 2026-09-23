@@ -23,15 +23,15 @@ export type CareSubscriptions = {
 };
 
 export type AssignStaffBody = {
-   assignedDoctorId: string;
-   assignedNurseId: string;
-   assignedExpertId?: string;
+   assignedDoctorId?: string | null;
+   assignedNurseId?: string | null;
+   assignedExpertId?: string | null;
 };
 
 export type UpdateAssignStaffBody = {
-   assignedDoctorId: string;
-   assignedNurseId: string;
-   assignedExpertId?: string;
+   assignedDoctorId?: string | null;
+   assignedNurseId?: string | null;
+   assignedExpertId?: string | null;
 };
 
 export type ParamGetCareSubscriptions = {

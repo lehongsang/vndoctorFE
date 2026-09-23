@@ -24,12 +24,12 @@ export default function CoordinateFeature() {
       limit,
    });
 
-   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(
+      null,
+   );
    const [coordinatingId, setCoordinatingId] = useState<string | null>(null);
 
-   const isViewingOrCoordinating = Boolean(
-      selectedDetailId || coordinatingId,
-   );
+   const isViewingOrCoordinating = Boolean(selectedDetailId || coordinatingId);
 
    const careSubcriptionsList: CareSubscriptions[] =
       careSubcriptions?.data || [];

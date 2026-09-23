@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,12 @@ import { ChronicDiseaseCheckboxGrid } from "./chronic-disease-checkbox-grid";
 import { FormTextarea } from "@/components/common/form-textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { CustomCalendar } from "@/components/common/custom-calendar";
+import { ScanLine } from "lucide-react";
+import {
+   OcrProfileModal,
+   OcrProfileExtractedData,
+} from "./ocr-profile-modal";
 
 const RELATIONSHIP_OPTIONS = [
    { label: "Bản thân", value: "SELF" },
@@ -119,11 +125,14 @@ export function HealthProfileForm({
    const [updateProfile, { isLoading: isUpdating }] =
       useUpdateHealthProfileMutation();
 
+   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
+
    const {
       register,
       handleSubmit,
       control,
       reset,
+      setValue,
       formState: { errors },
    } = useForm<ProfileFormValues>({
       resolver: zodResolver(profileSchema),
@@ -146,6 +155,87 @@ export function HealthProfileForm({
          chronicDiseaseIds: [],
       },
    });
+
+   const handleApplyOcrData = (data: OcrProfileExtractedData) => {
+      if (data.fullName) {
+         setValue("fullName", data.fullName, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.dob) {
+         setValue("dob", data.dob, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.gender) {
+         setValue("gender", data.gender, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.citizenId) {
+         setValue("citizenId", data.citizenId, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.phoneNumber) {
+         setValue("phoneNumber", data.phoneNumber, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.address) {
+         setValue("address", data.address, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.bloodType) {
+         setValue("bloodType", data.bloodType, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.allergy) {
+         setValue("allergy", data.allergy, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (data.medicalHistory) {
+         setValue("medicalHistory", data.medicalHistory, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (typeof data.isSmoking === "boolean") {
+         setValue("isSmoking", data.isSmoking, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (typeof data.hasHypertension === "boolean") {
+         setValue("hasHypertension", data.hasHypertension, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (typeof data.hasDyslipidemia === "boolean") {
+         setValue("hasDyslipidemia", data.hasDyslipidemia, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+      if (typeof data.hasDiabetes === "boolean") {
+         setValue("hasDiabetes", data.hasDiabetes, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+   };
 
    useEffect(() => {
       if (detailData && (isUpdate || isView)) {
@@ -246,8 +336,22 @@ export function HealthProfileForm({
 
    return (
       <div>
-         <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+               <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            </div>
+            {!isView && (
+               <CustomButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsOcrModalOpen(true)}
+                  className="border-primary/40 text-primary hover:bg-primary/5 hover:border-primary gap-1.5 shadow-2xs cursor-pointer font-medium"
+               >
+                  <ScanLine className="w-4 h-4 text-primary" />
+                  <span>Quét OCR điền nhanh</span>
+               </CustomButton>
+            )}
          </div>
 
          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -494,6 +598,13 @@ export function HealthProfileForm({
                )}
             </div>
          </form>
+
+         {/* Modal OCR quét CCCD / Bệnh án */}
+         <OcrProfileModal
+            isOpen={isOcrModalOpen}
+            onClose={() => setIsOcrModalOpen(false)}
+            onApply={handleApplyOcrData}
+         />
       </div>
    );
 }

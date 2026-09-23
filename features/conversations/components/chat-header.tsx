@@ -21,6 +21,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
    const isCareTeam = conversation.type === "CARE_TEAM";
    const profile = conversation.healthProfile;
+   const targetProfileId =
+      profile?.id ||
+      conversation.healthProfileId ||
+      conversation.subscription?.healthProfileId;
    const packageName = conversation.subscription?.carePackage?.name;
 
    const displayName =
@@ -28,12 +32,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       profile?.fullName ||
       (isCareTeam ? "Nhóm Chăm Sóc" : "Bệnh nhân");
 
-   const avatarFallback = displayName
-      .split(" ")
-      .slice(-2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase() || "ND";
+   const avatarFallback =
+      displayName
+         .split(" ")
+         .slice(-2)
+         .map((part) => part[0])
+         .join("")
+         .toUpperCase() || "ND";
 
    return (
       <div className="h-16 px-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
@@ -49,7 +54,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                      "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white",
                      isConnected ? "bg-emerald-500" : "bg-slate-300",
                   )}
-                  title={isConnected ? "Đã kết nối Socket" : "Mất kết nối Socket"}
+                  title={
+                     isConnected ? "Đã kết nối Socket" : "Mất kết nối Socket"
+                  }
                />
             </div>
 
@@ -58,17 +65,21 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   <h2 className="font-bold text-sm text-slate-900 truncate">
                      {displayName}
                   </h2>
-                  <Badge
-                     variant="outline"
+                  <span
                      className={cn(
-                        "text-[10px] px-1.5 py-0 font-medium rounded border",
-                        isCareTeam
-                           ? "bg-amber-50 text-amber-800 border-amber-200"
-                           : "bg-blue-50 text-blue-800 border-blue-200",
+                        "text-[10px] px-1.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1",
+                        isConnected
+                           ? "bg-emerald-100 text-emerald-700"
+                           : "bg-rose-100 text-rose-700 animate-pulse",
                      )}
+                     title={
+                        isConnected
+                           ? "Đã kết nối máy chủ chat realtime"
+                           : "Mất kết nối máy chủ chat realtime"
+                     }
                   >
-                     {isCareTeam ? "Gói chăm sóc" : "1-1 Bác sĩ"}
-                  </Badge>
+                     {isConnected ? "Trực tuyến" : "Mất kết nối"}
+                  </span>
                   {packageName && (
                      <span className="hidden sm:inline-block text-[11px] text-slate-500 truncate max-w-xs">
                         ({packageName})
@@ -89,11 +100,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                            </span>
                         )}
                         {profile?.phoneNumber && (
-                           <span>• {profile.phoneNumber}</span>
+                           <span>SDT: {profile.phoneNumber}</span>
                         )}
                         {profile?.dob && (
                            <span>
-                              • {profile.gender === "MALE" ? "Nam" : profile.gender === "FEMALE" ? "Nữ" : ""}{" "}
+                              {profile.gender === "MALE"
+                                 ? "Nam"
+                                 : profile.gender === "FEMALE"
+                                   ? "Nữ"
+                                   : ""}{" "}
                               {new Date(profile.dob).getFullYear()}
                            </span>
                         )}
@@ -105,33 +120,33 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
          {/* Nút thao tác nhanh (gọn gàng, hạn chế icon) */}
          <div className="flex items-center gap-2 shrink-0">
-            {profile?.id && (
+            {targetProfileId && (
                <Link
-                  href={`/health-profile?selectedId=${profile.id}`}
+                  href={`/health-profile?selectedId=${targetProfileId}`}
                   target="_blank"
                   rel="noreferrer"
                >
-                  <CustomButton
-                     size="sm"
-                     variant="outline"
-                     className="h-8 text-xs font-medium text-slate-700 border-slate-300 hover:bg-slate-50 cursor-pointer"
-                  >
+                  <CustomButton size="sm" className="h-8 text-xs">
                      Hồ sơ sức khỏe
                   </CustomButton>
                </Link>
             )}
 
             <Link
-               href="/risk-factor-assessment"
+               href={
+                  targetProfileId
+                     ? `/work?profileId=${targetProfileId}&option=accessment`
+                     : "/work?option=accessment"
+               }
                target="_blank"
                rel="noreferrer"
             >
                <CustomButton
                   size="sm"
-                  variant="outline"
-                  className="h-8 text-xs font-medium text-amber-800 border-amber-200 hover:bg-amber-50 cursor-pointer"
+                  className="h-8 text-xs"
+                  variant="destructive"
                >
-                  PTYTNC
+                  Phân tầng
                </CustomButton>
             </Link>
          </div>

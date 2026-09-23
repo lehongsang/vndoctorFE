@@ -120,6 +120,7 @@ export const {
    useLazyGetRiskAssessmentFormSchemaQuery,
    useCreateRiskAssessmentMutation,
    useGetRiskAssessmentDetailQuery,
+   useLazyGetRiskAssessmentDetailQuery,
    useGetStaffRiskAssessmentsQuery,
    useGetPatientRiskAssessmentsQuery,
    useEvaluateRiskAssessmentMutation,

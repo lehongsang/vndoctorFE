@@ -13,7 +13,6 @@ import {
 
 export const conversationApi = baseApi.injectEndpoints({
    endpoints: (builder) => ({
-      // 1. Staff xem danh sách phòng chat tại Viện
       getConversations: builder.query<
          ConversationListResponse,
          QueryConversationDto | void
@@ -34,19 +33,7 @@ export const conversationApi = baseApi.injectEndpoints({
                : [{ type: "Conversations", id: "LIST" }],
       }),
 
-      // 2. Bệnh nhân lấy danh sách phòng chat của mình
-      getMyConversations: builder.query<
-         ConversationListResponse,
-         QueryConversationDto | void
-      >({
-         query: (params) => ({
-            url: "/conversations/me",
-            params: params || {},
-         }),
-         providesTags: [{ type: "Conversations", id: "ME_LIST" }],
-      }),
-
-      // 3. Xem chi tiết phòng chat
+      // 2. Xem chi tiết phòng chat
       getConversationById: builder.query<Conversation, string>({
          query: (id) => `/conversations/${id}`,
          providesTags: (_, __, id) => [{ type: "Conversations", id }],
@@ -89,10 +76,10 @@ export const conversationApi = baseApi.injectEndpoints({
             method: "POST",
             body,
          }),
-         invalidatesTags: (_, __, { conversationId }) => [
-            { type: "Conversations", id: conversationId },
-         ],
-         async onQueryStarted({ conversationId }, { dispatch, queryFulfilled }) {
+         async onQueryStarted(
+            { conversationId },
+            { dispatch, queryFulfilled },
+         ) {
             try {
                const { data: sentMessage } = await queryFulfilled;
                dispatch(
@@ -123,10 +110,6 @@ export const conversationApi = baseApi.injectEndpoints({
             method: "PATCH",
             body,
          }),
-         invalidatesTags: (_, __, { conversationId }) =>
-            conversationId
-               ? [{ type: "Conversations", id: conversationId }]
-               : [{ type: "Conversations", id: "LIST" }],
          async onQueryStarted(
             { messageId, body, conversationId },
             { dispatch, queryFulfilled },
@@ -161,10 +144,6 @@ export const conversationApi = baseApi.injectEndpoints({
             url: `/conversations/messages/${messageId}`,
             method: "DELETE",
          }),
-         invalidatesTags: (_, __, { conversationId }) =>
-            conversationId
-               ? [{ type: "Conversations", id: conversationId }]
-               : [{ type: "Conversations", id: "LIST" }],
          async onQueryStarted(
             { messageId, conversationId },
             { dispatch, queryFulfilled },
@@ -195,10 +174,10 @@ export const conversationApi = baseApi.injectEndpoints({
 
 export const {
    useGetConversationsQuery,
-   useGetMyConversationsQuery,
    useGetConversationByIdQuery,
    useCreateDirectConversationMutation,
    useGetMessagesQuery,
+   useLazyGetMessagesQuery,
    useSendMessageMutation,
    usePinMessageMutation,
    useDeleteMessageMutation,

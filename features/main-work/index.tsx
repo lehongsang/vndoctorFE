@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { HealthProfileList } from "./components/health-profile-list";
 import { HealthProfile } from "@/store/api/health-profile/type";
@@ -16,12 +16,22 @@ export const MainWorkPage = () => {
    const router = useRouter();
    const searchParams = useSearchParams();
    const profileId = searchParams.get("profileId");
+   const action = searchParams.get("action");
+   const optionParam = searchParams.get("option") || searchParams.get("tab");
+   const assessmentId =
+      searchParams.get("assessmentId") ||
+      searchParams.get("assessmentInputId");
 
    const [localProfile, setLocalProfile] = useState<HealthProfile | null>(null);
    const [prevProfileId, setPrevProfileId] = useState(profileId);
+   const [prevOptionParam, setPrevOptionParam] = useState(optionParam);
    const [selectedOption, setSelectedOption] = useState<
       "history" | "accessment"
-   >("history");
+   >(
+      optionParam === "accessment" || optionParam === "assessment"
+         ? "accessment"
+         : "history",
+   );
    const [isCreateExamination, setIsCreateExamination] = useState(false);
    const [editingExamination, setEditingExamination] =
       useState<Examination | null>(null);
@@ -32,6 +42,15 @@ export const MainWorkPage = () => {
       setIsCreateExamination(false);
       setEditingExamination(null);
       setExamination(null);
+   }
+
+   if (prevOptionParam !== optionParam) {
+      setPrevOptionParam(optionParam);
+      if (optionParam === "accessment" || optionParam === "assessment") {
+         setSelectedOption("accessment");
+      } else if (optionParam === "history") {
+         setSelectedOption("history");
+      }
    }
 
    const { data: fetchedProfile, isLoading: isFetchingProfile } =
@@ -91,6 +110,35 @@ export const MainWorkPage = () => {
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
    }, [selectedProfile, isCreateExamination, editingExamination, examination]);
+
+   const autoStartedKeyRef = useRef<string | null>(null);
+
+   useEffect(() => {
+      const key = `${profileId}-${action}-${assessmentId}`;
+      if (
+         action === "create" &&
+         selectedProfile &&
+         autoStartedKeyRef.current !== key &&
+         !isCreateExamination &&
+         !editingExamination &&
+         !examination
+      ) {
+         autoStartedKeyRef.current = key;
+         handleStartCreateExamination(
+            assessmentId
+               ? ({ assessmentInputId: assessmentId } as Partial<Examination>)
+               : undefined,
+         );
+      }
+   }, [
+      action,
+      assessmentId,
+      profileId,
+      selectedProfile,
+      isCreateExamination,
+      editingExamination,
+      examination,
+   ]);
 
    return (
       <div className="grid grid-cols-12 h-[calc(100vh-4rem)] overflow-hidden">

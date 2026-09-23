@@ -4,7 +4,6 @@ import { getChatSocket } from "@/lib/socket";
 import {
    Message,
    MessageType,
-   SendSocketMessagePayload,
    UserTypingEvent,
    MessageReadReceiptEvent,
 } from "@/store/api/conversation/type";
@@ -29,17 +28,18 @@ export function useChatSocket({
       setTypingUsers({});
    }
 
-   const currentConvIdRef = useRef<string | null | undefined>(conversationId);
+   const convIdRef = useRef(conversationId);
    const onNewMessageRef = useRef(onNewMessage);
 
    useEffect(() => {
-      currentConvIdRef.current = conversationId;
+      convIdRef.current = conversationId;
    }, [conversationId]);
 
    useEffect(() => {
       onNewMessageRef.current = onNewMessage;
    }, [onNewMessage]);
 
+   // 1. Quản lý kết nối Socket & Event Listeners
    useEffect(() => {
       if (!accessToken) return;
 
@@ -48,31 +48,39 @@ export function useChatSocket({
 
       const handleConnect = () => {
          setIsConnected(true);
-         if (currentConvIdRef.current) {
-            socket.emit("join_room", {
-               conversationId: currentConvIdRef.current,
-            });
+         if (convIdRef.current) {
+            socket.emit("join_room", { conversationId: convIdRef.current });
          }
       };
 
-      const handleDisconnect = () => {
-         setIsConnected(false);
-      };
+      const handleDisconnect = () => setIsConnected(false);
 
       const handleNewMessage = (raw: unknown) => {
-         const message = ((raw && typeof raw === "object" && "data" in raw && (raw as { data: unknown }).data)
-            ? (raw as { data: Message }).data
-            : raw) as Message;
+         if (!raw || typeof raw !== "object") return;
+         const data =
+            "data" in raw && (raw as { data: unknown }).data
+               ? (raw as { data: Record<string, unknown> }).data
+               : (raw as Record<string, unknown>);
 
-         if (!message) return;
+         const normalizedConvId =
+            (data.conversationId as string) ||
+            (data.conversation_id as string) ||
+            ((data.conversation as { id?: string })?.id as string) ||
+            convIdRef.current ||
+            "";
 
-         onNewMessageRef.current?.(message);
+         const normalizedMsg: Message = {
+            ...(data as unknown as Message),
+            conversationId: normalizedConvId,
+         };
+
+         onNewMessageRef.current?.(normalizedMsg);
       };
 
       const handleUserTyping = (event: UserTypingEvent) => {
          if (
-            currentConvIdRef.current &&
-            event.conversationId === currentConvIdRef.current &&
+            convIdRef.current &&
+            event.conversationId === convIdRef.current &&
             event.userId !== user?.id
          ) {
             setTypingUsers((prev) => ({
@@ -82,9 +90,7 @@ export function useChatSocket({
          }
       };
 
-      const handleReadReceipt = (_event: MessageReadReceiptEvent) => {
-         // Cập nhật trạng thái đã đọc nếu cần
-      };
+      const handleReadReceipt = (_event: MessageReadReceiptEvent) => {};
 
       socket.on("connect", handleConnect);
       socket.on("disconnect", handleDisconnect);
@@ -94,10 +100,8 @@ export function useChatSocket({
 
       if (socket.connected) {
          setIsConnected(true);
-         if (currentConvIdRef.current) {
-            socket.emit("join_room", {
-               conversationId: currentConvIdRef.current,
-            });
+         if (convIdRef.current) {
+            socket.emit("join_room", { conversationId: convIdRef.current });
          }
       }
 
@@ -110,10 +114,9 @@ export function useChatSocket({
       };
    }, [accessToken, user?.id]);
 
-   // Room join / leave khi conversationId thay đổi
+   // 2. Tham gia phòng chat khi conversationId thay đổi
    useEffect(() => {
       if (!conversationId || !accessToken) return;
-
       const socket = getChatSocket(accessToken);
       if (!socket) return;
 
@@ -124,7 +127,7 @@ export function useChatSocket({
       };
    }, [conversationId, accessToken]);
 
-   // Gửi tin nhắn qua Socket (chuẩn theo CHAT_MODULE_GUIDE.md)
+   // 3. Phát tin nhắn qua WebSocket
    const sendSocketMessage = useCallback(
       (params: {
          content: string;
@@ -133,12 +136,12 @@ export function useChatSocket({
          mediaUrl?: string;
          replyToMessageId?: string;
       }) => {
-         if (!conversationId) return;
+         if (!conversationId) return false;
          const socket = getChatSocket(accessToken);
-         if (!socket) return;
+         if (!socket || !socket.connected) return false;
 
          const msgType = params.messageType || "TEXT";
-         const payload: SendSocketMessagePayload & { type: string } = {
+         socket.emit("send_message", {
             conversationId,
             content: params.content,
             type: msgType,
@@ -146,14 +149,13 @@ export function useChatSocket({
             resourceId: params.resourceId,
             mediaUrl: params.mediaUrl,
             replyToMessageId: params.replyToMessageId,
-         };
-
-         socket.emit("send_message", payload);
+         });
+         return true;
       },
       [conversationId, accessToken],
    );
 
-   // Phát tín hiệu typing
+   // 4. Phát tín hiệu đang soạn tin (typing)
    const emitTyping = useCallback(
       (isTyping: boolean) => {
          if (!conversationId) return;
@@ -163,9 +165,7 @@ export function useChatSocket({
          socket.emit("typing", { conversationId, isTyping });
 
          if (isTyping) {
-            if (typingTimeoutRef.current) {
-               clearTimeout(typingTimeoutRef.current);
-            }
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             typingTimeoutRef.current = setTimeout(() => {
                socket.emit("typing", { conversationId, isTyping: false });
             }, 3000);
@@ -174,7 +174,7 @@ export function useChatSocket({
       [conversationId, accessToken],
    );
 
-   // Đánh dấu đã đọc
+   // 5. Đánh dấu đã đọc
    const emitMessageRead = useCallback(
       (messageId: string) => {
          if (!conversationId) return;
@@ -186,14 +186,13 @@ export function useChatSocket({
       [conversationId, accessToken],
    );
 
-   const isSomeoneTyping = Object.values(typingUsers).some(Boolean);
-
    return {
       isConnected,
-      isSomeoneTyping,
+      isSomeoneTyping: Object.values(typingUsers).some(Boolean),
       typingUsers,
       sendSocketMessage,
       emitTyping,
       emitMessageRead,
    };
 }
+

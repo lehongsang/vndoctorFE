@@ -79,17 +79,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       isSubmittingRef.current = true;
       setIsSubmitting(true);
 
-      // Xóa nội dung tức thì để trải nghiệm phản hồi ngay 0ms
+      const replyId = replyingMessage?.id;
       setContent("");
-      if (onCancelReply) onCancelReply();
       if (onTyping) onTyping(false);
 
       try {
          await onSendMessage({
             content: trimmed,
             messageType: "TEXT",
-            replyToMessageId: replyingMessage?.id,
+            replyToMessageId: replyId,
          });
+         if (onCancelReply) onCancelReply();
       } catch {
          // Nếu gửi thất bại, khôi phục lại nội dung để người dùng không bị mất chữ
          setContent(trimmed);

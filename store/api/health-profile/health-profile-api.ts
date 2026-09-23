@@ -46,7 +46,7 @@ const HealthProfileApi = baseApi.injectEndpoints({
          }),
          invalidatesTags: (_, __, { id }) => [
             { type: "HealthProfile", id },
-            { type: "HealthProfile", id: "LIST" },
+            { type: "HealthProfile", id: `${id}` },
          ],
       }),
 

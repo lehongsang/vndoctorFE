@@ -1,9 +1,7 @@
 "use client";
 
-import WorkSpace from "@/features/examinations/work-space";
-
 const ExaminationPage = () => {
-   return <WorkSpace />;
+   return <div>No</div>;
 };
 
 export default ExaminationPage;

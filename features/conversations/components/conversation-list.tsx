@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConversationItem } from "./conversation-item";
 import { CreateDirectConversationDialog } from "./create-direct-conversation-dialog";
 import { Conversation, ConversationType } from "@/store/api/conversation/type";
-import { MessageSquare, RefreshCw } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { CloverLoading } from "@/components/common/clover-loading";
 
 interface ConversationListProps {
@@ -89,26 +89,13 @@ export const ConversationList: React.FC<ConversationListProps> = ({
    return (
       <div className="flex flex-col h-full bg-white border-r border-slate-200">
          {/* Header */}
-         <div className="p-4 flex items-center justify-between">
+         <div className="px-4 py-3 flex items-center justify-between">
             <div>
                <h1 className="text-base font-bold text-slate-800">
                   Hội thoại y tế
                </h1>
-               <p className="text-xs text-slate-400">
-                  {conversations.length} cuộc hội thoại
-               </p>
             </div>
             <div className="flex items-center gap-1">
-               {onRefresh && (
-                  <button
-                     type="button"
-                     onClick={onRefresh}
-                     title="Làm mới danh sách"
-                     className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
-                  >
-                     <RefreshCw className="w-4 h-4" />
-                  </button>
-               )}
                <CustomButton
                   size="sm"
                   variant="default"
@@ -121,7 +108,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
          </div>
 
          {/* Tìm kiếm */}
-         <div className="px-3 pb-2">
+         <div className="px-4 pb-2">
             <SearchInput
                defaultValue={searchQuery}
                onDebounce={handleSearch}
@@ -132,7 +119,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
          </div>
 
          {/* Filter Tabs */}
-         <div className="px-3 pb-2 flex items-center gap-1 text-xs shrink-0 overflow-x-auto no-scrollbar">
+         <div className="px-4 pb-2 flex items-center gap-1 text-xs shrink-0 overflow-x-auto no-scrollbar">
             <CustomButton
                type="button"
                size="xs"
@@ -162,8 +149,12 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             </CustomButton>
          </div>
 
+         <p className="text-xs text-slate-400 px-4 py-3">
+            {conversations.length} cuộc hội thoại
+         </p>
+
          {/* Danh sách phòng chat */}
-         <ScrollArea className="flex-1 min-h-0 max-h-full overflow-hidden px-3">
+         <ScrollArea className="flex-1 min-h-0 max-h-full overflow-hidden px-4">
             <div className="py-1 space-y-1.5">
                {isLoading ? (
                   <div className="flex flex-col items-center justify-center min-h-50 text-slate-400 gap-2">

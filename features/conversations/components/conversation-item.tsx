@@ -107,12 +107,12 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
 
             <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                <Badge
-                  variant="outline"
+                  variant="default"
                   className={cn(
-                     "text-[10px] px-1.5 py-0 font-medium rounded border",
+                     "text-[10px] px-1.5 py-0 font-medium rounded",
                      isCareTeam
-                        ? "bg-amber-50 text-amber-800 border-amber-200"
-                        : "bg-blue-50 text-blue-800 border-blue-200",
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-blue-100 text-blue-800",
                   )}
                >
                   {isCareTeam ? "Gói chăm sóc" : "1-1 Bác sĩ"}
