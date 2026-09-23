@@ -14,8 +14,10 @@ import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { toast } from "react-toastify";
-import { ChronicDiseaseCombobox } from "./chronic-disease-combobox";
+import { ChronicDiseaseCheckboxGrid } from "./chronic-disease-checkbox-grid";
 import { FormTextarea } from "@/components/common/form-textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 const RELATIONSHIP_OPTIONS = [
    { label: "Bản thân", value: "SELF" },
@@ -41,8 +43,22 @@ const BLOOD_TYPE_OPTIONS = [
 ];
 
 const profileSchema = z.object({
-   fullName: z.string().min(1, "Họ và tên không được để trống"),
-   dob: z.string().min(1, "Ngày sinh không được để trống"),
+   fullName: z
+      .string()
+      .min(5, "Họ và tên ít nhất 5 ký tự")
+      .max(50, "Họ và tên không được vượt quá 50 ký tự"),
+   dob: z
+      .string()
+      .min(1, "Ngày sinh không được để trống")
+      .refine(
+         (val) => {
+            const selectedDate = new Date(val);
+            const today = new Date();
+            today.setHours(23, 59, 59, 999);
+            return selectedDate <= today;
+         },
+         { message: "Ngày sinh không được là ngày trong tương lai" },
+      ),
    gender: z.enum(["MALE", "FEMALE", "OTHER"], {
       message: "Vui lòng chọn giới tính",
    }),
@@ -52,15 +68,28 @@ const profileSchema = z.object({
          message: "Vui lòng chọn mối quan hệ",
       },
    ),
-   citizenId: z.string().min(1, "Số CCCD/CMND không được để trống"),
+   citizenId: z
+      .string()
+      .optional()
+      .refine(
+         (val) => !val || /^[0-9]{12}$/.test(val),
+         "Số CCCD bắt buộc phải có đúng 12 chữ số",
+      ),
    phoneNumber: z
       .string()
-      .min(1, "Số điện thoại không được để trống")
-      .regex(/(84|0[3|5|7|8|9])+([0-9]{8})\b/, "Số điện thoại không hợp lệ"),
-   address: z.string().min(1, "Địa chỉ không được để trống"),
+      .optional()
+      .refine(
+         (val) => !val || /^(0[35789]|84[35789])[0-9]{8}$/.test(val),
+         "Số điện thoại không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09)",
+      ),
+   address: z.string().optional(),
    bloodType: z.enum(["UNKNOWN", "A", "B", "AB", "O"]),
-   allergy: z.string(),
-   medicalHistory: z.string(),
+   allergy: z.string().optional(),
+   medicalHistory: z.string().optional(),
+   isSmoking: z.boolean(),
+   hasHypertension: z.boolean(),
+   hasDyslipidemia: z.boolean(),
+   hasDiabetes: z.boolean(),
    chronicDiseaseIds: z.array(z.string()),
 });
 
@@ -98,6 +127,7 @@ export function HealthProfileForm({
       formState: { errors },
    } = useForm<ProfileFormValues>({
       resolver: zodResolver(profileSchema),
+      mode: "onTouched",
       defaultValues: {
          fullName: "",
          dob: "",
@@ -109,6 +139,10 @@ export function HealthProfileForm({
          bloodType: "UNKNOWN",
          allergy: "",
          medicalHistory: "",
+         isSmoking: false,
+         hasHypertension: false,
+         hasDyslipidemia: false,
+         hasDiabetes: false,
          chronicDiseaseIds: [],
       },
    });
@@ -132,9 +166,12 @@ export function HealthProfileForm({
                "UNKNOWN",
             allergy: detailData.allergy || "",
             medicalHistory: detailData.medicalHistory || "",
-            chronicDiseaseIds: Array.isArray(detailData.profileChronicDisease)
-               ? detailData.profileChronicDisease.map((d) => d.id)
-               : [],
+            isSmoking: Boolean(detailData.isSmoking),
+            hasHypertension: Boolean(detailData.hasHypertension),
+            hasDyslipidemia: Boolean(detailData.hasDyslipidemia),
+            hasDiabetes: Boolean(detailData.hasDiabetes),
+            chronicDiseaseIds:
+               detailData?.profileChronicDisease?.diseaseIds || [],
          });
       }
    }, [detailData, isUpdate, isView, reset]);
@@ -149,16 +186,32 @@ export function HealthProfileForm({
                data: {
                   id: profileId,
                   ...values,
+                  citizenId: values.citizenId || "",
+                  phoneNumber: values.phoneNumber || "",
+                  address: values.address || "",
                   allergy: values.allergy || "",
                   medicalHistory: values.medicalHistory || "",
+                  isSmoking: Boolean(values.isSmoking),
+                  hasHypertension: Boolean(values.hasHypertension),
+                  hasDyslipidemia: Boolean(values.hasDyslipidemia),
+                  hasDiabetes: Boolean(values.hasDiabetes),
+                  chronicDiseaseIds: values.chronicDiseaseIds || [],
                },
             }).unwrap();
             toast.success("Cập nhật hồ sơ sức khỏe thành công");
          } else {
             await createProfile({
                ...values,
+               citizenId: values.citizenId || "",
+               phoneNumber: values.phoneNumber || "",
+               address: values.address || "",
                allergy: values.allergy || "",
                medicalHistory: values.medicalHistory || "",
+               isSmoking: Boolean(values.isSmoking),
+               hasHypertension: Boolean(values.hasHypertension),
+               hasDyslipidemia: Boolean(values.hasDyslipidemia),
+               hasDiabetes: Boolean(values.hasDiabetes),
+               chronicDiseaseIds: values.chronicDiseaseIds || [],
             }).unwrap();
             toast.success("Tạo mới hồ sơ sức khỏe thành công");
          }
@@ -193,168 +246,230 @@ export function HealthProfileForm({
 
    return (
       <div>
-         <div className="flex items-center gap-3 mb-6">
-            <div>
-               <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-               <p className="text-xs text-slate-500">
-                  {mode === "create"
-                     ? "Nhập các thông tin cần thiết để tạo hồ sơ sức khỏe mới"
-                     : `Mã hồ sơ: ${profileId}`}
-               </p>
-            </div>
+         <div className="flex items-center gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
          </div>
 
          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Thông tin cá nhân */}
-            <div>
-               <h3 className="text-sm font-semibold text-slate-800 mb-3 border-l-3 border-emerald-500 pl-2">
-                  Thông tin nhân khẩu
-               </h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <FormInput
-                     label="Họ và tên"
-                     required
-                     placeholder="Ví dụ: Nguyễn Văn A"
-                     disabled={isView}
-                     error={errors.fullName?.message}
-                     {...register("fullName")}
-                  />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+               <FormInput
+                  label="Họ và tên"
+                  required
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  disabled={isView}
+                  error={errors.fullName?.message}
+                  {...register("fullName")}
+               />
 
-                  <FormInput
-                     label="Ngày sinh"
-                     type="date"
-                     required
-                     disabled={isView}
-                     error={errors.dob?.message}
-                     {...register("dob")}
-                  />
+               <FormInput
+                  label="Ngày sinh"
+                  type="date"
+                  required
+                  max={new Date().toLocaleDateString("en-CA")}
+                  disabled={isView}
+                  error={errors.dob?.message}
+                  {...register("dob")}
+               />
 
-                  <Controller
-                     name="gender"
-                     control={control}
-                     render={({ field }) => (
-                        <FormSelect
-                           label="Giới tính"
-                           required
-                           disabled={isView}
-                           options={GENDER_OPTIONS}
-                           value={field.value}
-                           onValueChange={field.onChange}
-                           error={errors.gender?.message}
-                        />
-                     )}
-                  />
-
-                  <Controller
-                     name="relationship"
-                     control={control}
-                     render={({ field }) => (
-                        <FormSelect
-                           label="Mối quan hệ"
-                           required
-                           disabled={isView}
-                           options={RELATIONSHIP_OPTIONS}
-                           value={field.value}
-                           onValueChange={field.onChange}
-                           error={errors.relationship?.message}
-                        />
-                     )}
-                  />
-
-                  <FormInput
-                     label="Số CCCD / CMND"
-                     required
-                     placeholder="Ví dụ: 001201000123"
-                     disabled={isView}
-                     error={errors.citizenId?.message}
-                     {...register("citizenId")}
-                  />
-
-                  <FormInput
-                     label="Số điện thoại"
-                     required
-                     placeholder="Ví dụ: 0912345678"
-                     disabled={isView}
-                     error={errors.phoneNumber?.message}
-                     {...register("phoneNumber")}
-                  />
-
-                  <div className="md:col-span-2 lg:col-span-3">
-                     <FormInput
-                        label="Địa chỉ cư trú"
+               <Controller
+                  name="gender"
+                  control={control}
+                  render={({ field }) => (
+                     <FormSelect
+                        label="Giới tính"
                         required
-                        placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
                         disabled={isView}
-                        error={errors.address?.message}
-                        {...register("address")}
+                        options={GENDER_OPTIONS}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        error={errors.gender?.message}
                      />
-                  </div>
+                  )}
+               />
+
+               <Controller
+                  name="relationship"
+                  control={control}
+                  render={({ field }) => (
+                     <FormSelect
+                        label="Mối quan hệ"
+                        disabled={isView}
+                        options={RELATIONSHIP_OPTIONS}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        error={errors.relationship?.message}
+                     />
+                  )}
+               />
+
+               <FormInput
+                  label="Số CCCD"
+                  placeholder="Nhập 12 chữ số CCCD"
+                  maxLength={12}
+                  disabled={isView}
+                  error={errors.citizenId?.message}
+                  {...register("citizenId", {
+                     onChange: (e) => {
+                        e.target.value = e.target.value.replace(/\D/g, "");
+                     },
+                  })}
+               />
+
+               <FormInput
+                  label="Số điện thoại"
+                  placeholder="Ví dụ: 0912345678"
+                  maxLength={10}
+                  disabled={isView}
+                  error={errors.phoneNumber?.message}
+                  {...register("phoneNumber", {
+                     onChange: (e) => {
+                        e.target.value = e.target.value.replace(/\D/g, "");
+                     },
+                  })}
+               />
+
+               <div className="md:col-span-2 lg:col-span-3">
+                  <FormInput
+                     label="Địa chỉ cư trú"
+                     placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                     disabled={isView}
+                     error={errors.address?.message}
+                     {...register("address")}
+                  />
                </div>
             </div>
 
             {/* Thông tin y tế */}
-            <div>
-               <h3 className="text-sm font-semibold text-slate-800 mb-3 border-l-3 border-emerald-500 pl-2">
-                  Thông tin y tế cơ bản
-               </h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+               <Controller
+                  name="bloodType"
+                  control={control}
+                  render={({ field }) => (
+                     <FormSelect
+                        label="Nhóm máu"
+                        disabled={isView}
+                        options={BLOOD_TYPE_OPTIONS}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        error={errors.bloodType?.message}
+                     />
+                  )}
+               />
+
+               {/* Yếu tố nguy cơ bệnh lý */}
+               <div className="md:col-span-2">
+                  <label className="text-xs sm:text-sm text-slate-600 mb-2 block">
+                     Yếu tố nguy cơ bệnh lý
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                     {[
+                        {
+                           name: "isSmoking" as const,
+                           label: "Hút thuốc lá",
+                        },
+                        {
+                           name: "hasHypertension" as const,
+                           label: "Tăng huyết áp",
+                        },
+                        {
+                           name: "hasDyslipidemia" as const,
+                           label: "Rối loạn lipid máu",
+                        },
+                        {
+                           name: "hasDiabetes" as const,
+                           label: "Đái tháo đường",
+                        },
+                     ].map((item) => (
+                        <Controller
+                           key={item.name}
+                           name={item.name}
+                           control={control}
+                           render={({ field }) => (
+                              <div
+                                 role="button"
+                                 tabIndex={0}
+                                 onClick={() =>
+                                    !isView && field.onChange(!field.value)
+                                 }
+                                 onKeyDown={(e) => {
+                                    if (
+                                       !isView &&
+                                       (e.key === "Enter" || e.key === " ")
+                                    ) {
+                                       e.preventDefault();
+                                       field.onChange(!field.value);
+                                    }
+                                 }}
+                                 className={cn(
+                                    "flex items-center justify-between p-3 sm:px-4 rounded-sm border bg-slate-100 transition-all select-none text-left",
+                                    isView
+                                       ? "cursor-not-allowed opacity-80"
+                                       : "cursor-pointer hover:border-slate-300 hover:bg-slate-50/40",
+                                    field.value
+                                       ? "border-emerald-400 bg-emerald-50/20"
+                                       : "border-slate-200",
+                                 )}
+                              >
+                                 <span className="text-sm font-medium text-slate-800 pr-2">
+                                    {item.label}
+                                 </span>
+                                 <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center shrink-0"
+                                 >
+                                    <Checkbox
+                                       checked={field.value}
+                                       onCheckedChange={(checked) =>
+                                          !isView &&
+                                          field.onChange(Boolean(checked))
+                                       }
+                                       disabled={isView}
+                                       className="size-5 rounded! border-slate-500 data-checked:bg-emerald-600 data-checked:text-white"
+                                    />
+                                 </div>
+                              </div>
+                           )}
+                        />
+                     ))}
+                  </div>
+               </div>
+
+               <div className="md:col-span-2 lg:col-span-3 pt-2">
                   <Controller
-                     name="bloodType"
+                     name="chronicDiseaseIds"
                      control={control}
                      render={({ field }) => (
-                        <FormSelect
-                           label="Nhóm máu"
+                        <ChronicDiseaseCheckboxGrid
                            disabled={isView}
-                           options={BLOOD_TYPE_OPTIONS}
                            value={field.value}
-                           onValueChange={field.onChange}
-                           error={errors.bloodType?.message}
+                           onChange={field.onChange}
+                           error={errors.chronicDiseaseIds?.message}
+                           healthProfileId={profileId}
                         />
                      )}
                   />
+               </div>
 
-                  <div className="md:col-span-2">
-                     <FormInput
-                        label="Tiền sử dị ứng"
-                        placeholder="Dị ứng thuốc, thức ăn, phấn hoa... (nếu có)"
-                        disabled={isView}
-                        error={errors.allergy?.message}
-                        {...register("allergy")}
-                     />
-                  </div>
+               <div className="md:col-span-2 lg:col-span-3">
+                  <FormTextarea
+                     label="Tiền sử bệnh lý"
+                     placeholder="Nhập chi tiết tiền sử bệnh lý của bệnh nhân..."
+                     disabled={isView}
+                     error={errors.medicalHistory?.message}
+                     {...register("medicalHistory")}
+                  />
+               </div>
 
-                  <div className="md:col-span-2 lg:col-span-3">
-                     <Controller
-                        name="chronicDiseaseIds"
-                        control={control}
-                        render={({ field }) => (
-                           <ChronicDiseaseCombobox
-                              label="Bệnh mạn tính"
-                              disabled={isView}
-                              value={field.value}
-                              onChange={field.onChange}
-                              error={errors.chronicDiseaseIds?.message}
-                              initialDiseases={
-                                 Array.isArray(
-                                    detailData?.profileChronicDisease,
-                                 )
-                                    ? detailData.profileChronicDisease
-                                    : []
-                              }
-                           />
-                        )}
-                     />
-                  </div>
-
-                  <div className="md:col-span-2 lg:col-span-3">
-                     <FormTextarea
-                        label="Tiền sử bệnh lý"
-                        placeholder="Nhập chi tiết tiền sử bệnh lý của bệnh nhân..."
-                        disabled={isView}
-                        error={errors.medicalHistory?.message}
-                        {...register("medicalHistory")}
-                     />
-                  </div>
+               <div className="md:col-span-2 lg:col-span-full">
+                  <FormTextarea
+                     label="Tiền sử dị ứng"
+                     placeholder="Dị ứng thuốc, thức ăn, phấn hoa... (nếu có)"
+                     disabled={isView}
+                     error={errors.allergy?.message}
+                     {...register("allergy")}
+                  />
                </div>
             </div>
 

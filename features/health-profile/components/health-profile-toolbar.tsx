@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { CustomButton } from "@/components/common/custom-button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/common/search-input";
 
 export const HEALTH_PROFILE_STATUS_OPTIONS = [
    { label: "Hoạt động", value: "ACTIVE" },
@@ -28,11 +28,11 @@ export function HealthProfileToolBar({
 }: HealthProfileToolBarProps) {
    return (
       <div className="w-full flex flex-wrap items-center gap-3">
-         <Input
+         <SearchInput
             value={searchText}
             onChange={onSearchChange}
             disabled={disabled}
-            className="h-10 max-w-72 px-4 bg-white"
+            containerClassName="flex-none w-72"
             placeholder="Tìm theo tên, mã hồ sơ, SĐT, CCCD..."
          />
          <CustomButton onClick={onClickCreate} className="h-10 w-28">

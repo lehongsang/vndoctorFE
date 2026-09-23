@@ -79,12 +79,12 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
    }, [pathname]);
 
    return (
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-2 sm:px-4 backdrop-blur-xs">
+      <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-2 sm:px-4 backdrop-blur-xs">
          <div className="flex items-center gap-2 min-w-0 flex-1 mr-2 sm:mr-4">
             <button
                type="button"
                onClick={onMenuClick}
-               className="flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+               className="flex lg:hidden size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
                aria-label="Toggle menu"
             >
                <Menu className="size-5" />
@@ -134,7 +134,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             </button>
 
             <DropdownMenu>
-               <DropdownMenuTrigger className="flex items-center gap-2 pl-3 border-l-2 border-slate-200 outline-none hover:opacity-85 transition-opacity cursor-pointer text-left py-1">
+               <DropdownMenuTrigger className="flex items-center gap-2 pl-3 outline-none hover:opacity-85 transition-opacity cursor-pointer text-left py-1">
                   <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
                      {user?.fullName?.charAt(0) || (
                         <UserIcon className="size-4.5" />

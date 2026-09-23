@@ -3,5 +3,9 @@
 import ChronicDiseaseFeature from "@/features/chronic-disease";
 
 export default function ChronicDiseasesPage() {
-   return <ChronicDiseaseFeature />;
+   return (
+      <div className="p-4">
+         <ChronicDiseaseFeature />
+      </div>
+   );
 }

@@ -23,6 +23,10 @@ export type HealthProfile = {
    isLinked: boolean;
    appLinkStatus: AppLinkStatus;
    medicalHistory: string;
+   isSmoking?: boolean;
+   hasHypertension?: boolean;
+   hasDyslipidemia?: boolean;
+   hasDiabetes?: boolean;
    profileChronicDisease: {
       id: string;
       createdAt: string;
@@ -81,6 +85,10 @@ export type CreateHealthProfile = {
    bloodType: "UNKNOWN" | "A" | "B" | "AB" | "O";
    allergy: string;
    medicalHistory: string;
+   isSmoking?: boolean;
+   hasHypertension?: boolean;
+   hasDyslipidemia?: boolean;
+   hasDiabetes?: boolean;
    chronicDiseaseIds?: string[];
 };
 
@@ -96,6 +104,10 @@ export type UpdateHealthProfile = {
    bloodType: "UNKNOWN" | "A" | "B" | "AB" | "O";
    allergy: string;
    medicalHistory: string;
+   isSmoking?: boolean;
+   hasHypertension?: boolean;
+   hasDyslipidemia?: boolean;
+   hasDiabetes?: boolean;
    chronicDiseaseIds?: string[];
 };
 

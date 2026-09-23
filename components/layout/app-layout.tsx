@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-   const [isCollapsed, setIsCollapsed] = useState(false);
+   const [isCollapsed, setIsCollapsed] = useState(true);
 
    useEffect(() => {
       const handleResize = () => {
@@ -42,9 +42,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             )}
          >
             <Navbar onMenuClick={handleToggleMenu} isCollapsed={isCollapsed} />
-            <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-x-hidden">
-               {children}
-            </main>
+            <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
          </div>
       </div>
    );

@@ -15,6 +15,9 @@ import {
    type LucideIcon,
    Radiation,
    Share2,
+   BrainCircuit,
+   Stethoscope,
+   ScreenShare,
 } from "lucide-react";
 import { StaffRole } from "@/types/staff";
 
@@ -36,40 +39,33 @@ export const menuItems: MenuItem[] = [
       href: "/dashboard",
       role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
    },
-   // {
-   //    id: "consultations",
-   //    label: "Hội chẩn",
-   //    icon: MessageSquareShare,
-   //    href: "/consultations",
-   //    role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
-   // },
+   {
+      id: "work",
+      label: "Bàn làm việc",
+      icon: ScreenShare,
+      href: "/work",
+      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
+   },
    {
       id: "health-profile",
       label: "Hồ sơ sức khỏe",
       icon: Book,
       href: "/health-profile",
-      role: [
-         "VNDOCTOR_ADMIN",
-         "ADMIN",
-         "DOCTOR",
-         "DOCTOR_EXPERT",
-         "NURSE",
-         "STAFF",
-      ],
+      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT", "NURSE"],
    },
    {
       id: "patient",
       label: "Quản lý khách hàng",
       icon: Users,
       href: "/patient",
-      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT", "NURSE"],
+      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
    },
    {
       id: "coordinate",
       label: "Điều phối nhân viên",
       icon: Share2,
       href: "/coordinate",
-      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT", "NURSE"],
+      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
    },
    {
       id: "care-package",
@@ -80,7 +76,7 @@ export const menuItems: MenuItem[] = [
    },
    {
       id: "chronic-diseases",
-      label: "Quản lý bệnh mãn tính",
+      label: "Bệnh mạn tính",
       icon: Radiation,
       href: "/chronic-disease",
       role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
@@ -141,13 +137,20 @@ export const menuItems: MenuItem[] = [
    //    href: "/care-requests",
    //    role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT", "NURSE"],
    // },
-   // {
-   //    id: "online-consult",
-   //    label: "Tin nhắn",
-   //    icon: MessageCircle,
-   //    href: "/online-consult",
-   //    role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT", "NURSE"],
-   // },
+   {
+      id: "online-consult",
+      label: "Tin nhắn",
+      icon: MessageCircle,
+      href: "/online-consult",
+      role: [
+         "VNDOCTOR_ADMIN",
+         "ADMIN",
+         "DOCTOR",
+         "DOCTOR_EXPERT",
+         "NURSE",
+         "STAFF",
+      ],
+   },
    {
       id: "facility",
       label: "Quản lý cơ sở y tế",

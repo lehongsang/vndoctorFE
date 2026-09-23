@@ -3,6 +3,9 @@
 import PatientFeature from "@/features/patient";
 
 export default function PatientPage() {
-   return <PatientFeature />;
+   return (
+      <div className="p-4">
+         <PatientFeature />
+      </div>
+   );
 }
-

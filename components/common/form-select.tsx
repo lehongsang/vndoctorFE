@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { X } from "lucide-react";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import {
    Select,
@@ -27,6 +28,8 @@ export interface FormSelectProps {
    defaultValue?: string;
    onValueChange?: (value: string) => void;
    disabled?: boolean;
+   clearable?: boolean;
+   onClear?: () => void;
    id?: string;
    containerClassName?: string;
    className?: string;
@@ -51,6 +54,8 @@ export const FormSelect = ({
    defaultValue,
    onValueChange,
    disabled,
+   clearable = true,
+   onClear,
    id,
    containerClassName,
    className,
@@ -73,12 +78,48 @@ export const FormSelect = ({
       }));
    }, [options]);
 
+   const isControlled = value !== undefined || onValueChange !== undefined;
+   const resolvedValue = isControlled
+      ? value === undefined || value === ""
+         ? null
+         : value
+      : undefined;
+   const resolvedDefaultValue = isControlled ? undefined : defaultValue;
+
+   const isDefaultValue =
+      defaultValue !== undefined
+         ? resolvedValue === defaultValue
+         : resolvedValue === null ||
+           resolvedValue === undefined ||
+           resolvedValue === "";
+
+   const canClear =
+      clearable &&
+      !disabled &&
+      !isDefaultValue &&
+      resolvedValue !== null &&
+      resolvedValue !== undefined &&
+      resolvedValue !== "";
+
+   const handleClear = (
+      event:
+         | React.MouseEvent<HTMLSpanElement>
+         | React.KeyboardEvent<HTMLSpanElement>,
+   ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const resetVal = defaultValue ?? "";
+      onValueChange?.(resetVal);
+      onClear?.();
+   };
+
    return (
       <Field invalid={Boolean(error)} className={containerClassName}>
          {label && (
             <FieldLabel
                htmlFor={selectId}
-               className="text-sm font-semibold text-slate-700"
+               className="text-sm font-normal text-slate-600"
             >
                {label}
                {required && (
@@ -90,8 +131,8 @@ export const FormSelect = ({
          <div className="relative w-full">
             <Select
                items={selectItems}
-               value={value}
-               defaultValue={defaultValue}
+               value={resolvedValue}
+               defaultValue={resolvedDefaultValue}
                onValueChange={(val) => {
                   if (val !== null && val !== undefined) {
                      onValueChange?.(val);
@@ -102,7 +143,7 @@ export const FormSelect = ({
                <SelectTrigger
                   id={selectId}
                   className={cn(
-                     "min-h-12 px-4 w-full bg-slate-100 text-sm font-normal",
+                     "min-h-12 px-4 w-full bg-slate-100 rounded-sm text-sm font-normal",
                      error &&
                         "border-destructive focus-visible:ring-destructive/20",
                      triggerClassName,
@@ -118,13 +159,38 @@ export const FormSelect = ({
                         return found ? found.label : val;
                      }}
                   </SelectValue>
+
+                  {canClear && value !== defaultValue && (
+                     <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Xóa lựa chọn"
+                        onPointerDown={(event) => {
+                           event.preventDefault();
+                           event.stopPropagation();
+                        }}
+                        onMouseDown={(event) => {
+                           event.preventDefault();
+                           event.stopPropagation();
+                        }}
+                        onClick={handleClear}
+                        onKeyDown={(event) => {
+                           if (event.key === "Enter" || event.key === " ") {
+                              handleClear(event);
+                           }
+                        }}
+                        className="mr-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-500 transition-colors hover:bg-slate-300 hover:text-slate-700 cursor-pointer"
+                     >
+                        <X className="size-3.5" />
+                     </span>
+                  )}
                </SelectTrigger>
                <SelectContent
                   side={side}
                   align={align}
                   alignItemWithTrigger={alignItemWithTrigger}
                   sideOffset={sideOffset}
-                  className={cn("p-2", contentClassName)}
+                  className={cn("p-2 max-h-60", contentClassName)}
                >
                   {options?.map((opt) => (
                      <SelectItem
@@ -140,7 +206,7 @@ export const FormSelect = ({
             </Select>
          </div>
 
-         {error && <FieldError className="text-sm">{error}</FieldError>}
+         {error && <FieldError className="text-xs">{error}</FieldError>}
       </Field>
    );
 };

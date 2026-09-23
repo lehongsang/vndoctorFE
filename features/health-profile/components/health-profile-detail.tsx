@@ -1,6 +1,7 @@
 "use client";
 
 import { useGetDetailHealthProfileQuery } from "@/store/api/health-profile/health-profile-api";
+import { useGetChronicDiseasesByHealthProfileIdQuery } from "@/store/api/chronic-diseases/chronic-diseases-api";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { CustomButton } from "@/components/common/custom-button";
 import { Edit } from "lucide-react";
@@ -56,6 +57,12 @@ export function HealthProfileDetail({
       skip: !profileId,
    });
 
+   const { data: chronicDiseases, isLoading: isLoadingDiseases } =
+      useGetChronicDiseasesByHealthProfileIdQuery(
+         { healthProfileId: profileId },
+         { skip: !profileId },
+      );
+
    const handleBack = () => {
       onClose();
    };
@@ -104,12 +111,12 @@ export function HealthProfileDetail({
                   <h2 className="text-base font-semibold text-slate-900">
                      Hồ sơ sức khỏe: {profile.fullName}
                   </h2>
-                   <p className="text-xs text-slate-500">
-                      Mã hồ sơ:{" "}
-                      {profile.hospitalPatientCode ||
-                         profile.facilityLink?.[0]?.hospitalPatientCode ||
-                         profile.id}
-                   </p>
+                  <p className="text-xs text-slate-500">
+                     Mã hồ sơ:{" "}
+                     {profile.hospitalPatientCode ||
+                        profile.facilityLink?.[0]?.hospitalPatientCode ||
+                        profile.id}
+                  </p>
                </div>
             </div>
          </div>
@@ -143,7 +150,8 @@ export function HealthProfileDetail({
                            Đang chờ
                         </span>
                      ) : profile.linkStatus === "ACTIVE" ||
-                       (profile.isLinked && profile.linkStatus !== "UNLINKED") ? (
+                       (profile.isLinked &&
+                          profile.linkStatus !== "UNLINKED") ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-emerald-100 text-emerald-700">
                            Đã liên kết
                         </span>
@@ -184,10 +192,13 @@ export function HealthProfileDetail({
                <RowItem
                   label="Bệnh mạn tính"
                   value={
-                     Array.isArray(profile.profileChronicDisease) &&
-                     profile.profileChronicDisease.length > 0 ? (
+                     isLoadingDiseases ? (
+                        <span className="text-xs text-slate-400">
+                           Đang tải...
+                        </span>
+                     ) : chronicDiseases && chronicDiseases.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 mt-1">
-                           {profile.profileChronicDisease.map((disease) => (
+                           {chronicDiseases.map((disease) => (
                               <span
                                  key={disease.id}
                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
@@ -199,6 +210,19 @@ export function HealthProfileDetail({
                      ) : (
                         "Không có bệnh mạn tính"
                      )
+                  }
+               />
+               <RowItem
+                  label="Yếu tố nguy cơ"
+                  value={
+                     [
+                        profile.isSmoking ? "Hút thuốc lá" : null,
+                        profile.hasHypertension ? "Tăng huyết áp" : null,
+                        profile.hasDyslipidemia ? "Rối loạn lipid máu" : null,
+                        profile.hasDiabetes ? "Đái tháo đường" : null,
+                     ]
+                        .filter(Boolean)
+                        .join(", ") || "Không ghi nhận"
                   }
                />
                <RowItem
@@ -236,9 +260,7 @@ export function HealthProfileDetail({
                      <div className="text-xs text-slate-600 flex flex-col gap-1">
                         <span>
                            Mã bệnh nhân tại viện:{" "}
-                           <strong>
-                              {profile.hospitalPatientCode || "—"}
-                           </strong>
+                           <strong>{profile.hospitalPatientCode || "—"}</strong>
                         </span>
                         <span>
                            SĐT đăng ký:{" "}
@@ -250,8 +272,7 @@ export function HealthProfileDetail({
                            Địa chỉ CSYT: {profile.facility.address || "—"}
                         </span>
                         <span>
-                           Ngày liên kết:{" "}
-                           {formatDate(profile.createdAt)}
+                           Ngày liên kết: {formatDate(profile.createdAt)}
                         </span>
                      </div>
                   </div>

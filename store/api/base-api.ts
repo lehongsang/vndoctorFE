@@ -134,5 +134,11 @@ export const baseApi = createApi({
       "HealthProfile",
       "ChronicDiseases",
       "CareSubcriptions",
+      "RiskAssessment",
+      "Ocr",
+      "Examination",
+      "Conversations",
+      "Messages",
+      "TreatmentTarget",
    ],
 });

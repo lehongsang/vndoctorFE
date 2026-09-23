@@ -2,13 +2,12 @@
 
 import React from "react";
 import { CustomButton } from "@/components/common/custom-button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/common/search-input";
 import { FormSelect } from "@/components/common/form-select";
 import {
    CarePackageStatus,
    CarePackageType,
 } from "@/store/api/care-package/type";
-import { Search } from "lucide-react";
 
 export const CARE_PACKAGE_TYPE_OPTIONS: {
    label: string;
@@ -64,16 +63,13 @@ export function CarePackageToolbar({
    return (
       <div className="w-full flex flex-wrap items-center gap-3">
          {/* Ô tìm kiếm */}
-         <div className="relative flex-1 min-w-60 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <Input
-               value={searchText}
-               onChange={onSearchChange}
-               disabled={disabled}
-               className="h-10 pl-9 pr-4 bg-white text-sm"
-               placeholder="Tìm theo tên, mã gói..."
-            />
-         </div>
+         <SearchInput
+            value={searchText}
+            onChange={onSearchChange}
+            disabled={disabled}
+            containerClassName="min-w-60 max-w-sm"
+            placeholder="Tìm theo tên, mã gói..."
+         />
 
          {/* Lọc loại gói */}
          <div className="w-48">

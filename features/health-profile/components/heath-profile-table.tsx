@@ -25,6 +25,7 @@ import { toast } from "react-toastify";
 import { useGetAllChronicDiseasesQuery } from "@/store/api/chronic-diseases/chronic-diseases-api";
 import { LinkAppModal } from "./link-app-modal";
 import { ConfirmModal } from "@/components/common/confirm-modal";
+import { formatAge } from "@/lib/utils";
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
    SELF: "Bản thân",
@@ -237,12 +238,12 @@ export function HealthProfileTable({
       },
       {
          id: "genderDob",
-         header: "Giới tính / Ngày sinh",
+         header: "Giới tính / Tuổi",
          headerClassName: "text-xs font-semibold text-slate-600",
          cell: (profile) => (
             <span className="text-xs text-slate-700 font-medium">
-               {GENDER_LABELS[profile.gender] ?? profile.gender} •{" "}
-               {formatDate(profile.dob)}
+               {GENDER_LABELS[profile.gender] ?? profile.gender} -{" "}
+               {formatAge(profile.dob)}
             </span>
          ),
       },
@@ -352,7 +353,7 @@ export function HealthProfileTable({
    ];
 
    return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 p-4">
          {isFormOpen ? (
             formMode === "view" && selectedProfileId ? (
                <HealthProfileDetail

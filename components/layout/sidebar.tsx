@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,12 +19,25 @@ interface SidebarProps {
 
 export const Sidebar = ({
    isOpen = false,
-   isCollapsed = false,
+   isCollapsed = true,
    onOpenChange,
    className,
 }: SidebarProps) => {
+   const [isDesktop, setIsDesktop] = useState(false);
+   const [isHovered, setIsHovered] = useState(false);
    const pathname = usePathname();
    const { user, logout } = useAuth();
+
+   useEffect(() => {
+      const checkDesktop = () => {
+         setIsDesktop(window.innerWidth >= 1024);
+      };
+      checkDesktop();
+      window.addEventListener("resize", checkDesktop);
+      return () => window.removeEventListener("resize", checkDesktop);
+   }, []);
+
+   const isExpanded = !isDesktop || !isCollapsed || isHovered;
 
    const visibleMenuItems: MenuItem[] = getMenuItemsByRole(user?.role);
 
@@ -55,6 +68,7 @@ export const Sidebar = ({
    };
 
    const handleItemClick = () => {
+      setIsHovered(false);
       if (typeof window !== "undefined" && window.innerWidth < 1024) {
          onOpenChange?.(false);
       }
@@ -74,17 +88,23 @@ export const Sidebar = ({
          />
 
          <aside
+            onMouseEnter={() => {
+               if (isDesktop && isCollapsed) setIsHovered(true);
+            }}
+            onMouseLeave={() => {
+               if (isDesktop) setIsHovered(false);
+            }}
             className={cn(
-               "fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-slate-200 bg-white text-slate-800 shadow-2xl lg:shadow-none transition-all duration-300 ease-in-out",
-               isCollapsed ? "w-60 lg:w-18" : "w-60",
+               "fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-slate-200 bg-white text-slate-800 transition-all duration-300 ease-in-out",
+               isExpanded ? "w-64 lg:w-72" : "w-64 lg:w-18",
                isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
                className,
             )}
          >
             <div
                className={cn(
-                  "flex h-16 shrink-0 items-center px-4 border-b border-slate-100",
-                  isCollapsed ? "justify-center px-2" : "justify-between",
+                  "flex h-16 shrink-0 items-center px-4 border-b border-slate-100 transition-all duration-300",
+                  !isExpanded ? "justify-center px-2" : "justify-between",
                )}
             >
                <Link
@@ -95,16 +115,16 @@ export const Sidebar = ({
                >
                   <Image
                      src={
-                        isCollapsed
+                        !isExpanded
                            ? "/tmt/logo-navi-browser.png"
                            : "/tmt/logo-navi.png"
                      }
                      alt="VNDoctor logo"
-                     width={isCollapsed ? 32 : 140}
+                     width={!isExpanded ? 32 : 140}
                      height={36}
                      className={cn(
                         "object-contain transition-all duration-300",
-                        isCollapsed ? "size-8" : "h-9 w-auto",
+                        !isExpanded ? "size-8" : "h-9 w-auto",
                      )}
                      priority
                   />
@@ -120,7 +140,7 @@ export const Sidebar = ({
                </button>
             </div>
 
-            <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3 select-none">
+            <nav className="flex-1 space-y-3 overflow-y-auto p-3 select-none">
                {visibleMenuItems.map((item) => {
                   const Icon = item.icon;
                   const isActive =
@@ -134,10 +154,10 @@ export const Sidebar = ({
                         key={item.id}
                         href={item.href}
                         onClick={handleItemClick}
-                        title={isCollapsed ? item.label : undefined}
+                        title={!isExpanded ? item.label : undefined}
                         className={cn(
                            "group relative flex h-10 w-full items-center rounded-sm text-sm font-medium transition-colors",
-                           isCollapsed
+                           !isExpanded
                               ? "justify-center px-0"
                               : "justify-start gap-3 px-3",
                            isActive
@@ -147,7 +167,7 @@ export const Sidebar = ({
                      >
                         <Icon
                            className={cn(
-                              "size-5 shrink-0 transition-colors",
+                              "size-7 shrink-0 transition-colors",
                               isActive
                                  ? "text-blue-600"
                                  : "text-slate-500 group-hover:text-slate-700",
@@ -155,8 +175,8 @@ export const Sidebar = ({
                         />
                         <span
                            className={cn(
-                              "min-w-0 flex-1 truncate transition-all duration-300 text-sm",
-                              isCollapsed
+                              "min-w-0 flex-1 truncate transition-all duration-300 text-sm whitespace-nowrap",
+                              !isExpanded
                                  ? "max-w-0 opacity-0 -translate-x-2 pointer-events-none hidden"
                                  : "opacity-100 translate-x-0",
                            )}
@@ -171,7 +191,7 @@ export const Sidebar = ({
             <div className="shrink-0 p-3 border-t border-slate-100 space-y-2">
                <CustomButton
                   type="button"
-                  variant="outline"
+                  variant="destructive"
                   fullWidth
                   onClick={handleLogout}
                   title="Đăng xuất"
@@ -179,13 +199,13 @@ export const Sidebar = ({
                      <LogOut className="size-4 shrink-0 text-rose-500" />
                   }
                   className={cn(
-                     "h-9.5 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors shadow-none",
-                     isCollapsed
+                     "h-10",
+                     !isExpanded
                         ? "justify-center px-0"
                         : "justify-center gap-2 px-3",
                   )}
                >
-                  {!isCollapsed && (
+                  {isExpanded && (
                      <span className="truncate text-sm">Đăng xuất</span>
                   )}
                </CustomButton>

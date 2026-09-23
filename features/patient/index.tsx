@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useGetHealthProfileAssignQuery } from "@/store/api/health-profile/health-profile-api";
 import { HealthProfile } from "@/store/api/health-profile/type";
@@ -9,6 +10,7 @@ import PatientTable from "./components/patient-table";
 import { HealthProfileDetail } from "@/features/health-profile/components/health-profile-detail";
 
 export function PatientFeature() {
+   const router = useRouter();
    const { user } = useAuth();
    const [searchText, setSearchText] = useState("");
    const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -61,6 +63,10 @@ export function PatientFeature() {
       setSelectedProfileId(profile.id);
    };
 
+   const handleExamine = (profile: HealthProfile) => {
+      router.push(`/work?profileId=${profile.id}`);
+   };
+
    const handleCloseDetail = () => {
       setSelectedProfileId(undefined);
       refetch();
@@ -98,6 +104,7 @@ export function PatientFeature() {
                setPage(1);
             }}
             onViewDetail={handleViewDetail}
+            onExamine={handleExamine}
          />
       </div>
    );

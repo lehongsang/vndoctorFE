@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useGetAllChronicDiseasesQuery } from "@/store/api/chronic-diseases/chronic-diseases-api";
+import {
+   useGetAllChronicDiseasesQuery,
+   useGetChronicDiseasesByHealthProfileIdQuery,
+} from "@/store/api/chronic-diseases/chronic-diseases-api";
 import { ChronicDisease } from "@/store/api/chronic-diseases/type";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +21,7 @@ export interface ChronicDiseaseComboboxProps {
    value?: string[];
    onChange?: (value: string[]) => void;
    disabled?: boolean;
+   healthProfileId?: string;
    initialDiseases?: { id: string; code: string; name: string }[] | null;
    className?: string;
 }
@@ -29,6 +33,7 @@ export function ChronicDiseaseCombobox({
    value = [],
    onChange,
    disabled = false,
+   healthProfileId,
    initialDiseases = [],
    className,
 }: ChronicDiseaseComboboxProps) {
@@ -38,12 +43,10 @@ export function ChronicDiseaseCombobox({
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
 
-   // Store locally selected diseases so their names persist across pages
    const [localSelectedMap, setLocalSelectedMap] = useState<
       Record<string, { id: string; code: string; name: string }>
    >({});
 
-   // Debounce search input
    useEffect(() => {
       const timer = setTimeout(() => {
          setDebouncedSearch(searchTerm);
@@ -52,20 +55,32 @@ export function ChronicDiseaseCombobox({
       return () => clearTimeout(timer);
    }, [searchTerm]);
 
-   // Query chronic diseases from API
    const { data, isLoading, isFetching } = useGetAllChronicDiseasesQuery({
       search: debouncedSearch.trim() || undefined,
       page,
       limit,
    });
 
-   // Derive diseaseMap during render (avoids cascading render effects)
+   const { data: profileDiseases } =
+      useGetChronicDiseasesByHealthProfileIdQuery(
+         { healthProfileId: healthProfileId ?? "" },
+         { skip: !healthProfileId },
+      );
+
    const diseaseMap = useMemo(() => {
       const map: Record<string, { id: string; code: string; name: string }> =
          {};
 
       if (Array.isArray(initialDiseases)) {
          initialDiseases.forEach((d) => {
+            if (d && d.id) {
+               map[d.id] = { id: d.id, code: d.code, name: d.name };
+            }
+         });
+      }
+
+      if (Array.isArray(profileDiseases)) {
+         profileDiseases.forEach((d) => {
             if (d && d.id) {
                map[d.id] = { id: d.id, code: d.code, name: d.name };
             }
@@ -86,7 +101,7 @@ export function ChronicDiseaseCombobox({
 
       Object.assign(map, localSelectedMap);
       return map;
-   }, [initialDiseases, data, localSelectedMap]);
+   }, [initialDiseases, profileDiseases, data, localSelectedMap]);
 
    const items: ChronicDisease[] = data?.items ?? [];
    const totalItems = data?.total ?? 0;
@@ -139,7 +154,6 @@ export function ChronicDiseaseCombobox({
 
    return (
       <Field invalid={Boolean(error)} className={className}>
-         {/* Label & Summary Badge */}
          <div className="flex items-center justify-between">
             {label && (
                <FieldLabel className="text-sm font-semibold text-slate-700 flex items-center">
@@ -156,14 +170,12 @@ export function ChronicDiseaseCombobox({
             )}
          </div>
 
-         {/* Accordion Container */}
          <div
             className={cn(
                "w-full rounded-lg border border-slate-200 bg-white transition-all overflow-hidden shadow-none",
                error && "border-destructive",
             )}
          >
-            {/* Accordion Header / Trigger */}
             <div
                role="button"
                tabIndex={0}
@@ -174,7 +186,6 @@ export function ChronicDiseaseCombobox({
                      "cursor-not-allowed opacity-80 hover:bg-slate-50/70",
                )}
             >
-               {/* Badges Display Area */}
                <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0 mr-2">
                   {selectedBadges.length > 0 ? (
                      selectedBadges.map((badge) => (
@@ -208,7 +219,6 @@ export function ChronicDiseaseCombobox({
                   )}
                </div>
 
-               {/* Chevron toggle button */}
                {!disabled && (
                   <div className="flex items-center gap-1 text-xs text-slate-500 font-medium shrink-0">
                      <span>{isOpen ? "Thu gọn" : "Chọn bệnh"}</span>
@@ -222,7 +232,6 @@ export function ChronicDiseaseCombobox({
                )}
             </div>
 
-            {/* Accordion Collapsible Body with smooth slide-down grid transition */}
             <div
                className={cn(
                   "grid transition-[grid-template-rows,opacity] duration-300 ease-in-out border-slate-200",

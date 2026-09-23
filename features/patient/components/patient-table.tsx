@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { HealthProfile } from "@/store/api/health-profile/type";
 import { CustomPagination } from "@/components/common/custom-pagination";
-import { Eye } from "lucide-react";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { CustomButton } from "@/components/common/custom-button";
 import {
@@ -58,6 +58,7 @@ export interface PatientTableProps {
    onPageChange: (page: number) => void;
    onPageSizeChange: (limit: number) => void;
    onViewDetail: (profile: HealthProfile) => void;
+   onExamine?: (profile: HealthProfile) => void;
 }
 
 export function PatientTable({
@@ -70,7 +71,9 @@ export function PatientTable({
    onPageChange,
    onPageSizeChange,
    onViewDetail,
+   onExamine,
 }: PatientTableProps) {
+   const router = useRouter();
    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
    const columns: PatientColumn[] = [
@@ -177,8 +180,20 @@ export function PatientTable({
                   className="h-8 px-2.5 text-xs text-slate-700 hover:text-slate-900 hover:bg-slate-100"
                   onClick={() => onViewDetail(profile)}
                >
-                  <Eye className="w-3.5 h-3.5 mr-1" />
                   Chi tiết
+               </CustomButton>
+               <CustomButton
+                  size="sm"
+                  className="h-8 px-2.5"
+                  onClick={() => {
+                     if (onExamine) {
+                        onExamine(profile);
+                     } else {
+                        router.push(`/work?profileId=${profile.id}`);
+                     }
+                  }}
+               >
+                  Khám bệnh
                </CustomButton>
             </div>
          ),
