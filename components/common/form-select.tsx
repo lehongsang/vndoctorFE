@@ -119,11 +119,13 @@ export const FormSelect = ({
          {label && (
             <FieldLabel
                htmlFor={selectId}
-               className="text-sm font-normal text-slate-600"
+               className="text-xs font-medium text-slate-800 flex items-center flex-wrap gap-x-1"
             >
                {label}
                {required && (
-                  <span className="ml-1 text-red-600 font-bold">*</span>
+                  <span className="text-red-600 font-medium inline-block">
+                     *
+                  </span>
                )}
             </FieldLabel>
          )}
@@ -143,7 +145,7 @@ export const FormSelect = ({
                <SelectTrigger
                   id={selectId}
                   className={cn(
-                     "min-h-12 px-4 w-full bg-slate-100 rounded-sm text-sm font-normal",
+                     "min-h-10 px-4 w-full rounded-sm text-sm font-normal border-slate-300",
                      error &&
                         "border-destructive focus-visible:ring-destructive/20",
                      triggerClassName,
@@ -190,7 +192,7 @@ export const FormSelect = ({
                   align={align}
                   alignItemWithTrigger={alignItemWithTrigger}
                   sideOffset={sideOffset}
-                  className={cn("p-2 max-h-60", contentClassName)}
+                  className={cn("max-h-60 rounded-sm", contentClassName)}
                >
                   {options?.map((opt) => (
                      <SelectItem

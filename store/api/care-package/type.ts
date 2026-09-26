@@ -11,6 +11,7 @@ export type CreateCarePackageRequest = {
    description: string;
    durationDays: number;
    priceAmount: number;
+   maxSubscribers: number;
    status: CarePackageStatus;
 };
 
@@ -27,6 +28,7 @@ export type CarePackage = {
    description: string;
    durationDays: number;
    priceAmount: number;
+   maxSubscribers: number;
    status: CarePackageStatus;
 };
 
@@ -38,6 +40,7 @@ export type CarePackageUpdateRequest = {
    description?: string;
    durationDays?: number;
    priceAmount?: number;
+   maxSubscribers?: number;
    status?: CarePackageStatus;
 };
 

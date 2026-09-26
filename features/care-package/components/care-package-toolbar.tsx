@@ -8,6 +8,7 @@ import {
    CarePackageStatus,
    CarePackageType,
 } from "@/store/api/care-package/type";
+import { RefreshCcw } from "lucide-react";
 
 export const CARE_PACKAGE_TYPE_OPTIONS: {
    label: string;
@@ -110,12 +111,11 @@ export function CarePackageToolbar({
             </CustomButton>
 
             <CustomButton
-               variant="outline"
                onClick={refetch}
                disabled={disabled || isFetching || !refetch}
-               className="h-10 px-4 bg-white"
+               className="h-10 w-10"
             >
-               Làm mới
+               <RefreshCcw />
             </CustomButton>
          </div>
       </div>

@@ -3,29 +3,31 @@
 import { useState } from "react";
 import { CarePackage } from "@/store/api/care-package/type";
 import { CustomButton } from "@/components/common/custom-button";
-import { ConfirmModal } from "@/components/common/confirm-modal";
-import { Switch } from "@/components/ui/switch";
-import { Sparkles } from "lucide-react";
+import {
+   Dialog,
+   DialogContent,
+   DialogHeader,
+   DialogTitle,
+   DialogDescription,
+} from "@/components/ui/dialog";
+import { CarePackageForm } from "./care-package-form";
+import { Sparkles, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CarePackageCardProps {
    carePackage: CarePackage;
    onView?: (pkg: CarePackage) => void;
-   onEdit: (pkg: CarePackage) => void;
-   onDelete: (pkg: CarePackage) => void;
-   onToggleStatus: (pkg: CarePackage) => void;
+   onEdit?: (pkg: CarePackage) => void;
+   onDelete?: (pkg: CarePackage) => void;
+   onToggleStatus?: (pkg: CarePackage) => void;
    isStatusUpdating?: boolean;
 }
 
 export function CarePackageCard({
    carePackage,
-   onView,
-   onEdit,
    onDelete,
-   onToggleStatus,
-   isStatusUpdating = false,
 }: CarePackageCardProps) {
-   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+   const [isConfigOpen, setIsConfigOpen] = useState(false);
    const isVip = carePackage.type === "VIP";
    const isActive = carePackage.status === "ACTIVE";
 
@@ -39,7 +41,14 @@ export function CarePackageCard({
       : "—";
 
    return (
-      <div className="flex flex-col justify-between p-5 bg-white rounded-xl border border-slate-200 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200 gap-4 group">
+      <div
+         className={cn(
+            "flex flex-col justify-between p-5 rounded-sm border shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200 gap-4 group",
+            isVip
+               ? "bg-amber-50 border-amber-500"
+               : "bg-slate-50 hover:bg-blue-100",
+         )}
+      >
          <div className="flex flex-col gap-3">
             <div>
                <div className="flex items-start justify-between gap-2">
@@ -49,17 +58,21 @@ export function CarePackageCard({
                   >
                      {carePackage.name}
                   </h3>
-                  <span
-                     className={cn(
-                        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold shrink-0 border",
-                        isVip
-                           ? "bg-amber-50 text-amber-700 border-amber-200"
-                           : "bg-blue-50 text-blue-700 border-blue-200",
-                     )}
-                  >
-                     {isVip && <Sparkles className="size-3 text-amber-500" />}
-                     {isVip ? "Gói VIP" : "Gói trả phí"}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                     <span
+                        className={cn(
+                           "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border",
+                           isVip
+                              ? "bg-amber-100 text-amber-800 border-amber-400"
+                              : "bg-blue-50 text-blue-700 border-blue-200",
+                        )}
+                     >
+                        {isVip && (
+                           <Sparkles className="size-3 text-amber-500" />
+                        )}
+                        {isVip ? "Gói VIP" : "Gói trả phí"}
+                     </span>
+                  </div>
                </div>
 
                <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
@@ -89,20 +102,29 @@ export function CarePackageCard({
                      {carePackage.durationDays} ngày
                   </span>
                </div>
-            </div>
 
-            {carePackage.doctorExpert && (
                <div className="flex flex-col">
                   <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
-                     Chuyên gia
+                     Số người tối đa
                   </span>
                   <span className="text-sm font-semibold text-slate-800 mt-0.5">
-                     {carePackage.doctorExpert?.fullName || "—"}
+                     {carePackage.maxSubscribers ? `${carePackage.maxSubscribers} người` : "Không giới hạn"}
                   </span>
                </div>
-            )}
 
-            {/* Description */}
+               {carePackage.doctorExpert && (
+                  <div className="flex flex-col">
+                     <span className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
+                        Chuyên gia
+                     </span>
+                     <span className="text-sm font-semibold text-slate-800 mt-0.5 truncate" title={carePackage.doctorExpert.fullName}>
+                        {carePackage.doctorExpert.fullName}
+                     </span>
+                  </div>
+               )}
+            </div>
+
+            {/* Description
             <div className="flex items-start gap-1.5 text-xs text-slate-600">
                <p
                   className="line-clamp-2 leading-relaxed"
@@ -111,66 +133,54 @@ export function CarePackageCard({
                   {carePackage.description ||
                      "Chưa có mô tả chi tiết cho gói này."}
                </p>
-            </div>
+            </div> */}
          </div>
 
          {/* Footer & Actions */}
          <div className="w-full flex items-center justify-between pt-3 border-t border-slate-100">
-            {/* Quick Status Toggle */}
-            <div className="flex items-center gap-2">
-               <Switch
-                  checked={isActive}
-                  disabled={isStatusUpdating}
-                  onCheckedChange={() => onToggleStatus(carePackage)}
-                  aria-label="Chuyển trạng thái gói"
-               />
-               <span
-                  className={cn(
-                     "text-xs font-medium",
-                     isActive ? "text-emerald-600" : "text-slate-400",
-                  )}
-               >
-                  {isActive ? "Đang sử dụng" : "Ngừng sử dụng"}
-               </span>
-            </div>
+            <span
+               className={cn(
+                  "px-2.5 py-1 rounded-full text-xs font-medium",
+                  isActive
+                     ? "bg-emerald-100 text-emerald-700"
+                     : "bg-slate-100 text-slate-700",
+               )}
+            >
+               {isActive ? "Đang sử dụng" : "Ngừng sử dụng"}
+            </span>
 
-            {/* Buttons */}
-            <div className="flex items-center gap-1.5">
-               <CustomButton
-                  variant="outline"
-                  onClick={() =>
-                     onView ? onView(carePackage) : onEdit(carePackage)
-                  }
-                  className="h-8 px-3"
-               >
-                  Xem
-               </CustomButton>
-               <CustomButton
-                  onClick={() => onEdit(carePackage)}
-                  className="h-8 px-3"
-               >
-                  Sửa
-               </CustomButton>
-
-               <CustomButton
-                  onClick={() => setIsDeleteOpen(true)}
-                  className="h-8 px-3 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
-               >
-                  Xóa
-               </CustomButton>
-            </div>
+            {/* Duy nhất 1 button Cấu hình */}
+            <CustomButton
+               type="button"
+               size="sm"
+               className="h-8 px-3 text-xs gap-1.5 cursor-pointer font-medium"
+               onClick={() => setIsConfigOpen(true)}
+               startIcon={<Settings className="size-3.5" />}
+            >
+               Cấu hình
+            </CustomButton>
          </div>
 
-         <ConfirmModal
-            open={isDeleteOpen}
-            onClose={() => setIsDeleteOpen(false)}
-            onConfirm={() => {
-               onDelete(carePackage);
-               setIsDeleteOpen(false);
-            }}
-            itemName={carePackage.name}
-            title="Xác nhận xóa gói chăm sóc"
-         />
+         {/* Modal cấu hình chứa form chỉnh sửa / xóa */}
+         <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+            <DialogContent className="sm:min-w-3xl max-h-[90vh] rounded-sm overflow-y-auto p-6">
+               <DialogHeader className="sr-only">
+                  <DialogTitle>Cấu hình gói chăm sóc</DialogTitle>
+                  <DialogDescription>
+                     Chỉnh sửa thông tin hoặc xóa gói chăm sóc{" "}
+                     {carePackage.name}
+                  </DialogDescription>
+               </DialogHeader>
+
+               <CarePackageForm
+                  id={carePackage.id}
+                  carePackage={carePackage}
+                  mode="update"
+                  onClose={() => setIsConfigOpen(false)}
+                  onDelete={onDelete}
+               />
+            </DialogContent>
+         </Dialog>
       </div>
    );
 }

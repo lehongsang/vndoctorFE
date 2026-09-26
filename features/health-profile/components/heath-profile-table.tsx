@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
    useGetHealthProfilesQuery,
    useDeleteHealthProfileMutation,
+   useLinkToAppMutation,
 } from "@/store/api/health-profile/health-profile-api";
-import { HealthProfile } from "@/store/api/health-profile/type";
+import { HealthProfile, LinkStatus } from "@/store/api/health-profile/type";
+import { useAuth } from "@/hooks/use-auth";
 import HealthProfileToolBar from "./health-profile-toolbar";
 import { HealthProfileForm } from "./health-profile-form";
 import { HealthProfileDetail } from "./health-profile-detail";
 import { CustomPagination } from "@/components/common/custom-pagination";
-import { Edit, Eye, Trash } from "lucide-react";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { CustomButton } from "@/components/common/custom-button";
 import {
@@ -22,35 +23,25 @@ import {
    TableHeader,
    TableRow,
 } from "@/components/ui/table";
+import {
+   Dialog,
+   DialogContent,
+   DialogHeader,
+   DialogTitle,
+   DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "react-toastify";
-import { useGetAllChronicDiseasesQuery } from "@/store/api/chronic-diseases/chronic-diseases-api";
 import { LinkAppModal } from "./link-app-modal";
+import { BuyCarePackageModal } from "./buy-care-package-modal";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { formatAge } from "@/lib/utils";
-
-const RELATIONSHIP_LABELS: Record<string, string> = {
-   SELF: "Bản thân",
-   FATHER: "Bố",
-   MOTHER: "Mẹ",
-   CHILD: "Con",
-   SPOUSE: "Vợ / Chồng",
-   OTHER: "Khác",
-};
+import RiskFactorAssessmentForm from "@/features/examination/components/risk-factor-assessment-form";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const GENDER_LABELS: Record<string, string> = {
    MALE: "Nam",
    FEMALE: "Nữ",
    OTHER: "Khác",
-};
-
-const formatDate = (dateStr?: string) => {
-   if (!dateStr) return "—";
-   try {
-      const date = new Date(dateStr);
-      return isNaN(date.getTime()) ? dateStr : date.toLocaleDateString("vi-VN");
-   } catch {
-      return dateStr;
-   }
 };
 
 export interface HealthProfileTableProps {
@@ -69,7 +60,6 @@ interface HealthProfileColumn {
 
 export function HealthProfileTable({
    onViewDetail,
-   onEdit,
    onClickCreate,
 }: HealthProfileTableProps) {
    const [searchText, setSearchText] = useState("");
@@ -97,6 +87,15 @@ export function HealthProfileTable({
    const [linkingProfile, setLinkingProfile] = useState<HealthProfile | null>(
       null,
    );
+   const [assessingProfile, setAssessingProfile] =
+      useState<HealthProfile | null>(null);
+   const [buyingProfile, setBuyingProfile] = useState<HealthProfile | null>(
+      null,
+   );
+
+   const { user } = useAuth();
+   const [scope, setScope] = useState<string>("ALL");
+   const [linkStatus, setLinkStatus] = useState<string>("ALL");
 
    if (prevQuerySelectedId !== querySelectedId) {
       setPrevQuerySelectedId(querySelectedId);
@@ -121,25 +120,46 @@ export function HealthProfileTable({
       page,
       limit,
       search: debouncedSearch.trim() || undefined,
+      linkStatus: linkStatus !== "ALL" ? (linkStatus as LinkStatus) : undefined,
+      staffId: scope === "MY" && user?.id ? user.id : undefined,
    });
-
-   const { data: diseasesData } = useGetAllChronicDiseasesQuery({
-      page: 1,
-      limit: 1000,
-   });
-
-   const chronicDiseaseMap = useMemo(() => {
-      const map = new Map<string, { name: string; code: string }>();
-      if (Array.isArray(diseasesData?.items)) {
-         diseasesData.items.forEach((item) => {
-            map.set(item.id, { name: item.name, code: item.code });
-         });
-      }
-      return map;
-   }, [diseasesData]);
 
    const [deleteHealthProfile, { isLoading: isDeleting }] =
       useDeleteHealthProfileMutation();
+   const [linkToApp, { isLoading: isLinking }] = useLinkToAppMutation();
+   const [resendingProfileId, setResendingProfileId] = useState<string | null>(
+      null,
+   );
+
+   const handleResendLink = async (profile: HealthProfile) => {
+      const phone = profile.phoneNumber?.trim();
+      if (!phone) {
+         setLinkingProfile(profile);
+         return;
+      }
+
+      setResendingProfileId(profile.id);
+      try {
+         await linkToApp({
+            healthProfileId: profile.id,
+            phoneNumber: phone,
+         }).unwrap();
+         toast.success("Gửi lại yêu cầu liên kết ứng dụng thành công");
+         refetch();
+      } catch (err: unknown) {
+         const errorObj = err as {
+            data?: { message?: string };
+            message?: string;
+         };
+         toast.error(
+            errorObj?.data?.message ||
+               errorObj?.message ||
+               "Có lỗi xảy ra khi gửi lại yêu cầu liên kết",
+         );
+      } finally {
+         setResendingProfileId(null);
+      }
+   };
 
    const handleOpenCreateProfile = () => {
       if (onClickCreate) {
@@ -161,16 +181,6 @@ export function HealthProfileTable({
       setIsFormOpen(true);
    };
 
-   const handleOpenEditProfile = (id: string, profile: HealthProfile) => {
-      if (onEdit) {
-         onEdit(profile);
-         return;
-      }
-      setSelectedProfileId(id);
-      setFormMode("update");
-      setIsFormOpen(true);
-   };
-
    const handleCloseForm = () => {
       setIsFormOpen(false);
       setSelectedProfileId(undefined);
@@ -182,20 +192,37 @@ export function HealthProfileTable({
       setPage(1);
    };
 
+   const handleChangeScope = (newScope: string) => {
+      setScope(newScope);
+      setPage(1);
+   };
+
+   const handleChangeLinkStatus = (newStatus: string) => {
+      setLinkStatus(newStatus);
+      setPage(1);
+   };
+
    const handleRefresh = () => {
       setSearchText("");
       setDebouncedSearch("");
+      setScope("ALL");
+      setLinkStatus("ALL");
       setPage(1);
       setIsFormOpen(false);
       setSelectedProfileId(undefined);
       refetch();
    };
 
+   const router = useRouter();
+
    const handleConfirmDeleteProfile = async () => {
       if (!deletingProfile || isDeleting) return;
       try {
          await deleteHealthProfile(deletingProfile.id).unwrap();
          toast.success("Xóa hồ sơ sức khỏe thành công");
+         if (selectedProfileId === deletingProfile.id) {
+            handleCloseForm();
+         }
          setDeletingProfile(null);
          refetch();
       } catch (error: unknown) {
@@ -223,76 +250,139 @@ export function HealthProfileTable({
          id: "stt",
          header: "STT",
          headerClassName: "w-14 pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "w-14 pl-4 py-3.5 text-xs text-slate-600 font-medium",
+         cellClassName: "w-14 pl-4 text-xs text-slate-600 font-medium",
          cell: (_profile, index) => (page - 1) * limit + index + 1,
       },
       {
-         id: "patientCode",
-         header: "Mã HS",
-         headerClassName: "text-xs font-semibold text-slate-600",
+         id: "code",
+         header: "Mã hồ sơ",
+         headerClassName: "text-xs font-semibold text-slate-600 min-w-60",
          cell: (profile) => (
-            <span className="text-xs font-semibold text-slate-700">
-               {profile?.hospitalPatientCode ||
-                  profile.id.slice(0, 8).toUpperCase()}
+            <span className="font-medium text-xs text-slate-700 ">
+               {profile?.hospitalPatientCode || "—"}
             </span>
          ),
       },
       {
          id: "fullName",
-         header: "Họ và tên",
-         headerClassName: "text-xs font-semibold text-slate-600 min-w-44",
+         header: "Tên khách hàng",
+         headerClassName: "text-xs font-semibold text-slate-600 min-w-60",
          cell: (profile) => (
-            <div className="flex flex-col gap-0.5">
-               <span className="font-medium text-sm text-slate-800">
-                  {profile.fullName}
-               </span>
-               <span className="text-xs text-slate-400">
-                  {RELATIONSHIP_LABELS[profile.relationship] ??
-                     profile.relationship}
-                  {profile.citizenId ? ` / CCCD: ${profile.citizenId}` : ""}
-               </span>
-            </div>
+            <span
+               className="font-medium text-sm text-blue-800 underline cursor-pointer"
+               onClick={() => handleOpenViewProfile(profile.id, profile)}
+            >
+               {profile.fullName}
+            </span>
          ),
       },
       {
-         id: "genderDob",
-         header: "Giới tính / Tuổi",
+         id: "gender",
+         header: "Giới tính",
          headerClassName: "text-xs font-semibold text-slate-600",
          cell: (profile) => (
             <span className="text-xs text-slate-700 font-medium">
-               {GENDER_LABELS[profile.gender] ?? profile.gender} -{" "}
+               {GENDER_LABELS[profile.gender] ?? profile.gender}
+            </span>
+         ),
+      },
+      {
+         id: "age",
+         header: "Tuổi",
+         headerClassName: "text-xs font-semibold text-slate-600",
+         cell: (profile) => (
+            <span className="text-xs text-slate-700 font-medium">
                {formatAge(profile.dob)}
             </span>
          ),
       },
       {
-         id: "contact",
-         header: "Liên hệ",
+         id: "carePackage",
+         header: "Gói điều trị",
          headerClassName: "text-xs font-semibold text-slate-600",
-         cell: (profile) => (
-            <div className="flex flex-col text-xs text-slate-600 gap-0.5">
-               <span className="text-slate-700 font-medium">
-                  {profile.phoneNumber || "—"}
-               </span>
-               <span
-                  className="text-slate-400 max-w-48 truncate block"
-                  title={profile.address}
-               >
-                  {profile.address || "—"}
-               </span>
-            </div>
-         ),
+         cell: (profile: HealthProfile) => {
+            const sub = profile.subscription;
+            const carePackage = sub?.carePackage;
+
+            if (!sub || !carePackage) {
+               return (
+                  <span className="text-xs text-slate-400 italic">
+                     Chưa đăng ký
+                  </span>
+               );
+            }
+
+            const isStandard = carePackage.type === "STANDARD";
+
+            // Xử lý các trạng thái xác nhận của bệnh nhân & gói
+            // 1. Bị từ chối (rejectionReason hoặc status CANCELLED)
+            const isRejected =
+               Boolean(sub.rejectionReason) ||
+               (sub.status === "CANCELLED" && !sub.isPatientConfirmed);
+
+            // 2. Chờ bệnh nhân xác nhận trên App
+            // const isWaitingConfirm =
+            //    !sub.isPatientConfirmed &&
+            //    !isRejected &&
+            //    sub.status === "PENDING";
+
+            return (
+               <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                     <span className="text-xs font-medium text-slate-800">
+                        {carePackage.name}
+                     </span>
+                     <span
+                        className={`text-[11px] py-0.5 px-2 rounded-sm font-medium ${
+                           isStandard
+                              ? "text-blue-600 bg-blue-100"
+                              : "text-amber-600 bg-amber-100"
+                        }`}
+                     >
+                        {isStandard ? "Cơ bản" : "Vip"}
+                     </span>
+                  </div>
+
+                  {isRejected && (
+                     <div className="flex flex-col gap-0.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 w-fit">
+                           Bệnh nhân từ chối
+                        </span>
+                        {sub.rejectionReason && (
+                           <span
+                              className="text-[11px] text-rose-600 italic max-w-44 truncate"
+                              title={`Lý do: ${sub.rejectionReason}`}
+                           >
+                              Lý do: {sub.rejectionReason}
+                           </span>
+                        )}
+                     </div>
+                  )}
+               </div>
+            );
+         },
       },
       {
-         id: "linkApp",
-         header: "Liên kết App",
-         headerClassName: "text-xs font-semibold text-slate-600 min-w-[150px]",
+         id: "linkStatus",
+         header: "Trạng thái liên kết App",
+         headerClassName: "text-xs font-semibold text-slate-600",
          cell: (profile: HealthProfile) => {
             if (profile.linkStatus === "PENDING") {
+               const isResendingThis = resendingProfileId === profile.id;
                return (
-                  <span className="inline-flex items-center px-2 py-1 rounded-sm text-xs font-medium bg-amber-100 text-amber-700">
-                     Đang chờ
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                     <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-amber-100 text-amber-700">
+                        Đang chờ
+                     </span>
+                     <CustomButton
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
+                        disabled={isResendingThis}
+                        onClick={() => handleResendLink(profile)}
+                     >
+                        {isResendingThis ? "Đang gửi..." : "Gửi lại"}
+                     </CustomButton>
+                  </div>
                );
             }
 
@@ -337,36 +427,84 @@ export function HealthProfileTable({
       {
          id: "actions",
          header: "Thao tác",
-         headerClassName:
-            "text-right text-xs font-semibold text-slate-600 pr-4 min-w-40",
-         cellClassName: "py-3.5 text-right pr-4",
-         cell: (profile: HealthProfile) => (
-            <div className="flex items-center justify-end gap-1.5">
-               <CustomButton
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2.5 text-xs text-slate-700 hover:text-slate-900 hover:bg-slate-100"
-                  onClick={() => handleOpenViewProfile(profile.id, profile)}
-               >
-                  <Eye className="w-3.5 h-3.5" />
-               </CustomButton>
-               <CustomButton
-                  size="sm"
-                  className="h-8 px-2.5 text-xs"
-                  onClick={() => handleOpenEditProfile(profile.id, profile)}
-               >
-                  <Edit className="w-3.5 h-3.5" />
-               </CustomButton>
-               <CustomButton
-                  id={`delete-${profile.id}`}
-                  size="sm"
-                  className="h-8 px-2.5 text-xs bg-rose-500 text-white hover:bg-rose-600 hover:text-white"
-                  onClick={() => setDeletingProfile(profile)}
-               >
-                  <Trash className="w-3.5 h-3.5" />
-               </CustomButton>
-            </div>
-         ),
+         headerClassName: "text-right text-xs font-semibold text-slate-600",
+         cellClassName: "py-2 text-right",
+         cell: (profile: HealthProfile) => {
+            const sub = profile?.subscription;
+            // Với các gói đã có trạng thái ACTIVE (đã mua và kích hoạt) thì sẽ vào khám
+            const canExamine = Boolean(sub) && sub?.status === "ACTIVE";
+
+            // Kiểm tra trạng thái gói hiện tại
+            const isRejected =
+               Boolean(sub?.rejectionReason) ||
+               (sub?.status === "CANCELLED" && !sub?.isPatientConfirmed);
+            const isWaitingConfirm =
+               Boolean(sub) && !sub?.isPatientConfirmed && !isRejected;
+            const isWaitingCoordinate =
+               Boolean(sub) &&
+               sub?.isPatientConfirmed &&
+               sub?.status === "PENDING";
+
+            return (
+               <div className="flex items-center justify-end gap-1.5">
+                  {canExamine ? (
+                     <CustomButton
+                        size="sm"
+                        className="h-8 px-2.5 text-xs"
+                        onClick={() =>
+                           router.push(
+                              `/health-profile/examination/${profile.id}`,
+                           )
+                        }
+                     >
+                        Khám bệnh
+                     </CustomButton>
+                  ) : isWaitingConfirm ? (
+                     <div
+                        className="text-xs px-2 py-1 rounded-sm inline-flex items-center bg-amber-100 text-amber-600 cursor-default"
+                        title="Đã gửi đăng ký gói đến bệnh nhân, đang chờ xác nhận trên App"
+                     >
+                        Chờ App xác nhận
+                     </div>
+                  ) : isWaitingCoordinate ? (
+                     <div
+                        className="h-8 px-2.5 text-xs inline-flex items-center rounded-sm font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-default"
+                        title="Bệnh nhân đã xác nhận, vui lòng hoàn tất điều phối nhân viên để có thể khám bệnh"
+                     >
+                        Chờ điều phối
+                     </div>
+                  ) : isRejected ? (
+                     <CustomButton
+                        size="sm"
+                        className="h-8 px-2.5 text-xs bg-rose-600 hover:bg-rose-700 text-white"
+                        onClick={() => setBuyingProfile(profile)}
+                        title={
+                           sub?.rejectionReason
+                              ? `Bệnh nhân đã từ chối: ${sub.rejectionReason}. Bấm để đăng ký lại.`
+                              : "Bệnh nhân đã từ chối. Bấm để đăng ký lại."
+                        }
+                     >
+                        Đăng ký lại
+                     </CustomButton>
+                  ) : (
+                     <CustomButton
+                        size="sm"
+                        className="h-8 px-2.5 text-xs"
+                        onClick={() => setBuyingProfile(profile)}
+                     >
+                        Mua gói điều trị
+                     </CustomButton>
+                  )}
+                  <CustomButton
+                     size="sm"
+                     className="h-8 px-2.5 text-xs"
+                     onClick={() => setAssessingProfile(profile)}
+                  >
+                     Phân tầng
+                  </CustomButton>
+               </div>
+            );
+         },
       },
    ];
 
@@ -381,6 +519,7 @@ export function HealthProfileTable({
                      setSelectedProfileId(id);
                      setFormMode("update");
                   }}
+                  onDelete={setDeletingProfile}
                />
             ) : (
                <HealthProfileForm
@@ -395,6 +534,10 @@ export function HealthProfileTable({
                <HealthProfileToolBar
                   searchText={searchText}
                   onSearchChange={handleSearchChange}
+                  scopeSelected={scope}
+                  onChangeScope={handleChangeScope}
+                  linkStatusSelected={linkStatus}
+                  onChangeLinkStatus={handleChangeLinkStatus}
                   refetch={handleRefresh}
                   isFetching={isFetching}
                   onClickCreate={handleOpenCreateProfile}
@@ -491,6 +634,45 @@ export function HealthProfileTable({
             title="Xác nhận xóa hồ sơ sức khỏe"
             isLoading={isDeleting}
          />
+
+         <BuyCarePackageModal
+            open={Boolean(buyingProfile)}
+            onOpenChange={(open) => !open && setBuyingProfile(null)}
+            profile={buyingProfile}
+            onSuccess={() => refetch()}
+         />
+
+         <Dialog
+            open={Boolean(assessingProfile)}
+            onOpenChange={(open) => !open && setAssessingProfile(null)}
+         >
+            <DialogContent className="sm:min-w-5xl max-h-[90vh] overflow-y-auto p-6 rounded-sm">
+               <DialogHeader>
+                  <DialogTitle className="text-base font-bold text-slate-900">
+                     Phân tầng yếu tố nguy cơ tim mạch:{" "}
+                     {assessingProfile?.fullName}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500">
+                     Mã hồ sơ:{" "}
+                     {assessingProfile?.hospitalPatientCode ||
+                        assessingProfile?.id}
+                  </DialogDescription>
+               </DialogHeader>
+
+               <ScrollArea className="h-[70vh] -mr-4 pr-4">
+                  {assessingProfile && (
+                     <RiskFactorAssessmentForm
+                        selectedProfile={assessingProfile}
+                        onStartExaminationWithAssessment={() => {
+                           const id = assessingProfile.id;
+                           setAssessingProfile(null);
+                           router.push(`/health-profile/examination/${id}`);
+                        }}
+                     />
+                  )}
+               </ScrollArea>
+            </DialogContent>
+         </Dialog>
       </div>
    );
 }

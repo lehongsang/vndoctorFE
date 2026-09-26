@@ -149,7 +149,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
             </CustomButton>
          </div>
 
-         <p className="text-xs text-slate-400 px-4 py-3">
+         <p className="text-xs text-slate-400 px-4 pb-3">
             {conversations.length} cuộc hội thoại
          </p>
 

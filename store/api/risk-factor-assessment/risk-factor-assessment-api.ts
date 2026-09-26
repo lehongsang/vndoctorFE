@@ -56,7 +56,7 @@ export const RiskFactorAssessmentApi = baseApi.injectEndpoints({
          StaffRiskAssessmentParams | void
       >({
          query: (params) => ({
-            url: "/risk-assessments/staff",
+            url: "/risk-assessments",
             params: params || undefined,
          }),
          providesTags: (result) =>

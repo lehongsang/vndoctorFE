@@ -95,7 +95,8 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       const handleClear = (e: React.MouseEvent<HTMLButtonElement>) => {
          e.preventDefault();
          e.stopPropagation();
-         const resetVal = defaultValue !== undefined ? String(defaultValue) : "";
+         const resetVal =
+            defaultValue !== undefined ? String(defaultValue) : "";
          setInnerValue(resetVal);
          onClear?.();
          debounceCallback?.(resetVal);
@@ -110,7 +111,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       };
 
       return (
-         <div className={cn("relative flex-1", containerClassName)}>
+         <div className={cn("relative", containerClassName)}>
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none flex items-center justify-center">
                {startIcon ?? <Search className="w-4 h-4" />}
             </div>
@@ -122,7 +123,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
                disabled={disabled}
                placeholder={placeholder}
                className={cn(
-                  "h-10 pl-9 text-sm bg-slate-100 border-slate-200 rounded-sm placeholder:text-slate-400",
+                  "h-10 pl-9 text-sm border-slate-300 rounded-sm placeholder:text-slate-400",
                   canClear ? "pr-9" : "pr-3",
                   className,
                )}

@@ -154,13 +154,13 @@ export const CustomPagination = ({
    return (
       <div
          className={cn(
-            "flex flex-col sm:flex-row items-center justify-between gap-4 py-3 text-sm",
+            "flex flex-col sm:flex-row items-center justify-end gap-4 py-1 text-sm",
             className,
          )}
       >
          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
             {showTotalInfo && typeof totalItems === "number" && (
-               <p>
+               <p className="m-0! flex items-center leading-none">
                   <span className="font-semibold text-slate-700">
                      {fromItem}
                   </span>
@@ -183,13 +183,17 @@ export const CustomPagination = ({
                            }
                         }}
                      >
-                        <SelectTrigger size="sm" className="h-7 text-xs">
+                        <SelectTrigger
+                           size="sm"
+                           className="h-7 text-xs rounded-sm!"
+                        >
                            <SelectValue>{pageSize}</SelectValue>
                         </SelectTrigger>
                         <SelectContent
                            side="bottom"
                            align="start"
                            alignItemWithTrigger={false}
+                           className="p-2"
                         >
                            {pageSizeOptions.map((size) => (
                               <SelectItem key={size} value={size.toString()}>
@@ -210,7 +214,7 @@ export const CustomPagination = ({
                      text="Trước"
                      onClick={handlePrevious}
                      className={cn(
-                        "h-8 text-xs cursor-pointer",
+                        "h-8 text-xs cursor-pointer rounded-sm",
                         currentPage <= 1 &&
                            "pointer-events-none opacity-40 select-none cursor-not-allowed",
                      )}
@@ -245,7 +249,7 @@ export const CustomPagination = ({
                            isActive={isActive}
                            onClick={handlePageClick(page)}
                            className={cn(
-                              "size-8 text-xs cursor-pointer transition-colors",
+                              "size-8 text-xs cursor-pointer transition-colors rounded-sm",
                               isActive
                                  ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:text-white font-semibold shadow-2xs"
                                  : "hover:bg-slate-100 text-slate-700",
@@ -263,7 +267,7 @@ export const CustomPagination = ({
                      text="Sau"
                      onClick={handleNext}
                      className={cn(
-                        "h-8 text-xs cursor-pointer",
+                        "h-8 text-xs cursor-pointer rounded-sm",
                         currentPage >= computedTotalPages &&
                            "pointer-events-none opacity-40 select-none cursor-not-allowed",
                      )}

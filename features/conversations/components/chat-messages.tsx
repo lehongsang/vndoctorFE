@@ -11,8 +11,9 @@ import { MessageSquareDashed, ChevronDown } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { format, isToday, isYesterday, isSameDay } from "date-fns";
 import { vi } from "date-fns/locale";
-import { RiskAssessmentDetailModal } from "@/features/main-work/components/risk-assessment-detail-modal";
+
 import { useLazyGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
+import RiskAssessmentDetailModal from "@/features/examination/components/risk-assessment-detail-modal";
 
 const formatChatDateDivider = (dateString?: string): string => {
    if (!dateString) return "";
@@ -95,10 +96,10 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
 
       if (profileId) {
          router.push(
-            `/work?profileId=${profileId}&action=create&assessmentId=${assessmentId}`,
+            `/health-profile/examination/${profileId}?action=create&assessmentId=${assessmentId}`,
          );
       } else {
-         router.push(`/work?action=create&assessmentId=${assessmentId}`);
+         router.push(`/health-profile`);
       }
    };
 
@@ -339,12 +340,10 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                   conversation?.subscription?.healthProfileId;
                if (profileId) {
                   router.push(
-                     `/work?profileId=${profileId}&action=create&assessmentId=${assessment.id}`,
+                     `/health-profile/examination/${profileId}?action=create&assessmentId=${assessment.id}`,
                   );
                } else {
-                  router.push(
-                     `/work?action=create&assessmentId=${assessment.id}`,
-                  );
+                  router.push(`/health-profile`);
                }
             }}
          />

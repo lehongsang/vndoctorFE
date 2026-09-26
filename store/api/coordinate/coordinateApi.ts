@@ -4,6 +4,7 @@ import type {
    CareSubscriptions,
    ParamGetCareSubscriptions,
    ResponseGetCareSubscriptions,
+   StaffRegisterRequest,
    UpdateAssignStaffBody,
 } from "./type";
 
@@ -53,6 +54,17 @@ const CoordinatApi = baseApi.injectEndpoints({
          }),
          invalidatesTags: ["CareSubcriptions"],
       }),
+      staffRegister: build.mutation<
+         CareSubscriptions,
+         { body: StaffRegisterRequest }
+      >({
+         query: ({ body }) => ({
+            url: `/care-subscriptions/staff-register`,
+            method: "POST",
+            body,
+         }),
+         invalidatesTags: ["CareSubcriptions"],
+      }),
    }),
 });
 
@@ -62,4 +74,5 @@ export const {
    useAssignStaffMutation,
    useUpdateStaffSubscriptionMutation,
    useCancelSubscriptionMutation,
+   useStaffRegisterMutation,
 } = CoordinatApi;

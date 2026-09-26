@@ -12,6 +12,7 @@ import {
 import {
    useCreateCarePackageMutation,
    useUpdateCarePackageMutation,
+   useDeleteCarePackageMutation,
    useGetCarePackageDetailQuery,
 } from "@/store/api/care-package/care-package-api";
 import { useGetAllStaffQuery } from "@/store/api/staff/staff-api";
@@ -23,6 +24,7 @@ import { FormTextarea } from "@/components/common/form-textarea";
 import { Switch } from "@/components/ui/switch";
 import { CustomButton } from "@/components/common/custom-button";
 import { CloverLoading } from "@/components/common/clover-loading";
+import { ConfirmModal } from "@/components/common/confirm-modal";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "react-toastify";
 import { CARE_PACKAGE_TYPE_OPTIONS } from "./care-package-toolbar";
@@ -49,6 +51,10 @@ const carePackageSchema = z
          .number({ message: "Thời hạn phải là số ngày hợp lệ" })
          .int("Số ngày phải là số nguyên")
          .min(1, "Thời hạn tối thiểu là 1 ngày"),
+      maxSubscribers: z
+         .number({ message: "Số người đăng ký tối đa phải là số hợp lệ" })
+         .int("Số người đăng ký tối đa phải là số nguyên")
+         .min(1, "Số người đăng ký tối đa tối thiểu là 1"),
       status: z.enum(["ACTIVE", "INACTIVE"]),
       description: z.string().min(1, "Mô tả gói không được để trống"),
    })
@@ -65,6 +71,7 @@ export interface CarePackageFormProps {
    carePackage?: CarePackage;
    mode?: "create" | "update" | "view";
    onClose: () => void;
+   onDelete?: (pkg: CarePackage) => void;
 }
 
 export function CarePackageForm({
@@ -73,6 +80,7 @@ export function CarePackageForm({
    carePackage,
    mode = "create",
    onClose,
+   onDelete,
 }: CarePackageFormProps) {
    const targetPackageId = id || carePackageId || carePackage?.id;
    const isView = mode === "view";
@@ -99,6 +107,7 @@ export function CarePackageForm({
             doctorExpertId: "",
             priceAmount: 0,
             durationDays: 30,
+            maxSubscribers: 100,
             status: "ACTIVE" as CarePackageStatus,
             description: "",
          };
@@ -110,6 +119,7 @@ export function CarePackageForm({
          doctorExpertId: currentPackage?.doctorExpertId || "",
          priceAmount: stripDecimals(currentPackage?.priceAmount, 0),
          durationDays: stripDecimals(currentPackage?.durationDays, 30),
+         maxSubscribers: stripDecimals(currentPackage?.maxSubscribers, 100),
          status: (currentPackage?.status || "ACTIVE") as CarePackageStatus,
          description: currentPackage?.description || "",
       };
@@ -136,6 +146,7 @@ export function CarePackageForm({
             doctorExpertId: "",
             priceAmount: 0,
             durationDays: 30,
+            maxSubscribers: 100,
             status: "ACTIVE",
             description: "",
          });
@@ -147,6 +158,7 @@ export function CarePackageForm({
             doctorExpertId: currentPackage.doctorExpertId || "",
             priceAmount: stripDecimals(currentPackage.priceAmount, 0),
             durationDays: stripDecimals(currentPackage.durationDays, 30),
+            maxSubscribers: stripDecimals(currentPackage.maxSubscribers, 100),
             status: (currentPackage.status || "ACTIVE") as CarePackageStatus,
             description: currentPackage.description || "",
          });
@@ -214,6 +226,10 @@ export function CarePackageForm({
       useCreateCarePackageMutation();
    const [updatePackage, { isLoading: isUpdating }] =
       useUpdateCarePackageMutation();
+   const [deletePackage, { isLoading: isDeletingPackage }] =
+      useDeleteCarePackageMutation();
+
+   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
    if (
       targetPackageId &&
@@ -221,10 +237,40 @@ export function CarePackageForm({
    ) {
       return (
          <div className="flex items-center justify-center min-h-64 p-8 bg-white rounded-xl border border-slate-200 mt-4">
-            <CloverLoading size="md" text="Đang tải thông tin gói chăm sóc..." />
+            <CloverLoading
+               size="md"
+               text="Đang tải thông tin gói chăm sóc..."
+            />
          </div>
       );
    }
+
+   const handleDelete = async () => {
+      if (!targetPackageId) return;
+      if (onDelete && currentPackage) {
+         onDelete(currentPackage);
+         setIsDeleteOpen(false);
+         onClose();
+         return;
+      }
+      try {
+         await deletePackage(targetPackageId).unwrap();
+         toast.success("Xóa gói chăm sóc thành công!");
+         setIsDeleteOpen(false);
+         onClose();
+      } catch (error: unknown) {
+         console.error("Lỗi khi xóa gói chăm sóc:", error);
+         const errorMessage =
+            typeof error === "object" &&
+            error !== null &&
+            "data" in error &&
+            typeof (error as { data?: { message?: string } }).data?.message ===
+               "string"
+               ? (error as { data: { message: string } }).data.message
+               : "Có lỗi xảy ra khi xoá gói chăm sóc.";
+         toast.error(errorMessage);
+      }
+   };
 
    const onSubmit = async (data: CarePackageFormValues) => {
       if (isView) return;
@@ -240,6 +286,7 @@ export function CarePackageForm({
                doctorExpertId: payloadDoctorExpertId,
                priceAmount: data.priceAmount,
                durationDays: data.durationDays,
+               maxSubscribers: data.maxSubscribers,
                status: data.status,
                description: data.description,
             }).unwrap();
@@ -254,6 +301,7 @@ export function CarePackageForm({
                   doctorExpertId: payloadDoctorExpertId,
                   priceAmount: data.priceAmount,
                   durationDays: data.durationDays,
+                  maxSubscribers: data.maxSubscribers,
                   status: data.status,
                   description: data.description,
                },
@@ -277,13 +325,13 @@ export function CarePackageForm({
 
    return (
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-         <div className="w-full border-b-2 border-b-primary pb-2">
+         <div className="w-full">
             <span className="text-xl font-bold">
                {mode === "create"
                   ? "Thêm mới gói chăm sóc"
                   : isView
-                     ? "Chi tiết gói chăm sóc"
-                     : "Cập nhật gói chăm sóc"}
+                    ? "Chi tiết gói chăm sóc"
+                    : "Cập nhật gói chăm sóc"}
             </span>
          </div>
          <input type="hidden" {...register("facilityId")} />
@@ -423,6 +471,31 @@ export function CarePackageForm({
                   />
                )}
             />
+
+            {/* Số người đăng ký tối đa */}
+            <Controller
+               control={control}
+               name="maxSubscribers"
+               render={({ field, fieldState }) => (
+                  <FormNumberInput
+                     label="Số người đăng ký tối đa"
+                     required
+                     thousandSeparator="."
+                     decimalSeparator=","
+                     decimalScale={0}
+                     suffix=" người"
+                     allowNegative={false}
+                     allowLeadingZeros={false}
+                     disabled={isView}
+                     placeholder="Nhập số người tối đa (VD: 100)"
+                     value={stripDecimals(field.value, 0)}
+                     onValueChange={(values) => {
+                        field.onChange(values.floatValue ?? 0);
+                     }}
+                     error={fieldState.error?.message}
+                  />
+               )}
+            />
          </div>
 
          {(mode === "update" || isView) && (
@@ -468,39 +541,63 @@ export function CarePackageForm({
                   type="button"
                   variant="outline"
                   onClick={onClose}
-                  className="min-w-20 bg-slate-200 text-black hover:bg-slate-300 hover:text-black"
+                  className="w-20"
                >
                   Đóng
                </CustomButton>
             </div>
          ) : (
-            <div className="flex items-center justify-end gap-2">
-               <CustomButton
-                  type="button"
-                  variant="outline"
-                  onClick={() => reset(defaultValues)}
-                  className="min-w-20 bg-slate-200 text-black hover:bg-slate-300 hover:text-black"
-               >
-                  Đặt lại
-               </CustomButton>
-               <CustomButton
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  className="min-w-20 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
-               >
-                  Hủy
-               </CustomButton>
-               <CustomButton
-                  type="submit"
-                  isLoading={isCreating || isUpdating}
-                  loadingText="Đang lưu..."
-                  className="min-w-20"
-               >
-                  Lưu
-               </CustomButton>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+               <div>
+                  {targetPackageId && (
+                     <CustomButton
+                        type="button"
+                        onClick={() => setIsDeleteOpen(true)}
+                        className="w-20 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
+                     >
+                        Xóa gói
+                     </CustomButton>
+                  )}
+               </div>
+
+               <div className="flex items-center gap-2">
+                  <CustomButton
+                     type="button"
+                     variant="outline"
+                     onClick={() => reset(defaultValues)}
+                     className="min-w-20 bg-slate-200 text-black hover:bg-slate-300 hover:text-black"
+                  >
+                     Đặt lại
+                  </CustomButton>
+                  <CustomButton
+                     type="button"
+                     variant="destructive"
+                     onClick={onClose}
+                     className="w-20"
+                  >
+                     Hủy
+                  </CustomButton>
+                  <CustomButton
+                     type="submit"
+                     isLoading={isCreating || isUpdating}
+                     loadingText="Đang lưu..."
+                     className="w-28"
+                  >
+                     Lưu thay đổi
+                  </CustomButton>
+               </div>
             </div>
          )}
+
+         {/* Modal xác nhận xóa */}
+         <ConfirmModal
+            open={isDeleteOpen}
+            onClose={() => setIsDeleteOpen(false)}
+            onConfirm={handleDelete}
+            itemName={currentPackage?.name || "gói chăm sóc này"}
+            title="Xác nhận xóa gói chăm sóc"
+            isLoading={isDeletingPackage}
+         />
       </form>
    );
 }

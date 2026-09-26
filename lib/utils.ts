@@ -59,3 +59,20 @@ export function formatAge(
   return unit ? `${age} ${unit}` : `${age}`
 }
 
+/**
+ * Định dạng ngày giờ hiển thị theo chuẩn Việt Nam.
+ */
+export function formatDate(dateStr?: string | Date | null, includeTime: boolean = false): string {
+  if (!dateStr) return "—"
+  try {
+     const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr
+     if (isNaN(date.getTime())) return String(dateStr)
+     return includeTime
+        ? date.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })
+        : date.toLocaleDateString("vi-VN")
+  } catch {
+     return String(dateStr)
+  }
+}
+
+

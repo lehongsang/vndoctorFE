@@ -103,29 +103,29 @@ export default function CoordinateTable({
          id: "stt",
          header: "STT",
          headerClassName: "pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "pl-4 py-3.5 text-xs text-slate-600 font-medium",
+         cellClassName: "pl-4 py-2 text-xs text-slate-600 font-medium",
          cell: (data: CareSubscriptions, index: number) => index + 1,
       },
       {
          id: "name",
          header: "Khách hàng",
          headerClassName: "pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "pl-4 py-3.5 text-sm text-slate-600 font-medium",
+         cellClassName: "pl-4 py-2 text-sm text-slate-600 font-medium",
          cell: (data: CareSubscriptions) => data.healthProfile?.fullName || "—",
       },
       {
          id: "package",
          header: "Gói",
          headerClassName: "pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "pl-4 py-3.5 text-xs text-slate-600 font-medium",
+         cellClassName: "pl-4 py-2 text-xs text-slate-600 font-medium",
          cell: (data: CareSubscriptions) => (
-            <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1">
                <div>{data.carePackage?.name}</div>
                <span
                   className={`text-xs py-1 px-2 rounded-sm inline-block w-fit ${
                      data.carePackage?.type === "STANDARD"
                         ? "text-blue-600 bg-blue-100 font-medium"
-                        : "text-purple-600 bg-purple-100 font-medium"
+                        : "text-amber-600 bg-amber-100 font-medium"
                   }`}
                >
                   {data.carePackage?.type === "STANDARD" ? "Cơ bản" : "Vip"}
@@ -137,7 +137,7 @@ export default function CoordinateTable({
          id: "coordinator",
          header: "Điều phối",
          headerClassName: "pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "pl-4 py-3.5 text-xs text-slate-600 font-medium",
+         cellClassName: "pl-4 py-2 text-xs text-slate-600 font-medium",
          cell: (data: CareSubscriptions) => {
             const isVip = data.carePackage?.type === "VIP";
             const maxStaff = isVip ? 3 : 2;
@@ -164,7 +164,7 @@ export default function CoordinateTable({
          id: "status",
          header: "Trạng thái",
          headerClassName: "pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "pl-4 py-3.5 text-xs text-slate-600 font-medium",
+         cellClassName: "pl-4 py-2 text-xs text-slate-600 font-medium",
          cell: (data: CareSubscriptions) => {
             const config = STATUS_CONFIG[data.status] ?? {
                label: data.status || "—",
@@ -185,7 +185,7 @@ export default function CoordinateTable({
          id: "action",
          header: "Hành động",
          headerClassName: "pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "pl-4 py-3.5 text-xs text-slate-600 font-medium",
+         cellClassName: "pl-4 py-2 text-xs text-slate-600 font-medium",
          cell: (data: CareSubscriptions) => (
             <div className="flex gap-2">
                <CustomButton

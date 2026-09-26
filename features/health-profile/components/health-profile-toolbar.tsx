@@ -3,15 +3,28 @@
 import * as React from "react";
 import { CustomButton } from "@/components/common/custom-button";
 import { SearchInput } from "@/components/common/search-input";
+import { FormSelect } from "@/components/common/form-select";
+import { Plus, RefreshCcw } from "lucide-react";
 
-export const HEALTH_PROFILE_STATUS_OPTIONS = [
-   { label: "Hoạt động", value: "ACTIVE" },
-   { label: "Tạm khóa", value: "INACTIVE" },
+export const SCOPE_OPTIONS = [
+   { label: "Tất cả hồ sơ", value: "ALL" },
+   { label: "Hồ sơ của tôi", value: "MY" },
+];
+export const LINK_STATUS_OPTIONS = [
+   { label: "Tất cả", value: "ALL" },
+   { label: "Liên kết", value: "ACTIVE" },
+   { label: "Chờ liên kết", value: "PENDING" },
+   { label: "Hết hạn liên kết", value: "UNLINKED" },
+   { label: "Chưa liên kết", value: "NOT_LINKED" },
 ];
 
 export interface HealthProfileToolBarProps {
    searchText?: string;
    onSearchChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+   scopeSelected?: string;
+   onChangeScope?: (scope: string) => void;
+   linkStatusSelected?: string;
+   onChangeLinkStatus?: (status: string) => void;
    refetch?: () => void;
    isFetching?: boolean;
    disabled?: boolean;
@@ -21,30 +34,55 @@ export interface HealthProfileToolBarProps {
 export function HealthProfileToolBar({
    searchText = "",
    onSearchChange,
+   scopeSelected = "ALL",
+   onChangeScope = () => {},
+   linkStatusSelected = "ALL",
+   onChangeLinkStatus = () => {},
    refetch,
    isFetching = false,
    disabled = false,
    onClickCreate,
 }: HealthProfileToolBarProps) {
    return (
-      <div className="w-full flex flex-wrap items-center gap-3">
+      <div className="w-full flex items-center flex-wrap gap-3">
          <SearchInput
             value={searchText}
             onChange={onSearchChange}
             disabled={disabled}
-            containerClassName="flex-none w-72"
-            placeholder="Tìm theo tên, mã hồ sơ, SĐT, CCCD..."
+            containerClassName="flex-none min-w-56 w-72"
+            placeholder="Nhập tên,SĐT,CCCD,Mã hồ sơ..."
          />
-         <CustomButton onClick={onClickCreate} className="h-10 w-28">
-            Thêm mới
-         </CustomButton>
+         <FormSelect
+            options={SCOPE_OPTIONS}
+            value={scopeSelected}
+            onValueChange={onChangeScope}
+            disabled={disabled}
+            clearable={false}
+            containerClassName="w-fit"
+            className="w-40"
+         />
+         <FormSelect
+            options={LINK_STATUS_OPTIONS}
+            value={linkStatusSelected}
+            onValueChange={onChangeLinkStatus}
+            disabled={disabled}
+            clearable={false}
+            containerClassName="w-fit"
+            className="w-48"
+         />
          <CustomButton
-            variant="outline"
-            className="h-10 w-28 bg-white"
+            className="h-10 w-10"
             onClick={refetch}
             disabled={disabled || isFetching || !refetch}
          >
-            Làm mới
+            <RefreshCcw />
+         </CustomButton>
+         <CustomButton
+            onClick={onClickCreate}
+            className="h-10 w-28"
+            startIcon={<Plus />}
+         >
+            Thêm mới
          </CustomButton>
       </div>
    );

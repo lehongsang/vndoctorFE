@@ -108,11 +108,11 @@ export const FormTextarea = ({
          {label && (
             <FieldLabel
                htmlFor={textareaId}
-               className="text-sm font-normal text-slate-600"
+               className="text-xs font-medium text-slate-800 flex items-center flex-wrap gap-x-1"
             >
                {label}
                {required && (
-                  <span className="ml-1 text-red-600 font-bold">*</span>
+                  <span className="text-red-600 font-bold inline-block">*</span>
                )}
             </FieldLabel>
          )}
@@ -127,7 +127,7 @@ export const FormTextarea = ({
                defaultValue={defaultValue}
                onChange={handleChange}
                className={cn(
-                  "min-h-24 p-4 rounded-sm bg-slate-100 text-sm",
+                  "min-h-24 p-4 rounded-sm border-slate-300 text-sm",
                   canClear && "pr-10",
                   className,
                )}

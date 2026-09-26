@@ -9,21 +9,17 @@ import {
    useUpdateHealthProfileMutation,
    useGetDetailHealthProfileQuery,
 } from "@/store/api/health-profile/health-profile-api";
+import { CreateHealthProfile } from "@/store/api/health-profile/type";
 import { FormInput } from "@/components/common/form-input";
 import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { toast } from "react-toastify";
-import { ChronicDiseaseCheckboxGrid } from "./chronic-disease-checkbox-grid";
 import { FormTextarea } from "@/components/common/form-textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { CustomCalendar } from "@/components/common/custom-calendar";
-import { ScanLine } from "lucide-react";
-import {
-   OcrProfileModal,
-   OcrProfileExtractedData,
-} from "./ocr-profile-modal";
+import { OcrProfileExtractedData, OcrProfileModal } from "./ocr-profile-modal";
+import { ScanQrCode, Sparkles } from "lucide-react";
 
 const RELATIONSHIP_OPTIONS = [
    { label: "Bản thân", value: "SELF" },
@@ -48,10 +44,33 @@ const BLOOD_TYPE_OPTIONS = [
    { label: "Nhóm máu O", value: "O" },
 ];
 
+const DISEASE_ITEMS = [
+   { name: "hasDiabetes" as const, label: "Đái tháo đường" },
+   {
+      name: "hasFamilialHypercholesterolemia" as const,
+      label: "Tăng cholesterol máu gia đình",
+   },
+   { name: "hasCoronaryArteryDisease" as const, label: "Bệnh động mạch vành" },
+   { name: "hasMyocardialInfarction" as const, label: "Nhồi máu cơ tim" },
+   { name: "hasAcuteCoronarySyndrome" as const, label: "Hội chứng vành cấp" },
+   { name: "hasAtherosclerosis" as const, label: "Xơ vữa động mạch" },
+   { name: "hasAorticAneurysm" as const, label: "Phình động mạch chủ" },
+   { name: "hasPeripheralArteryDisease" as const, label: "Bệnh ĐM ngoại biên" },
+   { name: "hasStroke" as const, label: "Đột quỵ não" },
+   { name: "hasTia" as const, label: "Thiếu máu não thoáng qua (TIA)" },
+];
+
+const RISK_FACTOR_ITEMS = [
+   { name: "isSmoking" as const, label: "Hút thuốc lá" },
+   { name: "hasHypertension" as const, label: "Tăng huyết áp" },
+   { name: "hasDyslipidemia" as const, label: "Rối loạn mỡ máu" },
+];
+
 const profileSchema = z.object({
    fullName: z
       .string()
-      .min(5, "Họ và tên ít nhất 5 ký tự")
+      .trim()
+      .min(2, "Họ và tên ít nhất 2 ký tự")
       .max(50, "Họ và tên không được vượt quá 50 ký tự"),
    dob: z
       .string()
@@ -86,17 +105,33 @@ const profileSchema = z.object({
       .optional()
       .refine(
          (val) => !val || /^(0[35789]|84[35789])[0-9]{8}$/.test(val),
-         "Số điện thoại không hợp lệ (gồm 10 số, bắt đầu bằng 03, 05, 07, 08, 09)",
+         "Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03, 05, 07, 08, 09)",
       ),
    address: z.string().optional(),
    bloodType: z.enum(["UNKNOWN", "A", "B", "AB", "O"]),
+   height: z
+      .number()
+      .min(0, "Chiều cao tối thiểu là 0 cm")
+      .max(250, "Chiều cao không vượt quá 250 cm"),
+   weight: z
+      .number()
+      .min(0, "Cân nặng tối thiểu là 0 kg")
+      .max(300, "Cân nặng không vượt quá 300 kg"),
    allergy: z.string().optional(),
    medicalHistory: z.string().optional(),
    isSmoking: z.boolean(),
    hasHypertension: z.boolean(),
    hasDyslipidemia: z.boolean(),
    hasDiabetes: z.boolean(),
-   chronicDiseaseIds: z.array(z.string()),
+   hasStroke: z.boolean(),
+   hasMyocardialInfarction: z.boolean(),
+   hasAcuteCoronarySyndrome: z.boolean(),
+   hasCoronaryArteryDisease: z.boolean(),
+   hasTia: z.boolean(),
+   hasAorticAneurysm: z.boolean(),
+   hasPeripheralArteryDisease: z.boolean(),
+   hasAtherosclerosis: z.boolean(),
+   hasFamilialHypercholesterolemia: z.boolean(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -126,6 +161,19 @@ export function HealthProfileForm({
       useUpdateHealthProfileMutation();
 
    const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
+   const [ocrFilledFields, setOcrFilledFields] = useState<
+      Partial<Record<keyof ProfileFormValues, boolean>>
+   >({});
+
+   const renderOcrBadge = (field: keyof ProfileFormValues) => {
+      if (!ocrFilledFields[field]) return null;
+      return (
+         <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-700 shrink-0 border border-violet-200">
+            <Sparkles className="w-2.5 h-2.5 text-violet-600 inline-block" />
+            Từ OCR
+         </span>
+      );
+   };
 
    const {
       register,
@@ -146,95 +194,122 @@ export function HealthProfileForm({
          phoneNumber: "",
          address: "",
          bloodType: "UNKNOWN",
+         height: 0,
+         weight: 0,
          allergy: "",
          medicalHistory: "",
          isSmoking: false,
          hasHypertension: false,
          hasDyslipidemia: false,
          hasDiabetes: false,
-         chronicDiseaseIds: [],
+         hasStroke: false,
+         hasMyocardialInfarction: false,
+         hasAcuteCoronarySyndrome: false,
+         hasCoronaryArteryDisease: false,
+         hasTia: false,
+         hasAorticAneurysm: false,
+         hasPeripheralArteryDisease: false,
+         hasAtherosclerosis: false,
+         hasFamilialHypercholesterolemia: false,
       },
    });
 
    const handleApplyOcrData = (data: OcrProfileExtractedData) => {
+      const newlyFilled: Partial<Record<keyof ProfileFormValues, boolean>> = {};
+
       if (data.fullName) {
          setValue("fullName", data.fullName, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.fullName = true;
       }
       if (data.dob) {
          setValue("dob", data.dob, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.dob = true;
       }
       if (data.gender) {
          setValue("gender", data.gender, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.gender = true;
       }
       if (data.citizenId) {
          setValue("citizenId", data.citizenId, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.citizenId = true;
       }
       if (data.phoneNumber) {
          setValue("phoneNumber", data.phoneNumber, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.phoneNumber = true;
       }
       if (data.address) {
          setValue("address", data.address, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.address = true;
       }
       if (data.bloodType) {
          setValue("bloodType", data.bloodType, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.bloodType = true;
       }
       if (data.allergy) {
          setValue("allergy", data.allergy, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.allergy = true;
       }
       if (data.medicalHistory) {
          setValue("medicalHistory", data.medicalHistory, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         newlyFilled.medicalHistory = true;
       }
       if (typeof data.isSmoking === "boolean") {
          setValue("isSmoking", data.isSmoking, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         if (data.isSmoking) newlyFilled.isSmoking = true;
       }
       if (typeof data.hasHypertension === "boolean") {
          setValue("hasHypertension", data.hasHypertension, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         if (data.hasHypertension) newlyFilled.hasHypertension = true;
       }
       if (typeof data.hasDyslipidemia === "boolean") {
          setValue("hasDyslipidemia", data.hasDyslipidemia, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         if (data.hasDyslipidemia) newlyFilled.hasDyslipidemia = true;
       }
       if (typeof data.hasDiabetes === "boolean") {
          setValue("hasDiabetes", data.hasDiabetes, {
             shouldValidate: true,
             shouldDirty: true,
          });
+         if (data.hasDiabetes) newlyFilled.hasDiabetes = true;
       }
+
+      setOcrFilledFields((prev) => ({ ...prev, ...newlyFilled }));
    };
 
    useEffect(() => {
@@ -254,14 +329,33 @@ export function HealthProfileForm({
             bloodType:
                (detailData.bloodType as "UNKNOWN" | "A" | "B" | "AB" | "O") ||
                "UNKNOWN",
+            height: Number(detailData.height) || 0,
+            weight: Number(detailData.weight) || 0,
             allergy: detailData.allergy || "",
             medicalHistory: detailData.medicalHistory || "",
             isSmoking: Boolean(detailData.isSmoking),
             hasHypertension: Boolean(detailData.hasHypertension),
             hasDyslipidemia: Boolean(detailData.hasDyslipidemia),
             hasDiabetes: Boolean(detailData.hasDiabetes),
-            chronicDiseaseIds:
-               detailData?.profileChronicDisease?.diseaseIds || [],
+            hasStroke: Boolean(detailData.hasStroke),
+            hasMyocardialInfarction: Boolean(
+               detailData.hasMyocardialInfarction,
+            ),
+            hasAcuteCoronarySyndrome: Boolean(
+               detailData.hasAcuteCoronarySyndrome,
+            ),
+            hasCoronaryArteryDisease: Boolean(
+               detailData.hasCoronaryArteryDisease,
+            ),
+            hasTia: Boolean(detailData.hasTia),
+            hasAorticAneurysm: Boolean(detailData.hasAorticAneurysm),
+            hasPeripheralArteryDisease: Boolean(
+               detailData.hasPeripheralArteryDisease,
+            ),
+            hasAtherosclerosis: Boolean(detailData.hasAtherosclerosis),
+            hasFamilialHypercholesterolemia: Boolean(
+               detailData.hasFamilialHypercholesterolemia,
+            ),
          });
       }
    }, [detailData, isUpdate, isView, reset]);
@@ -270,39 +364,46 @@ export function HealthProfileForm({
       if (isView) return;
 
       try {
+         const payload: CreateHealthProfile = {
+            fullName: values.fullName.trim(),
+            dob: values.dob,
+            gender: values.gender,
+            relationship: values.relationship,
+            citizenId: values.citizenId?.trim() || "",
+            phoneNumber: values.phoneNumber?.trim() || "",
+            address: values.address?.trim() || "",
+            bloodType: values.bloodType,
+            height: Number(values.height) || 0,
+            weight: Number(values.weight) || 0,
+            allergy: values.allergy?.trim() || "",
+            medicalHistory: values.medicalHistory?.trim() || "",
+            isSmoking: Boolean(values.isSmoking),
+            hasHypertension: Boolean(values.hasHypertension),
+            hasDyslipidemia: Boolean(values.hasDyslipidemia),
+            hasDiabetes: Boolean(values.hasDiabetes),
+            hasStroke: Boolean(values.hasStroke),
+            hasMyocardialInfarction: Boolean(values.hasMyocardialInfarction),
+            hasAcuteCoronarySyndrome: Boolean(values.hasAcuteCoronarySyndrome),
+            hasCoronaryArteryDisease: Boolean(values.hasCoronaryArteryDisease),
+            hasTia: Boolean(values.hasTia),
+            hasAorticAneurysm: Boolean(values.hasAorticAneurysm),
+            hasPeripheralArteryDisease: Boolean(
+               values.hasPeripheralArteryDisease,
+            ),
+            hasAtherosclerosis: Boolean(values.hasAtherosclerosis),
+            hasFamilialHypercholesterolemia: Boolean(
+               values.hasFamilialHypercholesterolemia,
+            ),
+         };
+
          if (isUpdate && profileId) {
             await updateProfile({
                id: profileId,
-               data: {
-                  id: profileId,
-                  ...values,
-                  citizenId: values.citizenId || "",
-                  phoneNumber: values.phoneNumber || "",
-                  address: values.address || "",
-                  allergy: values.allergy || "",
-                  medicalHistory: values.medicalHistory || "",
-                  isSmoking: Boolean(values.isSmoking),
-                  hasHypertension: Boolean(values.hasHypertension),
-                  hasDyslipidemia: Boolean(values.hasDyslipidemia),
-                  hasDiabetes: Boolean(values.hasDiabetes),
-                  chronicDiseaseIds: values.chronicDiseaseIds || [],
-               },
+               data: payload,
             }).unwrap();
             toast.success("Cập nhật hồ sơ sức khỏe thành công");
          } else {
-            await createProfile({
-               ...values,
-               citizenId: values.citizenId || "",
-               phoneNumber: values.phoneNumber || "",
-               address: values.address || "",
-               allergy: values.allergy || "",
-               medicalHistory: values.medicalHistory || "",
-               isSmoking: Boolean(values.isSmoking),
-               hasHypertension: Boolean(values.hasHypertension),
-               hasDyslipidemia: Boolean(values.hasDyslipidemia),
-               hasDiabetes: Boolean(values.hasDiabetes),
-               chronicDiseaseIds: values.chronicDiseaseIds || [],
-            }).unwrap();
+            await createProfile(payload).unwrap();
             toast.success("Tạo mới hồ sơ sức khỏe thành công");
          }
          onClose();
@@ -335,30 +436,32 @@ export function HealthProfileForm({
            : "Xem hồ sơ sức khỏe";
 
    return (
-      <div>
-         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-            <div className="flex items-center gap-3">
-               <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-            </div>
+      <div className="bg-white shadow-sm rounded-sm p-4 sm:p-6">
+         {/* Form Header */}
+         <div className="flex items-center justify-between flex-wrap gap-2 pb-3">
+            <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
             {!isView && (
                <CustomButton
                   type="button"
-                  variant="outline"
                   size="sm"
                   onClick={() => setIsOcrModalOpen(true)}
-                  className="border-primary/40 text-primary hover:bg-primary/5 hover:border-primary gap-1.5 shadow-2xs cursor-pointer font-medium"
+                  startIcon={<ScanQrCode className="w-8 h-8" />}
                >
-                  <ScanLine className="w-4 h-4 text-primary" />
-                  <span>Quét OCR điền nhanh</span>
+                  Quét CCCD
                </CustomButton>
             )}
          </div>
 
-         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Thông tin cá nhân */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {/* Thông tin hành chính & chỉ số thể chất */}
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
                <FormInput
-                  label="Họ và tên"
+                  label={
+                     <span className="flex items-center gap-1.5">
+                        <span>Họ và tên</span>
+                        {renderOcrBadge("fullName")}
+                     </span>
+                  }
                   required
                   placeholder="Ví dụ: Nguyễn Văn A"
                   disabled={isView}
@@ -367,7 +470,12 @@ export function HealthProfileForm({
                />
 
                <FormInput
-                  label="Ngày sinh"
+                  label={
+                     <span className="flex items-center gap-1.5">
+                        <span>Ngày sinh</span>
+                        {renderOcrBadge("dob")}
+                     </span>
+                  }
                   type="date"
                   required
                   max={new Date().toLocaleDateString("en-CA")}
@@ -381,7 +489,12 @@ export function HealthProfileForm({
                   control={control}
                   render={({ field }) => (
                      <FormSelect
-                        label="Giới tính"
+                        label={
+                           <span className="flex items-center gap-1.5">
+                              <span>Giới tính</span>
+                              {renderOcrBadge("gender")}
+                           </span>
+                        }
                         required
                         disabled={isView}
                         options={GENDER_OPTIONS}
@@ -397,7 +510,12 @@ export function HealthProfileForm({
                   control={control}
                   render={({ field }) => (
                      <FormSelect
-                        label="Mối quan hệ"
+                        label={
+                           <span className="flex items-center gap-1.5">
+                              <span>Mối quan hệ</span>
+                              {renderOcrBadge("relationship")}
+                           </span>
+                        }
                         disabled={isView}
                         options={RELATIONSHIP_OPTIONS}
                         value={field.value}
@@ -408,7 +526,12 @@ export function HealthProfileForm({
                />
 
                <FormInput
-                  label="Số CCCD"
+                  label={
+                     <span className="flex items-center gap-1.5">
+                        <span>Số CCCD</span>
+                        {renderOcrBadge("citizenId")}
+                     </span>
+                  }
                   placeholder="Nhập 12 chữ số CCCD"
                   maxLength={12}
                   disabled={isView}
@@ -421,7 +544,12 @@ export function HealthProfileForm({
                />
 
                <FormInput
-                  label="Số điện thoại"
+                  label={
+                     <span className="flex items-center gap-1.5">
+                        <span>Số điện thoại</span>
+                        {renderOcrBadge("phoneNumber")}
+                     </span>
+                  }
                   placeholder="Ví dụ: 0912345678"
                   maxLength={10}
                   disabled={isView}
@@ -433,26 +561,59 @@ export function HealthProfileForm({
                   })}
                />
 
-               <div className="md:col-span-2 lg:col-span-3">
-                  <FormInput
-                     label="Địa chỉ cư trú"
-                     placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
-                     disabled={isView}
-                     error={errors.address?.message}
-                     {...register("address")}
-                  />
-               </div>
-            </div>
+               <FormInput
+                  label={
+                     <span className="flex items-center gap-1.5">
+                        <span>Chiều cao (cm)</span>
+                        {renderOcrBadge("height")}
+                     </span>
+                  }
+                  type="number"
+                  placeholder="Ví dụ: 170"
+                  min={0}
+                  max={250}
+                  step="any"
+                  disabled={isView}
+                  error={errors.height?.message}
+                  {...register("height", {
+                     valueAsNumber: true,
+                     setValueAs: (v) =>
+                        v === "" || isNaN(Number(v)) ? 0 : Number(v),
+                  })}
+               />
 
-            {/* Thông tin y tế */}
+               <FormInput
+                  label={
+                     <span className="flex items-center gap-1.5">
+                        <span>Cân nặng (kg)</span>
+                        {renderOcrBadge("weight")}
+                     </span>
+                  }
+                  type="number"
+                  placeholder="Ví dụ: 65"
+                  min={0}
+                  max={300}
+                  step="any"
+                  disabled={isView}
+                  error={errors.weight?.message}
+                  {...register("weight", {
+                     valueAsNumber: true,
+                     setValueAs: (v) =>
+                        v === "" || isNaN(Number(v)) ? 0 : Number(v),
+                  })}
+               />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                <Controller
                   name="bloodType"
                   control={control}
                   render={({ field }) => (
                      <FormSelect
-                        label="Nhóm máu"
+                        label={
+                           <span className="flex items-center gap-1.5">
+                              <span>Nhóm máu</span>
+                              {renderOcrBadge("bloodType")}
+                           </span>
+                        }
                         disabled={isView}
                         options={BLOOD_TYPE_OPTIONS}
                         value={field.value}
@@ -462,30 +623,27 @@ export function HealthProfileForm({
                   )}
                />
 
-               {/* Yếu tố nguy cơ bệnh lý */}
-               <div className="md:col-span-2">
-                  <label className="text-xs sm:text-sm text-slate-600 mb-2 block">
-                     Yếu tố nguy cơ bệnh lý
+               <div className="md:col-span-3">
+                  <FormInput
+                     label={
+                        <span className="flex items-center gap-1.5">
+                           <span>Địa chỉ cư trú</span>
+                           {renderOcrBadge("address")}
+                        </span>
+                     }
+                     placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+                     disabled={isView}
+                     error={errors.address?.message}
+                     {...register("address")}
+                  />
+               </div>
+
+               <div className="col-span-full flex flex-col gap-2">
+                  <label className="text-xs font-medium text-slate-800">
+                     Yếu tố nguy cơ
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                     {[
-                        {
-                           name: "isSmoking" as const,
-                           label: "Hút thuốc lá",
-                        },
-                        {
-                           name: "hasHypertension" as const,
-                           label: "Tăng huyết áp",
-                        },
-                        {
-                           name: "hasDyslipidemia" as const,
-                           label: "Rối loạn lipid máu",
-                        },
-                        {
-                           name: "hasDiabetes" as const,
-                           label: "Đái tháo đường",
-                        },
-                     ].map((item) => (
+                  <div className="md:col-span-full grid grid-cols-1 sm:grid-cols-3 gap-5">
+                     {RISK_FACTOR_ITEMS.map((item) => (
                         <Controller
                            key={item.name}
                            name={item.name}
@@ -507,17 +665,18 @@ export function HealthProfileForm({
                                     }
                                  }}
                                  className={cn(
-                                    "flex items-center justify-between p-3 sm:px-4 rounded-sm border bg-slate-100 transition-all select-none text-left",
+                                    "flex items-center justify-between py-2.5 px-4 rounded-sm border text-left select-none transition-colors",
                                     isView
                                        ? "cursor-not-allowed opacity-80"
-                                       : "cursor-pointer hover:border-slate-300 hover:bg-slate-50/40",
+                                       : "cursor-pointer hover:bg-slate-50",
                                     field.value
-                                       ? "border-emerald-400 bg-emerald-50/20"
-                                       : "border-slate-200",
+                                       ? "border-emerald-600 bg-emerald-50/20"
+                                       : "border-slate-300 bg-slate-50/40",
                                  )}
                               >
-                                 <span className="text-sm font-medium text-slate-800 pr-2">
-                                    {item.label}
+                                 <span className="text-xs sm:text-sm font-medium text-slate-800 pr-2 flex items-center gap-1.5">
+                                    <span>{item.label}</span>
+                                    {renderOcrBadge(item.name)}
                                  </span>
                                  <div
                                     onClick={(e) => e.stopPropagation()}
@@ -530,7 +689,7 @@ export function HealthProfileForm({
                                           field.onChange(Boolean(checked))
                                        }
                                        disabled={isView}
-                                       className="size-5 rounded! border-slate-500 data-checked:bg-emerald-600 data-checked:text-white"
+                                       className="size-4.5 rounded border-slate-400 data-checked:bg-emerald-600 data-checked:text-white"
                                     />
                                  </div>
                               </div>
@@ -540,36 +699,90 @@ export function HealthProfileForm({
                   </div>
                </div>
 
-               <div className="md:col-span-2 lg:col-span-3 pt-2">
-                  <Controller
-                     name="chronicDiseaseIds"
-                     control={control}
-                     render={({ field }) => (
-                        <ChronicDiseaseCheckboxGrid
-                           disabled={isView}
-                           value={field.value}
-                           onChange={field.onChange}
-                           error={errors.chronicDiseaseIds?.message}
-                           healthProfileId={profileId}
+               {/* Yếu tố nguy cơ & Bệnh lý */}
+               <div className="col-span-full pt-2 flex flex-col gap-2">
+                  <label className="text-xs font-medium text-slate-800 ">
+                     Bệnh lý mạn tính
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                     {DISEASE_ITEMS.map((item) => (
+                        <Controller
+                           key={item.name}
+                           name={item.name}
+                           control={control}
+                           render={({ field }) => (
+                              <div
+                                 role="button"
+                                 tabIndex={0}
+                                 onClick={() =>
+                                    !isView && field.onChange(!field.value)
+                                 }
+                                 onKeyDown={(e) => {
+                                    if (
+                                       !isView &&
+                                       (e.key === "Enter" || e.key === " ")
+                                    ) {
+                                       e.preventDefault();
+                                       field.onChange(!field.value);
+                                    }
+                                 }}
+                                 className={cn(
+                                    "flex items-center justify-between py-2.5 px-4 rounded-sm border text-left select-none transition-colors",
+                                    isView
+                                       ? "cursor-not-allowed opacity-80"
+                                       : "cursor-pointer hover:bg-slate-50",
+                                    field.value
+                                       ? "border-emerald-600 bg-emerald-50/20"
+                                       : "border-slate-300 bg-slate-50/40",
+                                 )}
+                              >
+                                 <span className="text-xs sm:text-sm font-medium text-slate-800 pr-2 flex items-center gap-1.5">
+                                    <span>{item.label}</span>
+                                    {renderOcrBadge(item.name)}
+                                 </span>
+                                 <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center shrink-0"
+                                 >
+                                    <Checkbox
+                                       checked={field.value}
+                                       onCheckedChange={(checked) =>
+                                          !isView &&
+                                          field.onChange(Boolean(checked))
+                                       }
+                                       disabled={isView}
+                                       className="size-4.5 rounded border-slate-400 data-checked:bg-emerald-600 data-checked:text-white"
+                                    />
+                                 </div>
+                              </div>
+                           )}
                         />
-                     )}
-                  />
+                     ))}
+                  </div>
                </div>
 
-               <div className="md:col-span-2 lg:col-span-3">
+               <div className="col-span-full grid grid-cols-1 gap-4">
                   <FormTextarea
-                     label="Tiền sử bệnh lý"
-                     placeholder="Nhập chi tiết tiền sử bệnh lý của bệnh nhân..."
+                     label={
+                        <span className="flex items-center gap-1.5">
+                           <span>Tiền sử bệnh lý khác</span>
+                           {renderOcrBadge("medicalHistory")}
+                        </span>
+                     }
+                     placeholder="Nhập chi tiết các bệnh lý khác, phẫu thuật (nếu có)..."
                      disabled={isView}
                      error={errors.medicalHistory?.message}
                      {...register("medicalHistory")}
                   />
-               </div>
 
-               <div className="md:col-span-2 lg:col-span-full">
                   <FormTextarea
-                     label="Tiền sử dị ứng"
-                     placeholder="Dị ứng thuốc, thức ăn, phấn hoa... (nếu có)"
+                     label={
+                        <span className="flex items-center gap-1.5">
+                           <span>Tiền sử dị ứng</span>
+                           {renderOcrBadge("allergy")}
+                        </span>
+                     }
+                     placeholder="Dị ứng thuốc, thực phẩm, phấn hoa... (nếu có)"
                      disabled={isView}
                      error={errors.allergy?.message}
                      {...register("allergy")}
@@ -578,12 +791,12 @@ export function HealthProfileForm({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-center gap-4">
                <CustomButton
                   type="button"
                   variant="outline"
                   onClick={onClose}
-                  className="w-20 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
+                  className="w-26 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
                >
                   Hủy
                </CustomButton>
@@ -591,9 +804,9 @@ export function HealthProfileForm({
                   <CustomButton
                      type="submit"
                      isLoading={isCreating || isUpdating}
-                     className="w-20"
+                     className="w-26"
                   >
-                     Lưu
+                     {isUpdate ? "Cập nhật" : "Lưu"}
                   </CustomButton>
                )}
             </div>

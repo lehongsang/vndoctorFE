@@ -196,10 +196,8 @@ export type RiskAssessmentResult = {
 
 // --- DTO Bác sĩ thẩm định ---
 export type EvaluateRiskAssessmentRequest = {
-   conclusion: string;
-   recommendations: string;
-   riskLevel?: RiskLevel;
-   riskScore?: number;
+   doctorNote: string;
+   riskLevel: "LOW" | "HIGH" | "VERY_HIGH";
 };
 
 // --- Params & Response danh sách ---

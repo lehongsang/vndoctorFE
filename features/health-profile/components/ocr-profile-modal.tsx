@@ -337,7 +337,6 @@ export function OcrProfileModal({
                            </div>
                            <div className="flex items-center gap-1.5 shrink-0">
                               <CustomButton
-                                 type="button"
                                  size="xs"
                                  onClick={() => pdfInputRef.current?.click()}
                                  className="text-[11px] h-8"
@@ -345,7 +344,6 @@ export function OcrProfileModal({
                                  Đổi tệp
                               </CustomButton>
                               <CustomButton
-                                 type="button"
                                  size="xs"
                                  variant="destructive"
                                  onClick={() => {
@@ -390,7 +388,7 @@ export function OcrProfileModal({
                               </>
                            ) : (
                               <>
-                                 <span>Bắt đầu bóc tách Bệnh án</span>
+                                 <span>Bắt đầu OCR</span>
                               </>
                            )}
                         </CustomButton>

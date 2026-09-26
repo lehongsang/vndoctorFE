@@ -112,11 +112,11 @@ export const FormInput = ({
          {label && (
             <FieldLabel
                htmlFor={inputId}
-               className="text-sm font-normal text-slate-600"
+               className="text-xs font-medium text-slate-800 flex items-center flex-wrap gap-x-1"
             >
                {label}
                {required && (
-                  <span className="ml-1 text-red-600 font-bold">*</span>
+                  <span className="text-red-600 font-medium inline-block">*</span>
                )}
             </FieldLabel>
          )}
@@ -131,7 +131,7 @@ export const FormInput = ({
                defaultValue={defaultValue}
                onChange={handleChange}
                className={cn(
-                  "h-12 px-4 bg-slate-100 rounded-sm",
+                  "h-10 px-4 rounded-sm border-slate-300",
                   isPassword && canClear
                      ? "pr-16"
                      : isPassword || canClear

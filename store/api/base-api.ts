@@ -140,5 +140,6 @@ export const baseApi = createApi({
       "Conversations",
       "Messages",
       "TreatmentTarget",
+      "CareRequest",
    ],
 });

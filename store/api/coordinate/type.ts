@@ -18,6 +18,10 @@ export type CareSubscriptions = {
    assignedExpertId?: string;
    assignedExpert?: Staff;
    status: "PENDING" | "ACTIVE" | "EXPIRED" | "CANCELLED";
+   isPatientConfirmed: boolean;
+   patientConfirmedAt: string | null;
+   registeredByStaffId: string;
+   rejectionReason: string | null;
    startedAt: string;
    expiresAt: string;
 };
@@ -26,6 +30,11 @@ export type AssignStaffBody = {
    assignedDoctorId?: string | null;
    assignedNurseId?: string | null;
    assignedExpertId?: string | null;
+};
+
+export type StaffRegisterRequest = {
+   healthProfileId: string;
+   carePackageId: string;
 };
 
 export type UpdateAssignStaffBody = {

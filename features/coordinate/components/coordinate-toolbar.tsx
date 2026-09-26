@@ -1,7 +1,9 @@
 "use client";
 
 import { CustomButton } from "@/components/common/custom-button";
+import { SearchInput } from "@/components/common/search-input";
 import { Input } from "@/components/ui/input";
+import { RefreshCcw } from "lucide-react";
 
 interface CoordinateToolbarProps {
    searchText?: string;
@@ -20,20 +22,19 @@ export function CoordinateToolbar({
 }: CoordinateToolbarProps) {
    return (
       <div className="w-full flex flex-wrap items-center gap-3">
-         <Input
+         <SearchInput
             value={searchText}
             onChange={onSearchChange}
             disabled={disabled}
-            className="h-10 max-w-72 px-4 bg-white"
             placeholder="Tìm theo mã, tên bệnh, mã ICD-10..."
+            className="min-w-60"
          />
          <CustomButton
-            variant="outline"
-            className="h-10 w-28"
+            className="h-10 w-10"
             onClick={refetch}
             disabled={disabled || isFetching || !refetch}
          >
-            Làm mới
+            <RefreshCcw />
          </CustomButton>
       </div>
    );

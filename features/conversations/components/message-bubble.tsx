@@ -51,6 +51,7 @@ const renderMessageContent = (
       onViewRiskAssessment?: (resourceId: string) => void;
       onStartExamination?: (resourceId: string) => void;
    },
+   profileId?: string,
 ) => {
    switch (type) {
       case "IMAGE":
@@ -104,7 +105,10 @@ const renderMessageContent = (
             </div>
          );
 
-      case "EXAMINATION":
+      case "EXAMINATION": {
+         const examUrl = profileId
+            ? `/health-profile/examination/${profileId}?id=${resourceId}`
+            : `/health-profile`;
          return (
             <div className="p-3 rounded-lg border border-blue-200 bg-blue-50/60 text-slate-800 mt-1 max-w-sm">
                <span className="text-[11px] font-bold text-primary block mb-1">
@@ -119,7 +123,7 @@ const renderMessageContent = (
                         Mã: {resourceId.slice(0, 8)}...
                      </span>
                      <a
-                        href={`/examination?id=${resourceId}`}
+                        href={examUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="text-primary hover:underline font-semibold flex items-center gap-1"
@@ -130,6 +134,7 @@ const renderMessageContent = (
                )}
             </div>
          );
+      }
 
       case "RISK_ASSESSMENT":
          return (
@@ -660,6 +665,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         onViewRiskAssessment,
                         onStartExamination,
                      },
+                     conversation?.healthProfileId ||
+                        conversation?.healthProfile?.id ||
+                        conversation?.subscription?.healthProfileId,
                   )}
 
                   {/* Giờ gửi */}

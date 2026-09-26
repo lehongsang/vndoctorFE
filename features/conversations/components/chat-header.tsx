@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { CustomButton } from "@/components/common/custom-button";
 import { Conversation } from "@/store/api/conversation/type";
 import { cn } from "@/lib/utils";
@@ -121,34 +120,45 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
          {/* Nút thao tác nhanh (gọn gàng, hạn chế icon) */}
          <div className="flex items-center gap-2 shrink-0">
             {targetProfileId && (
-               <Link
-                  href={`/health-profile?selectedId=${targetProfileId}`}
-                  target="_blank"
-                  rel="noreferrer"
-               >
-                  <CustomButton size="sm" className="h-8 text-xs">
-                     Hồ sơ sức khỏe
-                  </CustomButton>
-               </Link>
-            )}
+               <>
+                  <Link
+                     href={`/health-profile?selectedId=${targetProfileId}`}
+                     target="_blank"
+                     rel="noreferrer"
+                  >
+                     <CustomButton
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                     >
+                        Hồ sơ sức khỏe
+                     </CustomButton>
+                  </Link>
 
-            <Link
-               href={
-                  targetProfileId
-                     ? `/work?profileId=${targetProfileId}&option=accessment`
-                     : "/work?option=accessment"
-               }
-               target="_blank"
-               rel="noreferrer"
-            >
-               <CustomButton
-                  size="sm"
-                  className="h-8 text-xs"
-                  variant="destructive"
-               >
-                  Phân tầng
-               </CustomButton>
-            </Link>
+                  <Link
+                     href={`/health-profile/examination/${targetProfileId}?action=create`}
+                     target="_blank"
+                     rel="noreferrer"
+                  >
+                     <CustomButton size="sm" className="h-8 text-xs">
+                        Tạo phiếu khám
+                     </CustomButton>
+                  </Link>
+
+                  <Link
+                     href={`/health-profile/examination/${targetProfileId}`}
+                     target="_blank"
+                     rel="noreferrer"
+                  >
+                     <CustomButton
+                        size="sm"
+                        className="h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                     >
+                        Phân tầng
+                     </CustomButton>
+                  </Link>
+               </>
+            )}
          </div>
       </div>
    );

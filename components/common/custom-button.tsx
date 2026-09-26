@@ -33,7 +33,7 @@ export const CustomButton = ({
             "cursor-pointer",
             fullWidth && "w-full",
             disabled && "opacity-60",
-            "h-10 flex items-center justify-center gap-2 rounded-sm",
+            "h-10  flex items-center justify-center gap-2 rounded-sm",
             className,
          )}
          {...props}

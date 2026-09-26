@@ -5,6 +5,7 @@ import CloverLoading from "@/components/common/clover-loading";
 import { CustomButton } from "@/components/common/custom-button";
 import { FormCombobox } from "@/components/common/form-combobox";
 import {
+   useAssignStaffMutation,
    useGetDetailCareSubcriptionQuery,
    useUpdateStaffSubscriptionMutation,
 } from "@/store/api/coordinate/coordinateApi";
@@ -16,8 +17,6 @@ import {
    Calendar,
    ShieldCheck,
    Package,
-   Stethoscope,
-   HeartPulse,
    Sparkles,
    Pencil,
    X,
@@ -105,8 +104,11 @@ export function CoordinateForm({
       nurse: null,
    });
 
-   const [updateStaff, { isLoading: isSubmitting }] =
+   const [assignStaff, { isLoading: isAssigning }] = useAssignStaffMutation();
+   const [updateStaff, { isLoading: isUpdating }] =
       useUpdateStaffSubscriptionMutation();
+
+   const isSubmitting = isAssigning || isUpdating;
 
    if (subcription && staff.subscriptionId !== subcription.id) {
       setStaff({
@@ -179,22 +181,48 @@ export function CoordinateForm({
    }
 
    const isVip = subcription.carePackage?.type === "VIP";
+   const isActive = subcription.status === "ACTIVE";
 
    const handleSubmit = async () => {
+      if (!subscriptionId) return;
+
+      if (!staff.doctor) {
+         toast.warning("Vui lòng chọn bác sĩ phụ trách");
+         return;
+      }
+
+      if (!staff.nurse) {
+         toast.warning("Vui lòng chọn điều dưỡng phụ trách");
+         return;
+      }
+
+      const body = {
+         assignedDoctorId: staff.doctor.id,
+         assignedNurseId: staff.nurse.id,
+         assignedExpertId: isVip
+            ? (subcription.assignedExpert?.id ?? subcription.assignedExpertId ?? null)
+            : null,
+      };
+
       try {
-         if (!subscriptionId) return;
-         await updateStaff({
-            id: subcription.id,
-            body: {
-               assignedExpertId: subcription.assignedExpert?.id ?? null,
-               assignedDoctorId: staff.doctor?.id ?? null,
-               assignedNurseId: staff.nurse?.id ?? null,
-            },
-         }).unwrap();
-         toast.success("Cập nhật thông tin điều phối thành công");
+         if (!isActive) {
+            // Chưa active -> dùng api assign-and-activate
+            await assignStaff({
+               id: subcription.id,
+               body,
+            }).unwrap();
+            toast.success("Điều phối và kích hoạt gói thành công");
+         } else {
+            // Đã active -> dùng api care-team
+            await updateStaff({
+               id: subcription.id,
+               body,
+            }).unwrap();
+            toast.success("Cập nhật đội ngũ điều phối thành công");
+         }
          onSuccess?.();
       } catch (error) {
-         const err = error as { data: { message: string } };
+         const err = error as { data?: { message?: string } };
          toast.error(err?.data?.message || "Có lỗi xảy ra vui lòng thử lại");
       }
    };
@@ -467,7 +495,7 @@ export function CoordinateForm({
                   disabled={isSubmitting}
                   startIcon={<CheckCircle2 className="size-4" />}
                >
-                  Xác nhận điều phối
+                  {!isActive ? "Điều phối & Kích hoạt" : "Cập nhật điều phối"}
                </CustomButton>
             </div>
          </div>

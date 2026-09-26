@@ -22,7 +22,9 @@ export interface FormNumberInputProps extends Omit<
    clearable?: boolean;
    onClear?: () => void;
    ref?: React.Ref<HTMLInputElement>;
-   getInputRef?: ((el: HTMLInputElement | null) => void) | React.Ref<HTMLInputElement>;
+   getInputRef?:
+      | ((el: HTMLInputElement | null) => void)
+      | React.Ref<HTMLInputElement>;
 }
 
 export const FormNumberInput = ({
@@ -113,9 +115,8 @@ export const FormNumberInput = ({
          if (typeof ref === "function") {
             ref(node);
          } else if (ref && typeof ref === "object") {
-            (
-               ref as React.MutableRefObject<HTMLInputElement | null>
-            ).current = node;
+            (ref as React.MutableRefObject<HTMLInputElement | null>).current =
+               node;
          }
          if (typeof getInputRef === "function") {
             getInputRef(node);
@@ -129,11 +130,13 @@ export const FormNumberInput = ({
          {label && (
             <FieldLabel
                htmlFor={inputId}
-               className="text-sm font-normal text-slate-600 max-w-full line-clamp-1"
+               className="text-xs font-medium text-slate-800 flex items-center flex-wrap gap-x-1"
             >
                {label}
                {required && (
-                  <span className="ml-1 text-red-600 font-bold">*</span>
+                  <span className="text-red-600 font-medium inline-block">
+                     *
+                  </span>
                )}
             </FieldLabel>
          )}
@@ -153,7 +156,7 @@ export const FormNumberInput = ({
                }}
                onChange={onChange}
                className={cn(
-                  "h-12 px-4 bg-slate-100 rounded-sm",
+                  "h-10 px-4 rounded-sm border-slate-300",
                   canClear && "pr-10",
                   className,
                )}

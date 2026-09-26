@@ -1,6 +1,6 @@
-import { CarePackage } from "../care-package/type";
+import { CareSubscriptions } from "../coordinate/type";
 
-export type LinkStatus = "PENDING" | "ACTIVE" | "UNLINKED";
+export type LinkStatus = "NOT_LINKED" | "PENDING" | "ACTIVE" | "UNLINKED";
 export type AppLinkStatus = "UN_LINK" | "LINKED";
 
 export type HealthProfile = {
@@ -23,18 +23,21 @@ export type HealthProfile = {
    isLinked: boolean;
    appLinkStatus: AppLinkStatus;
    medicalHistory: string;
-   isSmoking?: boolean;
-   hasHypertension?: boolean;
-   hasDyslipidemia?: boolean;
-   hasDiabetes?: boolean;
-   profileChronicDisease: {
-      id: string;
-      createdAt: string;
-      updatedAt: string;
-      deletedAt: string | null;
-      healthProfileId: string;
-      diseaseIds: string[];
-   };
+   height: number;
+   weight: number;
+   isSmoking: boolean;
+   hasHypertension: boolean;
+   hasDyslipidemia: boolean;
+   hasDiabetes: boolean;
+   hasStroke: boolean;
+   hasMyocardialInfarction: boolean;
+   hasAcuteCoronarySyndrome: boolean;
+   hasCoronaryArteryDisease: boolean;
+   hasTia: boolean;
+   hasAorticAneurysm: boolean;
+   hasPeripheralArteryDisease: boolean;
+   hasAtherosclerosis: boolean;
+   hasFamilialHypercholesterolemia: boolean;
    facilityId: string;
    facilityLink?: {
       id: string;
@@ -65,13 +68,10 @@ export type HealthProfile = {
       address: string;
       isActive: boolean;
    };
-   subscription?: {
-      id: string;
-      status: string;
-      startedAt: string;
-      expiresAt: string;
-      carePackage: CarePackage;
-   };
+   careSubscriptionId?: string;
+   careSubscriptions?: CareSubscriptions[];
+   carePackageId?: string;
+   subscription?: CareSubscriptions;
 };
 
 export type CreateHealthProfile = {
@@ -85,36 +85,33 @@ export type CreateHealthProfile = {
    bloodType: "UNKNOWN" | "A" | "B" | "AB" | "O";
    allergy: string;
    medicalHistory: string;
-   isSmoking?: boolean;
-   hasHypertension?: boolean;
-   hasDyslipidemia?: boolean;
-   hasDiabetes?: boolean;
-   chronicDiseaseIds?: string[];
+   height: number;
+   weight: number;
+   isSmoking: boolean;
+   hasHypertension: boolean;
+   hasDyslipidemia: boolean;
+   hasDiabetes: boolean;
+   hasStroke: boolean;
+   hasMyocardialInfarction: boolean;
+   hasAcuteCoronarySyndrome: boolean;
+   hasCoronaryArteryDisease: boolean;
+   hasTia: boolean;
+   hasAorticAneurysm: boolean;
+   hasPeripheralArteryDisease: boolean;
+   hasAtherosclerosis: boolean;
+   hasFamilialHypercholesterolemia: boolean;
 };
 
-export type UpdateHealthProfile = {
-   id: string;
-   relationship: "SELF" | "FATHER" | "MOTHER" | "CHILD" | "SPOUSE" | "OTHER";
-   fullName: string;
-   dob: string;
-   gender: "MALE" | "FEMALE" | "OTHER";
-   citizenId: string;
-   phoneNumber: string;
-   address: string;
-   bloodType: "UNKNOWN" | "A" | "B" | "AB" | "O";
-   allergy: string;
-   medicalHistory: string;
-   isSmoking?: boolean;
-   hasHypertension?: boolean;
-   hasDyslipidemia?: boolean;
-   hasDiabetes?: boolean;
-   chronicDiseaseIds?: string[];
+export type UpdateHealthProfile = Partial<CreateHealthProfile> & {
+   id?: string;
 };
 
 export type RequestParamsHealthProfile = {
    page: number;
    limit: number;
    search?: string;
+   linkStatus?: LinkStatus;
+   staffId?: string;
 };
 
 export type ResponseListHealthProfile = {
