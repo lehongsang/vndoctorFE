@@ -103,7 +103,7 @@ export const Sidebar = ({
          >
             <div
                className={cn(
-                  "flex h-16 shrink-0 items-center px-4 border-b border-slate-100 transition-all duration-300",
+                  "flex h-16 shrink-0 items-center px-4 transition-all duration-300",
                   !isExpanded ? "justify-center px-2" : "justify-between",
                )}
             >

@@ -12,6 +12,7 @@ import {
 import { useGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { RiskAssessmentDetailModal } from "./risk-assessment-detail-modal";
 import { cn } from "@/lib/utils";
+import { RiskLevelBadge } from "@/components/common/risk-level-badge";
 
 export interface ExaminationDetailProps {
    examination: Examination;
@@ -19,21 +20,6 @@ export interface ExaminationDetailProps {
    onEdit?: () => void;
    onClose?: () => void;
 }
-
-const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-   IN_PROGRESS: {
-      label: "Đang khám",
-      className: "bg-amber-50 text-amber-800 border-amber-300",
-   },
-   COMPLETED: {
-      label: "Hoàn thành",
-      className: "bg-emerald-50 text-emerald-800 border-emerald-300",
-   },
-   CANCELLED: {
-      label: "Đã hủy",
-      className: "bg-rose-50 text-rose-800 border-rose-300",
-   },
-};
 
 const formatDate = (dateStr?: string, includeTime: boolean = false) => {
    if (!dateStr) return "—";
@@ -64,72 +50,6 @@ const getAge = (dobStr?: string) => {
       return age > 0 ? age : null;
    } catch {
       return null;
-   }
-};
-
-const getBpCategory = (systolic?: number | null, diastolic?: number | null) => {
-   if (!systolic || !diastolic) return null;
-   if (systolic < 120 && diastolic < 80)
-      return {
-         label: "Tối ưu",
-         className: "text-emerald-800 bg-emerald-50 border-emerald-300",
-      };
-   if (systolic <= 129 && diastolic <= 84)
-      return {
-         label: "Bình thường",
-         className: "text-emerald-800 bg-emerald-50 border-emerald-300",
-      };
-   if (systolic <= 139 || diastolic <= 89)
-      return {
-         label: "Tiền tăng HA",
-         className: "text-amber-800 bg-amber-50 border-amber-300",
-      };
-   if (systolic <= 159 || diastolic <= 99)
-      return {
-         label: "Tăng HA độ 1",
-         className: "text-rose-800 bg-rose-50 border-rose-300",
-      };
-   return {
-      label: "Tăng HA độ 2+",
-      className: "text-rose-900 bg-rose-100 border-rose-400",
-   };
-};
-
-const getBmiCategory = (bmi?: number | null) => {
-   if (!bmi || bmi <= 0) return null;
-   if (bmi < 18.5)
-      return {
-         label: "Gầy",
-         className: "text-amber-800 bg-amber-50 border-amber-300",
-      };
-   if (bmi < 23)
-      return {
-         label: "Bình thường",
-         className: "text-emerald-800 bg-emerald-50 border-emerald-300",
-      };
-   if (bmi < 25)
-      return {
-         label: "Thừa cân",
-         className: "text-amber-800 bg-amber-50 border-amber-300",
-      };
-   return {
-      label: "Béo phì",
-      className: "text-rose-800 bg-rose-50 border-rose-300",
-   };
-};
-
-const getRiskLevelLabel = (level?: string) => {
-   switch (level) {
-      case "VERY_HIGH":
-         return "Nguy cơ rất cao";
-      case "HIGH":
-         return "Nguy cơ cao";
-      case "MODERATE":
-         return "Nguy cơ trung bình";
-      case "LOW":
-         return "Nguy cơ thấp";
-      default:
-         return level || "Chưa xác định";
    }
 };
 
@@ -226,10 +146,6 @@ export function ExaminationDetail({
    const examination = fetchedExamination || initialExamination;
    const profile = examination.healthProfile || healthProfile;
 
-   const statusInfo = STATUS_CONFIG[examination?.status] || {
-      label: examination?.status || "Không rõ",
-      className: "bg-slate-100 text-slate-700 border-slate-300",
-   };
    const canEdit = examination?.status === "IN_PROGRESS";
 
    // Tải mục tiêu điều trị
@@ -240,7 +156,7 @@ export function ExaminationDetail({
    );
    const { data: targetByAssessment } =
       useGetTreatmentTargetByAccessmentIdQuery(
-         { id: examination.assessmentInputId },
+         { id: examination.assessmentInputId || "" },
          { skip: !examination.assessmentInputId || !!targetId },
       );
    const treatmentTarget = targetById || targetByAssessment;
@@ -252,15 +168,10 @@ export function ExaminationDetail({
 
    // Tải thông tin đánh giá phân tầng nguy cơ (nếu có)
    const { data: riskAssessment } = useGetRiskAssessmentDetailQuery(
-      examination.assessmentInputId,
+      examination.assessmentInputId || "",
       { skip: !examination.assessmentInputId },
    );
 
-   const bpBadge = getBpCategory(
-      examination.systolicBp,
-      examination.diastolicBp,
-   );
-   const bmiBadge = getBmiCategory(examination.bmi);
    const patientAge = getAge(profile?.dob);
 
    const handlePrint = () => {
@@ -530,18 +441,9 @@ export function ExaminationDetail({
                               Phân tầng nguy cơ:
                            </span>
                            {hasValue(riskAssessment?.riskLevel) ? (
-                              <span
-                                 className={cn(
-                                    "px-2.5 py-0.5 rounded text-xs font-bold border",
-                                    riskAssessment?.riskLevel === "VERY_HIGH"
-                                       ? "bg-rose-100 text-rose-800 border-rose-300"
-                                       : riskAssessment?.riskLevel === "HIGH"
-                                         ? "bg-amber-100 text-amber-800 border-amber-300"
-                                         : "bg-emerald-100 text-emerald-800 border-emerald-300",
-                                 )}
-                              >
-                                 {getRiskLevelLabel(riskAssessment?.riskLevel)}
-                              </span>
+                              <RiskLevelBadge
+                                 level={riskAssessment?.riskLevel}
+                              />
                            ) : (
                               <span className="text-slate-600 font-medium">
                                  Đã liên kết phiếu phân tầng

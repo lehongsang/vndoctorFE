@@ -46,7 +46,7 @@ export function ExaminationService({
    const router = useRouter();
    const { user } = useAuth();
 
-   const carePackage = healthProfile?.subscription?.carePackage;
+   const carePackage = healthProfile?.careSubscription?.carePackage;
    const isVip = carePackage?.type === "VIP";
    const targetType: ConversationType = isVip ? "CARE_TEAM" : "DIRECT";
 

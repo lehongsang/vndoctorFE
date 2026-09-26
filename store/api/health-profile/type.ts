@@ -69,9 +69,7 @@ export type HealthProfile = {
       isActive: boolean;
    };
    careSubscriptionId?: string;
-   careSubscriptions?: CareSubscriptions[];
-   carePackageId?: string;
-   subscription?: CareSubscriptions;
+   careSubscription?: CareSubscriptions;
 };
 
 export type CreateHealthProfile = {
@@ -112,6 +110,7 @@ export type RequestParamsHealthProfile = {
    search?: string;
    linkStatus?: LinkStatus;
    staffId?: string;
+   packageType?: "STANDARD" | "VIP";
 };
 
 export type ResponseListHealthProfile = {

@@ -11,11 +11,16 @@ export const SCOPE_OPTIONS = [
    { label: "Hồ sơ của tôi", value: "MY" },
 ];
 export const LINK_STATUS_OPTIONS = [
-   { label: "Tất cả", value: "ALL" },
+   { label: "Tất cả liên kết", value: "ALL" },
    { label: "Liên kết", value: "ACTIVE" },
    { label: "Chờ liên kết", value: "PENDING" },
    { label: "Hết hạn liên kết", value: "UNLINKED" },
    { label: "Chưa liên kết", value: "NOT_LINKED" },
+];
+export const PACKAGE_TYPE_OPTIONS = [
+   { label: "Tất cả gói", value: "ALL" },
+   { label: "Gói cơ bản", value: "STANDARD" },
+   { label: "Gói VIP", value: "VIP" },
 ];
 
 export interface HealthProfileToolBarProps {
@@ -25,6 +30,8 @@ export interface HealthProfileToolBarProps {
    onChangeScope?: (scope: string) => void;
    linkStatusSelected?: string;
    onChangeLinkStatus?: (status: string) => void;
+   packageTypeSelected?: string;
+   onChangePackageType?: (type: string) => void;
    refetch?: () => void;
    isFetching?: boolean;
    disabled?: boolean;
@@ -38,6 +45,8 @@ export function HealthProfileToolBar({
    onChangeScope = () => {},
    linkStatusSelected = "ALL",
    onChangeLinkStatus = () => {},
+   packageTypeSelected = "ALL",
+   onChangePackageType = () => {},
    refetch,
    isFetching = false,
    disabled = false,
@@ -69,6 +78,15 @@ export function HealthProfileToolBar({
             clearable={false}
             containerClassName="w-fit"
             className="w-48"
+         />
+         <FormSelect
+            options={PACKAGE_TYPE_OPTIONS}
+            value={packageTypeSelected}
+            onValueChange={onChangePackageType}
+            disabled={disabled}
+            clearable={false}
+            containerClassName="w-fit"
+            className="w-40"
          />
          <CustomButton
             className="h-10 w-10"

@@ -1,13 +1,8 @@
 import { CustomButton } from "@/components/common/custom-button";
-import { Input } from "@/components/ui/input";
-import {
-   Select,
-   SelectContent,
-   SelectItem,
-   SelectTrigger,
-   SelectValue,
-} from "@/components/ui/select";
+import { SearchInput } from "@/components/common/search-input";
+import { FormSelect } from "@/components/common/form-select";
 import { STAFF_ROLE_OPTIONS, StaffRole } from "@/types/staff";
+import { RefreshCcw } from "lucide-react";
 
 interface StaffToolBarProps {
    searchText?: string;
@@ -30,53 +25,37 @@ export default function StaffToolBar({
    disabled = false,
    onClickCreate,
 }: StaffToolBarProps) {
-   const selectedLabel =
-      role === "ALL" || !role
-         ? "Tất cả vai trò"
-         : STAFF_ROLE_OPTIONS.find((opt) => opt.value === role)?.label || role;
+   const options = [
+      { label: "Tất cả vai trò", value: "ALL" },
+      ...STAFF_ROLE_OPTIONS,
+   ];
 
    return (
       <div className="w-full flex flex-wrap items-center gap-3">
-         <Input
+         <SearchInput
             value={searchText}
             onChange={onSearchChange}
-            className="h-10 max-w-72 px-4 bg-white"
             placeholder="Tìm kiếm theo tên, mã, email..."
          />
          <div className="w-64">
-            <Select
+            <FormSelect
                value={role}
                onValueChange={(val) => onRoleChange?.(val ?? "ALL")}
-            >
-               <SelectTrigger className="min-h-10 w-full bg-white cursor-pointer">
-                  <SelectValue placeholder="Tất cả vai trò">
-                     {selectedLabel}
-                  </SelectValue>
-               </SelectTrigger>
-               <SelectContent
-                  side="bottom"
-                  alignItemWithTrigger={false}
-                  className="p-2 shadow-none"
-               >
-                  <SelectItem value="ALL">Tất cả vai trò</SelectItem>
-                  {STAFF_ROLE_OPTIONS.map((opt) => (
-                     <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                     </SelectItem>
-                  ))}
-               </SelectContent>
-            </Select>
+               placeholder="Tất cả vai trò"
+               options={options}
+               clearable={false}
+               triggerClassName="min-h-10 w-full bg-white"
+            />
          </div>
          <CustomButton onClick={onClickCreate} className="h-10 w-28">
             Thêm mới
          </CustomButton>
          <CustomButton
-            variant="outline"
-            className="h-10 w-28 bg-white"
+            className="h-10 w-10"
             onClick={refetch}
             disabled={disabled || isFetching || !refetch}
          >
-            Làm mới
+            <RefreshCcw />
          </CustomButton>
       </div>
    );

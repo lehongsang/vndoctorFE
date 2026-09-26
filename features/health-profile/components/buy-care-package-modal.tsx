@@ -15,7 +15,7 @@ import { useStaffRegisterMutation } from "@/store/api/coordinate/coordinateApi";
 import type { HealthProfile } from "@/store/api/health-profile/type";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "react-toastify";
-import { Check, Sparkles, Package } from "lucide-react";
+import { Check, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BuyCarePackageModalProps {
@@ -34,7 +34,9 @@ export function BuyCarePackageModal({
    const { user } = useAuth();
    const facilityId = user?.facilityId || user?.facility?.id;
 
-   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
+      null,
+   );
 
    const { data: carePackageData, isLoading: isPackagesLoading } =
       useGetCarePackagesQuery(
@@ -103,10 +105,10 @@ export function BuyCarePackageModal({
 
    return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-6 rounded-sm">
+         <DialogContent className="sm:min-w-4xl max-h-[90vh] flex flex-col p-6 rounded-sm">
             <DialogHeader className="pb-3 border-b border-slate-200">
                <DialogTitle className="text-base font-bold text-slate-900">
-                  Đăng ký gói điều trị
+                  Mua gói điều trị
                </DialogTitle>
                <DialogDescription className="text-xs text-slate-500">
                   Khách hàng:{" "}
@@ -122,15 +124,21 @@ export function BuyCarePackageModal({
             <div className="flex-1 overflow-y-auto py-4">
                {isPackagesLoading ? (
                   <div className="h-48 flex justify-center items-center">
-                     <CloverLoading size="md" text="Đang tải danh sách gói..." />
+                     <CloverLoading
+                        size="md"
+                        text="Đang tải danh sách gói..."
+                     />
                   </div>
                ) : packages.length === 0 ? (
                   <div className="h-48 flex flex-col justify-center items-center gap-2 text-slate-400 text-xs">
                      <Package className="size-8 text-slate-300 stroke-[1.5]" />
-                     <span>Không tìm thấy gói điều trị nào đang hoạt động tại cơ sở.</span>
+                     <span>
+                        Không tìm thấy gói điều trị nào đang hoạt động tại cơ
+                        sở.
+                     </span>
                   </div>
                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-px">
                      {packages.map((pkg) => {
                         const isSelected = selectedPackageId === pkg.id;
                         const isVip = pkg.type === "VIP";
@@ -141,40 +149,35 @@ export function BuyCarePackageModal({
                               onClick={() => setSelectedPackageId(pkg.id)}
                               className={cn(
                                  "relative flex flex-col justify-between p-4 rounded-sm border cursor-pointer transition-all duration-150 text-left",
-                                 isSelected
-                                    ? "border-emerald-600 bg-emerald-50/40 ring-1 ring-emerald-600"
-                                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50",
+                                 isVip ? "bg-amber-50 " : "",
+                                 isSelected &&
+                                    (isVip
+                                       ? "ring-1 ring-amber-600"
+                                       : "ring-1 ring-emerald-600"),
                               )}
                            >
                               {isSelected && (
                                  <div className="absolute top-2.5 right-2.5 size-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
-                                    <Check className="size-3.5 stroke-[3]" />
+                                    <Check className="size-3.5 stroke-3" />
                                  </div>
                               )}
 
                               <div className="flex flex-col gap-1.5 pr-6">
-                                 <div className="flex items-center gap-2">
-                                    <span
-                                       className={cn(
-                                          "text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wider inline-flex items-center gap-1",
-                                          isVip
-                                             ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                             : "bg-blue-100 text-blue-800 border border-blue-200",
-                                       )}
-                                    >
-                                       {isVip && (
-                                          <Sparkles className="size-2.5 text-amber-600" />
-                                       )}
-                                       {isVip ? "Gói VIP" : "Cơ bản"}
-                                    </span>
-                                    {pkg.code && (
-                                       <span className="text-[11px] font-mono text-slate-400">
-                                          {pkg.code}
-                                       </span>
+                                 <span
+                                    className={cn(
+                                       "text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1 w-fit",
+                                       isVip
+                                          ? "bg-amber-100 text-amber-800"
+                                          : "bg-blue-100 text-blue-800",
                                     )}
-                                 </div>
+                                 >
+                                    {isVip ? "Gói VIP" : "Cơ bản"}
+                                 </span>
 
-                                 <h4 className="text-sm font-bold text-slate-900 line-clamp-1" title={pkg.name}>
+                                 <h4
+                                    className="text-sm font-bold text-slate-900 line-clamp-1"
+                                    title={pkg.name}
+                                 >
                                     {pkg.name}
                                  </h4>
 
@@ -192,7 +195,7 @@ export function BuyCarePackageModal({
                                     </span>
                                     {pkg.maxSubscribers ? (
                                        <span className="text-[11px] text-slate-400">
-                                          Tối đa: {pkg.maxSubscribers} người
+                                          Còn: {pkg.maxSubscribers} suất
                                        </span>
                                     ) : null}
                                  </div>
@@ -207,12 +210,13 @@ export function BuyCarePackageModal({
                )}
             </div>
 
-            <div className="pt-3 border-t border-slate-200 flex justify-end items-center gap-2">
+            <div className="flex justify-end items-center gap-2">
                <CustomButton
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
                   onClick={handleClose}
                   disabled={isRegistering}
+                  className="w-20"
                >
                   Hủy
                </CustomButton>

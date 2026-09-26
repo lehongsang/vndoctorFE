@@ -12,16 +12,7 @@ import {
 import type { Staff } from "@/store/api/staff/type";
 import { useGetAllStaffQuery } from "@/store/api/staff/staff-api";
 import { toast } from "react-toastify";
-import {
-   User,
-   Calendar,
-   ShieldCheck,
-   Package,
-   Sparkles,
-   Pencil,
-   X,
-   CheckCircle2,
-} from "lucide-react";
+import { Sparkles, Pencil, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CoordinateFormProps {
@@ -33,25 +24,22 @@ interface CoordinateFormProps {
 const RowItem = ({
    label,
    value,
-   icon: Icon,
    className,
 }: {
    label: string;
    value?: React.ReactNode;
-   icon?: React.ElementType;
    className?: string;
 }) => (
    <div
       className={cn(
-         "flex flex-col gap-1 p-2.5 rounded-md bg-white border border-slate-100 shadow-2xs",
+         "flex flex-col gap-1 px-4 py-3 rounded-md bg-white border border-slate-100 shadow-2xs",
          className,
       )}
    >
       <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-         {Icon && <Icon className="size-3.5 text-slate-400" />}
          <span>{label}</span>
       </div>
-      <div className="text-sm font-medium text-slate-800 wrap-break-word">
+      <div className="text-md font-medium text-slate-800 wrap-break-word">
          {value || (
             <span className="text-slate-400 font-normal italic">
                Chưa cập nhật
@@ -200,7 +188,9 @@ export function CoordinateForm({
          assignedDoctorId: staff.doctor.id,
          assignedNurseId: staff.nurse.id,
          assignedExpertId: isVip
-            ? (subcription.assignedExpert?.id ?? subcription.assignedExpertId ?? null)
+            ? (subcription.assignedExpert?.id ??
+              subcription.assignedExpertId ??
+              null)
             : null,
       };
 
@@ -239,22 +229,18 @@ export function CoordinateForm({
 
             <div className="flex flex-col gap-3">
                <RowItem
-                  icon={User}
                   label="Họ và tên"
                   value={subcription.healthProfile?.fullName}
                />
                <RowItem
-                  icon={Calendar}
                   label="Ngày sinh"
                   value={subcription.healthProfile?.dob}
                />
                <RowItem
-                  icon={ShieldCheck}
                   label="Giới tính"
                   value={subcription.healthProfile?.gender}
                />
                <RowItem
-                  icon={Package}
                   label="Gói đã mua"
                   value={subcription.carePackage?.name}
                />
@@ -290,7 +276,7 @@ export function CoordinateForm({
 
                {/* Bác sĩ chuyên gia (cố định nếu là VIP) */}
                {isVip && (
-                  <div className="flex flex-col gap-1.5 p-3.5 rounded-lg bg-amber-50/50 border border-amber-200/80">
+                  <div className="flex flex-col gap-1.5 p-3.5 rounded-sm bg-amber-50/50 border border-amber-200/80">
                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
                            <Sparkles className="size-3.5 text-amber-600" />
@@ -328,7 +314,7 @@ export function CoordinateForm({
                   </div>
 
                   {staff.doctor && !isEditingDoctor ? (
-                     <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                            <div className="size-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold text-xs shrink-0">
                               BS
@@ -350,7 +336,6 @@ export function CoordinateForm({
                         </div>
                         <CustomButton
                            size="sm"
-                           variant="outline"
                            startIcon={<Pencil className="size-3.5" />}
                            onClick={() => setIsEditingDoctor(true)}
                         >
@@ -389,8 +374,7 @@ export function CoordinateForm({
                         {staff.doctor && (
                            <CustomButton
                               size="sm"
-                              variant="outline"
-                              startIcon={<X className="size-3.5" />}
+                              variant="destructive"
                               onClick={() => setIsEditingDoctor(false)}
                            >
                               Hủy
@@ -407,7 +391,7 @@ export function CoordinateForm({
                   </div>
 
                   {staff.nurse && !isEditingNurse ? (
-                     <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                            <div className="size-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-xs shrink-0">
                               ĐD
@@ -429,7 +413,6 @@ export function CoordinateForm({
                         </div>
                         <CustomButton
                            size="sm"
-                           variant="outline"
                            startIcon={<Pencil className="size-3.5" />}
                            onClick={() => setIsEditingNurse(true)}
                         >
@@ -468,8 +451,7 @@ export function CoordinateForm({
                         {staff.nurse && (
                            <CustomButton
                               size="sm"
-                              variant="outline"
-                              startIcon={<X className="size-3.5" />}
+                              variant="destructive"
                               onClick={() => setIsEditingNurse(false)}
                            >
                               Hủy
@@ -483,9 +465,10 @@ export function CoordinateForm({
             {/* Actions Footer */}
             <div className="flex justify-end items-center gap-3 pt-4 border-t border-slate-100">
                <CustomButton
-                  variant="outline"
+                  variant="destructive"
                   onClick={onClose}
                   disabled={isSubmitting}
+                  className="w-22"
                >
                   Đóng
                </CustomButton>
@@ -493,7 +476,7 @@ export function CoordinateForm({
                   onClick={handleSubmit}
                   isLoading={isSubmitting}
                   disabled={isSubmitting}
-                  startIcon={<CheckCircle2 className="size-4" />}
+                  startIcon={<ArrowUpRight />}
                >
                   {!isActive ? "Điều phối & Kích hoạt" : "Cập nhật điều phối"}
                </CustomButton>

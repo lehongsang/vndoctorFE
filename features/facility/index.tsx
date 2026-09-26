@@ -128,7 +128,7 @@ export default function Facility() {
                      onClose={() => setIsEditing(false)}
                   />
                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 p-6 rounded-sm border border-slate-200 shadow-sm">
                      {faciliy_info.map((item, index) => (
                         <RowItem
                            key={index}

@@ -92,10 +92,16 @@ export function HealthProfileTable({
    const [buyingProfile, setBuyingProfile] = useState<HealthProfile | null>(
       null,
    );
+   const [viewingRejectionReason, setViewingRejectionReason] = useState<{
+      profileName: string;
+      packageName: string;
+      reason: string;
+   } | null>(null);
 
    const { user } = useAuth();
    const [scope, setScope] = useState<string>("ALL");
    const [linkStatus, setLinkStatus] = useState<string>("ALL");
+   const [packageType, setPackageType] = useState<string>("ALL");
 
    if (prevQuerySelectedId !== querySelectedId) {
       setPrevQuerySelectedId(querySelectedId);
@@ -121,6 +127,10 @@ export function HealthProfileTable({
       limit,
       search: debouncedSearch.trim() || undefined,
       linkStatus: linkStatus !== "ALL" ? (linkStatus as LinkStatus) : undefined,
+      packageType:
+         packageType !== "ALL"
+            ? (packageType as "STANDARD" | "VIP")
+            : undefined,
       staffId: scope === "MY" && user?.id ? user.id : undefined,
    });
 
@@ -202,11 +212,17 @@ export function HealthProfileTable({
       setPage(1);
    };
 
+   const handleChangePackageType = (newType: string) => {
+      setPackageType(newType);
+      setPage(1);
+   };
+
    const handleRefresh = () => {
       setSearchText("");
       setDebouncedSearch("");
       setScope("ALL");
       setLinkStatus("ALL");
+      setPackageType("ALL");
       setPage(1);
       setIsFormOpen(false);
       setSelectedProfileId(undefined);
@@ -250,7 +266,7 @@ export function HealthProfileTable({
          id: "stt",
          header: "STT",
          headerClassName: "w-14 pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "w-14 pl-4 text-xs text-slate-600 font-medium",
+         cellClassName: "w-14 pl-4text-xs text-slate-600 font-medium",
          cell: (_profile, index) => (page - 1) * limit + index + 1,
       },
       {
@@ -301,39 +317,44 @@ export function HealthProfileTable({
          header: "Gói điều trị",
          headerClassName: "text-xs font-semibold text-slate-600",
          cell: (profile: HealthProfile) => {
-            const sub = profile.subscription;
+            const sub = profile?.careSubscription;
             const carePackage = sub?.carePackage;
 
             if (!sub || !carePackage) {
                return (
-                  <span className="text-xs text-slate-400 italic">
-                     Chưa đăng ký
-                  </span>
+                  <CustomButton
+                     size="sm"
+                     className="h-7 px-2 text-xs"
+                     onClick={() => setBuyingProfile(profile)}
+                  >
+                     Mua gói điều trị
+                  </CustomButton>
                );
             }
 
             const isStandard = carePackage.type === "STANDARD";
 
             // Xử lý các trạng thái xác nhận của bệnh nhân & gói
-            // 1. Bị từ chối (rejectionReason hoặc status CANCELLED)
             const isRejected =
                Boolean(sub.rejectionReason) ||
                (sub.status === "CANCELLED" && !sub.isPatientConfirmed);
-
-            // 2. Chờ bệnh nhân xác nhận trên App
-            // const isWaitingConfirm =
-            //    !sub.isPatientConfirmed &&
-            //    !isRejected &&
-            //    sub.status === "PENDING";
+            const isWaitingConfirm =
+               Boolean(sub) && !sub.isPatientConfirmed && !isRejected;
+            const isWaitingCoordinate =
+               Boolean(sub) &&
+               sub.isPatientConfirmed &&
+               sub.status === "PENDING";
+            const isActive = sub.status === "ACTIVE";
 
             return (
-               <div className="flex flex-col gap-1">
+               <div className="flex flex-col gap-0 items-start leading-tight">
+                  {/* Bên trên: Tên gói + loại gói */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                      <span className="text-xs font-medium text-slate-800">
                         {carePackage.name}
                      </span>
                      <span
-                        className={`text-[11px] py-0.5 px-2 rounded-sm font-medium ${
+                        className={`text-[10px] py-0.5 px-1.5 rounded-sm font-medium ${
                            isStandard
                               ? "text-blue-600 bg-blue-100"
                               : "text-amber-600 bg-amber-100"
@@ -343,21 +364,57 @@ export function HealthProfileTable({
                      </span>
                   </div>
 
-                  {isRejected && (
-                     <div className="flex flex-col gap-0.5">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200 w-fit">
-                           Bệnh nhân từ chối
+                  {/* Bên dưới: Trạng thái gói */}
+                  <div className="flex items-center gap-1 flex-wrap mt-0.5 text-xs text-slate-500">
+                     <span>Trạng thái:</span>
+                     {isActive && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-emerald-50 text-emerald-700">
+                           Đang sử dụng
                         </span>
-                        {sub.rejectionReason && (
-                           <span
-                              className="text-[11px] text-rose-600 italic max-w-44 truncate"
-                              title={`Lý do: ${sub.rejectionReason}`}
-                           >
-                              Lý do: {sub.rejectionReason}
+                     )}
+
+                     {isWaitingConfirm && (
+                        <span
+                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-amber-100 text-amber-700"
+                           title="Đã gửi đăng ký gói đến bệnh nhân, đang chờ xác nhận trên App"
+                        >
+                           Chờ xác nhận
+                        </span>
+                     )}
+
+                     {isWaitingCoordinate && (
+                        <span
+                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-blue-50 text-blue-700"
+                           title="Bệnh nhân đã xác nhận, vui lòng hoàn tất điều phối nhân viên"
+                        >
+                           Chờ điều phối
+                        </span>
+                     )}
+
+                     {isRejected && (
+                        <div className="inline-flex items-center gap-1 flex-wrap">
+                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-rose-50 text-rose-700">
+                              Bị từ chối
                            </span>
-                        )}
-                     </div>
-                  )}
+                           <button
+                              type="button"
+                              onClick={(e) => {
+                                 e.stopPropagation();
+                                 setViewingRejectionReason({
+                                    profileName: profile.fullName,
+                                    packageName: carePackage.name,
+                                    reason:
+                                       sub.rejectionReason ||
+                                       "Không có thông tin lý do cụ thể.",
+                                 });
+                              }}
+                              className="text-[11px] text-rose-600 hover:text-rose-800 underline underline-offset-2 cursor-pointer font-medium"
+                           >
+                              Xem lý do
+                           </button>
+                        </div>
+                     )}
+                  </div>
                </div>
             );
          },
@@ -377,6 +434,7 @@ export function HealthProfileTable({
                      <CustomButton
                         variant="outline"
                         className="h-7 px-2 text-xs"
+                        isLoading={isResendingThis}
                         disabled={isResendingThis}
                         onClick={() => handleResendLink(profile)}
                      >
@@ -404,11 +462,11 @@ export function HealthProfileTable({
                         Đã hủy liên kết
                      </span>
                      <CustomButton
-                        variant="outline"
                         className="h-8 px-2 text-xs"
                         onClick={() => setLinkingProfile(profile)}
+                        isLoading={isLinking}
                      >
-                        Gửi lại liên kết
+                        Gửi lại
                      </CustomButton>
                   </div>
                );
@@ -418,6 +476,8 @@ export function HealthProfileTable({
                <CustomButton
                   className="h-8 px-2.5 text-xs"
                   onClick={() => setLinkingProfile(profile)}
+                  isLoading={isLinking}
+                  disabled={isLinking}
                >
                   Liên kết
                </CustomButton>
@@ -430,20 +490,11 @@ export function HealthProfileTable({
          headerClassName: "text-right text-xs font-semibold text-slate-600",
          cellClassName: "py-2 text-right",
          cell: (profile: HealthProfile) => {
-            const sub = profile?.subscription;
-            // Với các gói đã có trạng thái ACTIVE (đã mua và kích hoạt) thì sẽ vào khám
+            const sub = profile?.careSubscription;
             const canExamine = Boolean(sub) && sub?.status === "ACTIVE";
-
-            // Kiểm tra trạng thái gói hiện tại
             const isRejected =
                Boolean(sub?.rejectionReason) ||
                (sub?.status === "CANCELLED" && !sub?.isPatientConfirmed);
-            const isWaitingConfirm =
-               Boolean(sub) && !sub?.isPatientConfirmed && !isRejected;
-            const isWaitingCoordinate =
-               Boolean(sub) &&
-               sub?.isPatientConfirmed &&
-               sub?.status === "PENDING";
 
             return (
                <div className="flex items-center justify-end gap-1.5">
@@ -459,20 +510,6 @@ export function HealthProfileTable({
                      >
                         Khám bệnh
                      </CustomButton>
-                  ) : isWaitingConfirm ? (
-                     <div
-                        className="text-xs px-2 py-1 rounded-sm inline-flex items-center bg-amber-100 text-amber-600 cursor-default"
-                        title="Đã gửi đăng ký gói đến bệnh nhân, đang chờ xác nhận trên App"
-                     >
-                        Chờ App xác nhận
-                     </div>
-                  ) : isWaitingCoordinate ? (
-                     <div
-                        className="h-8 px-2.5 text-xs inline-flex items-center rounded-sm font-medium bg-blue-50 text-blue-700 border border-blue-200 cursor-default"
-                        title="Bệnh nhân đã xác nhận, vui lòng hoàn tất điều phối nhân viên để có thể khám bệnh"
-                     >
-                        Chờ điều phối
-                     </div>
                   ) : isRejected ? (
                      <CustomButton
                         size="sm"
@@ -486,15 +523,8 @@ export function HealthProfileTable({
                      >
                         Đăng ký lại
                      </CustomButton>
-                  ) : (
-                     <CustomButton
-                        size="sm"
-                        className="h-8 px-2.5 text-xs"
-                        onClick={() => setBuyingProfile(profile)}
-                     >
-                        Mua gói điều trị
-                     </CustomButton>
-                  )}
+                  ) : null}
+
                   <CustomButton
                      size="sm"
                      className="h-8 px-2.5 text-xs"
@@ -538,6 +568,8 @@ export function HealthProfileTable({
                   onChangeScope={handleChangeScope}
                   linkStatusSelected={linkStatus}
                   onChangeLinkStatus={handleChangeLinkStatus}
+                  packageTypeSelected={packageType}
+                  onChangePackageType={handleChangePackageType}
                   refetch={handleRefresh}
                   isFetching={isFetching}
                   onClickCreate={handleOpenCreateProfile}
@@ -671,6 +703,47 @@ export function HealthProfileTable({
                      />
                   )}
                </ScrollArea>
+            </DialogContent>
+         </Dialog>
+
+         {/* Modal xem chi tiết lý do từ chối gói */}
+         <Dialog
+            open={Boolean(viewingRejectionReason)}
+            onOpenChange={(open) => !open && setViewingRejectionReason(null)}
+         >
+            <DialogContent className="sm:max-w-md p-5 rounded-sm">
+               <DialogHeader>
+                  <DialogTitle className="text-sm font-bold text-rose-700">
+                     Lý do bệnh nhân từ chối gói điều trị
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500">
+                     Bệnh nhân:{" "}
+                     <span className="font-medium text-slate-700">
+                        {viewingRejectionReason?.profileName}
+                     </span>{" "}
+                     - Gói:{" "}
+                     <span className="font-medium text-slate-700">
+                        {viewingRejectionReason?.packageName}
+                     </span>
+                  </DialogDescription>
+               </DialogHeader>
+
+               <div className="mt-2 p-3 bg-rose-50/60 border border-rose-200/80 rounded-sm">
+                  <p className="text-xs text-rose-950 whitespace-pre-wrap leading-relaxed">
+                     {viewingRejectionReason?.reason}
+                  </p>
+               </div>
+
+               <div className="mt-2 flex justify-end">
+                  <CustomButton
+                     size="sm"
+                     variant="outline"
+                     className="h-8 px-3 text-xs"
+                     onClick={() => setViewingRejectionReason(null)}
+                  >
+                     Đóng
+                  </CustomButton>
+               </div>
             </DialogContent>
          </Dialog>
       </div>

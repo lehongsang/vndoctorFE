@@ -45,10 +45,7 @@ const getStaffSchema = (
             /^[a-zA-Z0-9._-]+$/,
             "Tên đăng nhập không được chứa ký tự đặc biệt hoặc khoảng trắng",
          ),
-      password:
-         mode === "create"
-            ? z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự")
-            : z.string().optional(),
+      password: z.string().optional(),
       role: z
          .enum(STAFF_ROLES, {
             message: "Vai trò không được để trống",
@@ -227,7 +224,7 @@ export const StaffForm = ({
                fullName: data.fullName,
                email: data.email,
                username: data.username,
-               password: data.password || "",
+               password: data.password || "vndoctor123",
                role: data.role,
                specialty: data.specialty || "",
                phoneNumber: data.phoneNumber,
@@ -265,14 +262,14 @@ export const StaffForm = ({
          onSubmit={handleSubmit(onSubmit)}
          className="flex flex-col gap-4 mt-4"
       >
-         <div className="w-full border-b-2 border-b-primary pb-2">
+         <div className="w-full">
             <span className="text-xl font-bold">
                {title ||
                   (mode === "create"
                      ? "Thêm mới nhân sự"
                      : isView
-                        ? "Chi tiết nhân sự"
-                        : "Cập nhật thông tin nhân sự")}
+                       ? "Chi tiết nhân sự"
+                       : "Cập nhật thông tin nhân sự")}
             </span>
          </div>
          <div className="grid grid-cols-2 gap-4">
@@ -302,7 +299,11 @@ export const StaffForm = ({
                )}
             />
             <FormInput
-               key={mode === "create" ? "input-username-create" : "input-username-view"}
+               key={
+                  mode === "create"
+                     ? "input-username-create"
+                     : "input-username-view"
+               }
                label="Tên đăng nhập"
                required={mode === "create"}
                disabled={mode !== "create"}
@@ -319,25 +320,6 @@ export const StaffForm = ({
                }
                error={errors.username?.message}
             />
-            {mode === "create" ? (
-               <FormInput
-                  key="input-password-create"
-                  label="Mật khẩu"
-                  type="password"
-                  required
-                  placeholder="Tối thiểu 6 ký tự"
-                  {...register("password")}
-                  error={errors.password?.message}
-               />
-            ) : (
-               <FormInput
-                  key="input-password-view"
-                  label="Mật khẩu"
-                  disabled
-                  value="••••••••"
-                  className="bg-slate-100 text-slate-400 cursor-not-allowed"
-               />
-            )}
             <FormInput
                key="input-specialty"
                label="Chuyên khoa / Chức danh"
@@ -346,21 +328,7 @@ export const StaffForm = ({
                {...register("specialty")}
                error={errors.specialty?.message}
             />
-            <div>
-               <input type="hidden" {...register("facilityId")} />
-               <FormInput
-                  key="input-facility-name"
-                  label="Cơ sở y tế trực thuộc"
-                  disabled
-                  value={
-                     facility?.facilityName ||
-                     currentStaff?.facility?.facilityName ||
-                     "Cơ sở hiện tại"
-                  }
-                  error={errors.facilityId?.message}
-                  className="bg-slate-100 text-slate-600 cursor-not-allowed"
-               />
-            </div>
+            <input type="hidden" {...register("facilityId")} />
             <FormInput
                label="Email"
                required={!isView}
@@ -403,11 +371,7 @@ export const StaffForm = ({
          </div>
          <div className="flex justify-end gap-2">
             {isView ? (
-               <CustomButton
-                  type="button"
-                  onClick={onClose}
-                  className="w-24"
-               >
+               <CustomButton type="button" onClick={onClose} className="w-24">
                   Đóng
                </CustomButton>
             ) : (
@@ -416,9 +380,9 @@ export const StaffForm = ({
                      type="button"
                      variant="outline"
                      onClick={handleReset}
-                     className="w-20 bg-slate-200 text-black hover:bg-slate-300 hover:text-black"
+                     className="w-fit bg-slate-200 text-black hover:bg-slate-300 hover:text-black"
                   >
-                     Reset
+                     Xóa nội dung
                   </CustomButton>
                   <CustomButton
                      type="button"

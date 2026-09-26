@@ -178,7 +178,7 @@ export function ExaminationHistory({
    const handleSelectWithApi = async (exam: Examination) => {
       setLoadingExamId(exam.id);
       try {
-         const fullData = await getExaminationById(exam.id).unwrap();
+         const fullData = await getExaminationById(exam.id, false).unwrap();
          onSelectExamination(fullData);
       } catch (error) {
          console.error("Failed to load examination detail:", error);
@@ -191,7 +191,7 @@ export function ExaminationHistory({
    const handleEditWithApi = async (exam: Examination) => {
       setLoadingExamId(exam.id);
       try {
-         const fullData = await getExaminationById(exam.id).unwrap();
+         const fullData = await getExaminationById(exam.id, false).unwrap();
          if (onEditExamination) {
             onEditExamination(fullData);
          } else {

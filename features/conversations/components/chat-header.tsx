@@ -24,7 +24,16 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       profile?.id ||
       conversation.healthProfileId ||
       conversation.subscription?.healthProfileId;
-   const packageName = conversation.subscription?.carePackage?.name;
+   const carePackage = conversation.subscription?.carePackage;
+   const packageName = carePackage?.name;
+   const packageType = carePackage?.type;
+
+   const getPackageTypeLabel = (type?: string) => {
+      if (!type) return null;
+      if (type === "STANDARD") return "Cơ bản";
+      if (type === "VIP") return "VIP";
+      return type;
+   };
 
    const displayName =
       conversation.title ||
@@ -50,7 +59,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                </Avatar>
                <span
                   className={cn(
-                     "absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white",
+                     "absolute bottom-0 -right-px w-3 h-3 rounded-full border-2 border-white",
                      isConnected ? "bg-emerald-500" : "bg-slate-300",
                   )}
                   title={
@@ -66,10 +75,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                   </h2>
                   <span
                      className={cn(
-                        "text-[10px] px-1.5 py-0.5 rounded-full font-medium inline-flex items-center gap-1",
+                        "text-sm font-medium inline-flex items-center gap-1",
                         isConnected
-                           ? "bg-emerald-100 text-emerald-700"
-                           : "bg-rose-100 text-rose-700 animate-pulse",
+                           ? "text-emerald-700"
+                           : "text-rose-700 animate-pulse",
                      )}
                      title={
                         isConnected
@@ -77,13 +86,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                            : "Mất kết nối máy chủ chat realtime"
                      }
                   >
-                     {isConnected ? "Trực tuyến" : "Mất kết nối"}
+                     ({isConnected ? "Trực tuyến" : "Mất kết nối"})
                   </span>
-                  {packageName && (
-                     <span className="hidden sm:inline-block text-[11px] text-slate-500 truncate max-w-xs">
-                        ({packageName})
-                     </span>
-                  )}
                </div>
 
                <div className="flex items-center gap-2 text-xs text-slate-500 truncate mt-0.5">
@@ -91,27 +95,31 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                      <span className="text-primary font-medium text-[11px] animate-pulse">
                         Đang nhập tin nhắn...
                      </span>
+                  ) : carePackage ? (
+                     <div className="flex items-center gap-1.5 truncate">
+                        <span
+                           className="font-medium text-slate-700 truncate"
+                           title={packageName}
+                        >
+                           Gói: {packageName}
+                        </span>
+                        {packageType && (
+                           <span
+                              className={cn(
+                                 "px-1.5 py-1 text-[10px] font-semibold rounded-full shrink-0",
+                                 packageType === "VIP"
+                                    ? "bg-amber-100 text-amber-800 "
+                                    : "bg-blue-100 text-blue-700 ",
+                              )}
+                           >
+                              Loại gói: {getPackageTypeLabel(packageType)}
+                           </span>
+                        )}
+                     </div>
                   ) : (
-                     <>
-                        {profile?.fullName && (
-                           <span className="font-medium text-slate-700">
-                              BN: {profile.fullName}
-                           </span>
-                        )}
-                        {profile?.phoneNumber && (
-                           <span>SDT: {profile.phoneNumber}</span>
-                        )}
-                        {profile?.dob && (
-                           <span>
-                              {profile.gender === "MALE"
-                                 ? "Nam"
-                                 : profile.gender === "FEMALE"
-                                   ? "Nữ"
-                                   : ""}{" "}
-                              {new Date(profile.dob).getFullYear()}
-                           </span>
-                        )}
-                     </>
+                     <span className="text-[11px] text-slate-400 italic">
+                        Chưa đăng ký gói
+                     </span>
                   )}
                </div>
             </div>

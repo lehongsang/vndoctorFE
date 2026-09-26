@@ -59,6 +59,11 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       }, [value]);
 
       const debounceCallback = onDebounce || onSearch;
+      const debounceCallbackRef = React.useRef(debounceCallback);
+      React.useEffect(() => {
+         debounceCallbackRef.current = debounceCallback;
+      }, [debounceCallback]);
+
       const isFirstRender = React.useRef(true);
 
       // Debounce gọi callback khi người dùng tạm ngừng nhập
@@ -68,14 +73,14 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
             return;
          }
 
-         if (!debounceCallback) return;
+         if (!debounceCallbackRef.current) return;
 
          const timer = setTimeout(() => {
-            debounceCallback(innerValue);
+            debounceCallbackRef.current?.(innerValue);
          }, debounceDelay);
 
          return () => clearTimeout(timer);
-      }, [innerValue, debounceDelay, debounceCallback]);
+      }, [innerValue, debounceDelay]);
 
       const hasValue = Boolean(innerValue.length > 0);
 

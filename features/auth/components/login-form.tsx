@@ -103,7 +103,7 @@ export const LoginForm = () => {
                   placeholder="Nhập mật khẩu"
                   error={errors.password?.message}
                />
-               <div className="flex justify-end pt-2">
+               {/* <div className="flex justify-end pt-2">
                   <button
                      type="button"
                      onClick={() => {}}
@@ -111,13 +111,12 @@ export const LoginForm = () => {
                   >
                      Quên mật khẩu?
                   </button>
-               </div>
+               </div> */}
             </div>
 
             <CustomButton
                type="submit"
                fullWidth
-               className="h-10 sm:h-12 mt-2 bg-[#2563EB] hover:bg-blue-700 text-white rounded-xl font-medium text-sm sm:text-base shadow-sm shadow-blue-500/15 transition-all"
                isLoading={isLoading || isSubmitting}
                loadingText="Đang đăng nhập..."
             >

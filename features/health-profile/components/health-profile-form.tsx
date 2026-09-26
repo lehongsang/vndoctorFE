@@ -19,7 +19,7 @@ import { FormTextarea } from "@/components/common/form-textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { OcrProfileExtractedData, OcrProfileModal } from "./ocr-profile-modal";
-import { ScanQrCode, Sparkles } from "lucide-react";
+import { ScanSearch, Sparkles } from "lucide-react";
 
 const RELATIONSHIP_OPTIONS = [
    { label: "Bản thân", value: "SELF" },
@@ -50,13 +50,16 @@ const DISEASE_ITEMS = [
       name: "hasFamilialHypercholesterolemia" as const,
       label: "Tăng cholesterol máu gia đình",
    },
-   { name: "hasCoronaryArteryDisease" as const, label: "Bệnh động mạch vành" },
+   { name: "hasCoronaryArteryDisease" as const, label: "Bệnh lý mạch vành" },
    { name: "hasMyocardialInfarction" as const, label: "Nhồi máu cơ tim" },
    { name: "hasAcuteCoronarySyndrome" as const, label: "Hội chứng vành cấp" },
-   { name: "hasAtherosclerosis" as const, label: "Xơ vữa động mạch" },
+   { name: "hasAtherosclerosis" as const, label: "Xơ vữa mạch máu" },
    { name: "hasAorticAneurysm" as const, label: "Phình động mạch chủ" },
-   { name: "hasPeripheralArteryDisease" as const, label: "Bệnh ĐM ngoại biên" },
-   { name: "hasStroke" as const, label: "Đột quỵ não" },
+   {
+      name: "hasPeripheralArteryDisease" as const,
+      label: "Bệnh mạch máu ngoại vi",
+   },
+   { name: "hasStroke" as const, label: "Đột quỵ" },
    { name: "hasTia" as const, label: "Thiếu máu não thoáng qua (TIA)" },
 ];
 
@@ -308,6 +311,96 @@ export function HealthProfileForm({
          });
          if (data.hasDiabetes) newlyFilled.hasDiabetes = true;
       }
+      if (typeof data.height === "number" && data.height > 0) {
+         setValue("height", data.height, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         newlyFilled.height = true;
+      }
+      if (typeof data.weight === "number" && data.weight > 0) {
+         setValue("weight", data.weight, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         newlyFilled.weight = true;
+      }
+      if (typeof data.hasCoronaryArteryDisease === "boolean") {
+         setValue("hasCoronaryArteryDisease", data.hasCoronaryArteryDisease, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasCoronaryArteryDisease)
+            newlyFilled.hasCoronaryArteryDisease = true;
+      }
+      if (typeof data.hasMyocardialInfarction === "boolean") {
+         setValue("hasMyocardialInfarction", data.hasMyocardialInfarction, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasMyocardialInfarction)
+            newlyFilled.hasMyocardialInfarction = true;
+      }
+      if (typeof data.hasAcuteCoronarySyndrome === "boolean") {
+         setValue("hasAcuteCoronarySyndrome", data.hasAcuteCoronarySyndrome, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasAcuteCoronarySyndrome)
+            newlyFilled.hasAcuteCoronarySyndrome = true;
+      }
+      if (typeof data.hasStroke === "boolean") {
+         setValue("hasStroke", data.hasStroke, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasStroke) newlyFilled.hasStroke = true;
+      }
+      if (typeof data.hasTia === "boolean") {
+         setValue("hasTia", data.hasTia, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasTia) newlyFilled.hasTia = true;
+      }
+      if (typeof data.hasAtherosclerosis === "boolean") {
+         setValue("hasAtherosclerosis", data.hasAtherosclerosis, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasAtherosclerosis) newlyFilled.hasAtherosclerosis = true;
+      }
+      if (typeof data.hasAorticAneurysm === "boolean") {
+         setValue("hasAorticAneurysm", data.hasAorticAneurysm, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasAorticAneurysm) newlyFilled.hasAorticAneurysm = true;
+      }
+      if (typeof data.hasPeripheralArteryDisease === "boolean") {
+         setValue(
+            "hasPeripheralArteryDisease",
+            data.hasPeripheralArteryDisease,
+            {
+               shouldValidate: true,
+               shouldDirty: true,
+            },
+         );
+         if (data.hasPeripheralArteryDisease)
+            newlyFilled.hasPeripheralArteryDisease = true;
+      }
+      if (typeof data.hasFamilialHypercholesterolemia === "boolean") {
+         setValue(
+            "hasFamilialHypercholesterolemia",
+            data.hasFamilialHypercholesterolemia,
+            {
+               shouldValidate: true,
+               shouldDirty: true,
+            },
+         );
+         if (data.hasFamilialHypercholesterolemia)
+            newlyFilled.hasFamilialHypercholesterolemia = true;
+      }
 
       setOcrFilledFields((prev) => ({ ...prev, ...newlyFilled }));
    };
@@ -445,9 +538,9 @@ export function HealthProfileForm({
                   type="button"
                   size="sm"
                   onClick={() => setIsOcrModalOpen(true)}
-                  startIcon={<ScanQrCode className="w-8 h-8" />}
+                  startIcon={<ScanSearch />}
                >
-                  Quét CCCD
+                  OCR Phân tích file
                </CustomButton>
             )}
          </div>

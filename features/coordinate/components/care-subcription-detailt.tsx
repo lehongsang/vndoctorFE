@@ -3,7 +3,7 @@
 import { useGetDetailCareSubcriptionQuery } from "@/store/api/coordinate/coordinateApi";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { CustomButton } from "@/components/common/custom-button";
-import { Edit, Stethoscope, UserCheck, ShieldCheck } from "lucide-react";
+import { Edit } from "lucide-react";
 import type { Staff } from "@/store/api/staff/type";
 
 interface CareSubscriptionDetailProps {
@@ -29,31 +29,27 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<
    string,
-   { label: string; bg: string; text: string; border: string }
+   { label: string; bg: string; text: string }
 > = {
    PENDING: {
       label: "Chờ điều phối",
-      bg: "bg-amber-50",
+      bg: "bg-amber-100",
       text: "text-amber-700",
-      border: "border-amber-200",
    },
    ACTIVE: {
       label: "Đang hoạt động",
-      bg: "bg-emerald-50",
+      bg: "bg-emerald-100",
       text: "text-emerald-700",
-      border: "border-emerald-200",
    },
    EXPIRED: {
       label: "Đã hết hạn",
       bg: "bg-slate-100",
       text: "text-slate-600",
-      border: "border-slate-200",
    },
    CANCELLED: {
       label: "Đã hủy",
-      bg: "bg-rose-50",
+      bg: "bg-rose-100",
       text: "text-rose-700",
-      border: "border-rose-200",
    },
 };
 
@@ -74,23 +70,10 @@ const RowItem = ({
    </div>
 );
 
-const StaffCard = ({
-   title,
-   icon,
-   staff,
-}: {
-   title: string;
-   icon: React.ReactNode;
-   staff?: Staff;
-}) => (
-   <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-200 flex flex-col gap-2.5">
+const StaffCard = ({ title, staff }: { title: string; staff?: Staff }) => (
+   <div className="bg-slate-50 p-4 rounded-sm shadow-sm border border-slate-200 flex flex-col gap-2.5">
       <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
-         <div className="flex items-center gap-2 text-slate-700">
-            {icon}
-            <span className="font-semibold text-xs uppercase tracking-wide">
-               {title}
-            </span>
-         </div>
+         <span className="font-semibold text-xs">{title}</span>
          <span
             className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${
                staff
@@ -112,9 +95,7 @@ const StaffCard = ({
             </div>
             <div className="flex items-center justify-between">
                <span className="text-slate-500">Mã nhân viên:</span>
-               <span className="font-mono text-slate-700">
-                  {staff.staffCode || "—"}
-               </span>
+               <span className="text-slate-700">{staff.staffCode || "—"}</span>
             </div>
             {staff.specialty && (
                <div className="flex items-center justify-between">
@@ -226,10 +207,10 @@ export function CareSubscriptionDetail({
 
          {/* Thông tin gói chăm sóc */}
          <div>
-            <h3 className="text-sm font-semibold text-slate-800 mb-3 border-l-3 border-emerald-500 pl-2">
+            <h3 className="text-md font-semibold text-slate-800 mb-3">
                Thông tin gói chăm sóc
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-lg border border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-sm border border-slate-200 shadow-sm">
                <RowItem label="Tên gói" value={carePackage?.name} />
                <RowItem label="Mã gói" value={carePackage?.code} />
                <RowItem
@@ -239,8 +220,8 @@ export function CareSubscriptionDetail({
                         <span
                            className={`text-xs py-0.5 px-2 rounded-sm font-medium ${
                               carePackage.type === "VIP"
-                                 ? "text-purple-700 bg-purple-100"
-                                 : "text-blue-700 bg-blue-100"
+                                 ? "text-amber-700 bg-amber-100"
+                                 : "text-sky-700 bg-sky-100"
                            }`}
                         >
                            {carePackage.type === "VIP"
@@ -268,7 +249,7 @@ export function CareSubscriptionDetail({
                   label="Trạng thái đăng ký"
                   value={
                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
+                        className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}
                      >
                         {statusStyle.label}
                      </span>
@@ -292,11 +273,11 @@ export function CareSubscriptionDetail({
 
          {/* Thông tin khách hàng & hồ sơ sức khỏe */}
          <div>
-            <h3 className="text-sm font-semibold text-slate-800 mb-3 border-l-3 border-emerald-500 pl-2">
-               Thông tin khách hàng & Hồ sơ sức khỏe
+            <h3 className="text-md font-semibold text-slate-800 mb-3">
+               Thông tin khách hàng
             </h3>
             {profile ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-lg border border-slate-100">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-sm border border-slate-200 shadow-sm">
                   <RowItem label="Họ và tên" value={profile.fullName} />
                   <RowItem
                      label="Giới tính"
@@ -340,36 +321,34 @@ export function CareSubscriptionDetail({
 
          {/* Đội ngũ nhân viên điều phối */}
          <div>
-            <h3 className="text-sm font-semibold text-slate-800 mb-3 border-l-3 border-emerald-500 pl-2">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">
                Đội ngũ nhân viên y tế điều phối
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                <StaffCard
+                  title="Bác sĩ chuyên gia"
+                  staff={subscription.assignedExpert}
+               />
+               <StaffCard
                   title="Bác sĩ phụ trách"
-                  icon={<Stethoscope className="w-4 h-4 text-emerald-600" />}
                   staff={subscription.assignedDoctor}
                />
                <StaffCard
                   title="Điều dưỡng phụ trách"
-                  icon={<UserCheck className="w-4 h-4 text-blue-600" />}
                   staff={subscription.assignedNurse}
-               />
-               <StaffCard
-                  title="Bác sĩ chuyên gia"
-                  icon={<ShieldCheck className="w-4 h-4 text-purple-600" />}
-                  staff={subscription.assignedExpert}
                />
             </div>
          </div>
 
          {/* Actions Footer */}
-         <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+         <div className="flex justify-end gap-2">
             <CustomButton
                size="sm"
-               className="w-20 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
+               variant="destructive"
+               className="w-20"
                onClick={onClose}
             >
-               Hủy
+               Đóng
             </CustomButton>
             {onEdit && (
                <CustomButton

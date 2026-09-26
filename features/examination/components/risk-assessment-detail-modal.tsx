@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import {
+   RiskLevelBadge,
+   getRiskContainerClass,
+} from "@/components/common/risk-level-badge";
 
 const getPositiveFactors = (input?: AssessmentInput) => {
    if (!input) return [];
@@ -34,19 +38,19 @@ const getPositiveFactors = (input?: AssessmentInput) => {
       });
    }
    if (input.hasLeftVentricularHypertrophy) {
-      factors.push({ label: "Phì đại thất trái (ECG/Siêu âm)" });
+      factors.push({ label: "Phì đại thất trái (ECG/Siêu âm tim)" });
    }
    if (input.hasAlbuminuria) {
       factors.push({ label: "Có Albumin niệu / Microalbumin niệu" });
    }
    if (input.hasRetinopathy) {
-      factors.push({ label: "Tổn thương võng mạc do THA" });
+      factors.push({ label: "Tổn thương võng mạc do THA / mạch cảnh" });
    }
    if (input.hasSilentBrainInfarct) {
       factors.push({ label: "Nhồi máu não thầm lặng" });
    }
    if (input.stroke) {
-      factors.push({ label: "Đột quỵ não / Tai biến mạch máu não" });
+      factors.push({ label: "Đột quỵ" });
    }
    if (input.hasMyocardialInfarction) {
       factors.push({ label: "Nhồi máu cơ tim" });
@@ -55,7 +59,7 @@ const getPositiveFactors = (input?: AssessmentInput) => {
       factors.push({ label: "Hội chứng vành cấp" });
    }
    if (input.hasCoronaryArteryDisease) {
-      factors.push({ label: "Bệnh lý động mạch vành mạn" });
+      factors.push({ label: "Bệnh lý mạch vành" });
    }
    if (input.hasTia) {
       factors.push({ label: "Cơn thiếu máu não thoáng qua (TIA)" });
@@ -64,10 +68,10 @@ const getPositiveFactors = (input?: AssessmentInput) => {
       factors.push({ label: "Phình động mạch chủ" });
    }
    if (input.hasPeripheralArteryDisease) {
-      factors.push({ label: "Bệnh động mạch ngoại vi" });
+      factors.push({ label: "Bệnh mạch máu ngoại vi" });
    }
    if (input.hasAtherosclerosis) {
-      factors.push({ label: "Vữa xơ mạch máu lớn" });
+      factors.push({ label: "Vữa xơ mạch máu" });
    }
    if (input.hasFamilialHypercholesterolemia) {
       factors.push({ label: "Tăng Cholesterol máu gia đình" });
@@ -81,29 +85,6 @@ const formatMetric = (val?: number | string | null, unit: string = "") => {
    const num = Number(val);
    if (isNaN(num)) return `${val} ${unit}`.trim();
    return `${num} ${unit}`.trim();
-};
-
-const getRiskBadge = (level?: string) => {
-   switch (level) {
-      case "VERY_HIGH":
-         return (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 border border-rose-200 text-rose-700">
-               Rất cao
-            </span>
-         );
-      case "HIGH":
-         return (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 border border-amber-200 text-amber-700">
-               Cao
-            </span>
-         );
-      default:
-         return (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700">
-               Thấp
-            </span>
-         );
-   }
 };
 
 export interface RiskAssessmentDetailModalProps {
@@ -137,7 +118,7 @@ export function RiskAssessmentDetailModal({
    if (isLoading && !assessment) {
       return (
          <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:min-w-md rounded-lg p-8 flex flex-col items-center justify-center gap-3">
+            <DialogContent className="sm:min-w-3xl rounded-lg p-8 flex flex-col items-center justify-center gap-3">
                <CloverLoading size="md" />
                <span className="text-xs text-slate-500 font-medium">
                   Đang tải thông tin phân tầng nguy cơ...
@@ -185,7 +166,7 @@ export function RiskAssessmentDetailModal({
             if (!open) onClose();
          }}
       >
-         <DialogContent className="sm:min-w-2xl rounded-sm p-0 gap-0 overflow-hidden">
+         <DialogContent className="sm:min-w-3xl rounded-sm p-px gap-0 overflow-hidden">
             <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-slate-200">
                <DialogTitle className="text-base font-bold text-slate-900">
                   Chi tiết phân tầng nguy cơ tim mạch
@@ -201,11 +182,7 @@ export function RiskAssessmentDetailModal({
                   <div
                      className={cn(
                         "p-3.5 rounded-sm border flex flex-col gap-2",
-                        assessment.riskLevel === "VERY_HIGH"
-                           ? "bg-rose-50/80 border-rose-300 text-rose-950"
-                           : assessment.riskLevel === "HIGH"
-                             ? "bg-amber-50/80 border-amber-300 text-amber-950"
-                             : "bg-emerald-50/80 border-emerald-300 text-emerald-950",
+                        getRiskContainerClass(assessment.riskLevel),
                      )}
                   >
                      <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -213,7 +190,7 @@ export function RiskAssessmentDetailModal({
                            <span className="font-bold text-xs">
                               Phân tầng nguy cơ:
                            </span>
-                           {getRiskBadge(assessment.riskLevel)}
+                           <RiskLevelBadge level={assessment.riskLevel} />
                            <span className="text-[11px] text-slate-600">
                               (
                               {input?.hasUnderlyingDisease
@@ -243,9 +220,7 @@ export function RiskAssessmentDetailModal({
                   </div>
 
                   {/* 2. Thẩm định & Kết luận chuyên môn của bác sĩ */}
-                  {(assessment.doctor ||
-                     assessment.conclusion ||
-                     assessment.recommendations) && (
+                  {(assessment.doctor || assessment.doctorNote) && (
                      <div className="p-3 bg-slate-50 rounded-sm border border-slate-200 flex flex-col gap-2">
                         <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-1.5">
                            <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
@@ -261,21 +236,12 @@ export function RiskAssessmentDetailModal({
                            )}
                         </div>
 
-                        {assessment.conclusion && (
+                        {assessment.doctorNote && (
                            <div className="text-xs text-slate-700">
                               <span className="font-semibold text-slate-900">
-                                 Kết luận:{" "}
+                                 Ghi chú:{" "}
                               </span>
-                              {assessment.conclusion}
-                           </div>
-                        )}
-
-                        {assessment.recommendations && (
-                           <div className="text-xs text-slate-700">
-                              <span className="font-semibold text-slate-900">
-                                 Khuyến nghị điều trị:{" "}
-                              </span>
-                              {assessment.recommendations}
+                              {assessment.doctorNote}
                            </div>
                         )}
                      </div>
@@ -362,7 +328,7 @@ export function RiskAssessmentDetailModal({
 
                      return (
                         <div className="flex flex-col gap-2">
-                           <div className="font-bold text-slate-800 uppercase tracking-wide text-[11px] pb-1 border-b border-slate-200">
+                           <div className="font-bold text-slate-800 text-sm">
                               Chỉ số lâm sàng & Xét nghiệm chính
                            </div>
                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -387,7 +353,7 @@ export function RiskAssessmentDetailModal({
                   {/* 4. Yếu tố nguy cơ & Bệnh lý nền ghi nhận (Chỉ hiển thị khi có yếu tố) */}
                   {positiveFactors.length > 0 && (
                      <div className="flex flex-col gap-2">
-                        <div className="font-bold text-slate-800 uppercase tracking-wide text-[11px] pb-1 border-b border-slate-200">
+                        <div className="font-bold text-slate-800 text-sm">
                            Yếu tố nguy cơ & Bệnh nền ghi nhận
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

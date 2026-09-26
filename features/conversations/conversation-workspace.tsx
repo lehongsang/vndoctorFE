@@ -102,7 +102,6 @@ export const ConversationWorkspace: React.FC = () => {
    const {
       data: conversationData,
       isLoading: isLoadingConversations,
-      isFetching: isFetchingConversations,
       refetch: refetchConversations,
    } = useGetConversationsQuery(conversationParams);
 
@@ -125,12 +124,39 @@ export const ConversationWorkspace: React.FC = () => {
       );
    }, [conversations, paramProfileId, paramType]);
 
-   // Lấy ID hội thoại đang chọn (hoặc theo param URL, hoặc theo profileId, hoặc mặc định là hội thoại đầu tiên)
-   const activeId =
-      selectedId ||
-      matchedByProfile?.id ||
-      paramConversationId ||
-      (conversations.length > 0 ? conversations[0].id : null);
+   // Handlers khi đổi filter type hoặc search để reset selectedId
+   const handleTypeChange = useCallback((type: "ALL" | ConversationType) => {
+      setSelectedType(type);
+      setSelectedId(null);
+   }, []);
+
+   const handleSearchChange = useCallback((query: string) => {
+      setSearchQuery((prev) => {
+         if (prev !== query) {
+            setSelectedId(null);
+            return query;
+         }
+         return prev;
+      });
+   }, []);
+
+   // Lấy ID hội thoại đang chọn:
+   // 1. Ưu tiên selectedId khi người dùng đã chọn
+   // 2. Hoặc paramConversationId nếu có trên URL
+   // 3. Hoặc matchedByProfile nếu có param profileId
+   // 4. Hoặc mặc định hội thoại đầu tiên của danh sách
+   const activeId = useMemo(() => {
+      if (selectedId) {
+         return selectedId;
+      }
+      if (paramConversationId) {
+         return paramConversationId;
+      }
+      if (matchedByProfile) {
+         return matchedByProfile.id;
+      }
+      return conversations.length > 0 ? conversations[0].id : null;
+   }, [selectedId, paramConversationId, matchedByProfile, conversations]);
 
    const selectedConversation = useMemo(
       () => conversations.find((c) => c.id === activeId) || null,
@@ -181,12 +207,23 @@ export const ConversationWorkspace: React.FC = () => {
    const displayConversations = useMemo(() => {
       if (
          activeConversation &&
+         (selectedType === "ALL" || activeConversation.type === selectedType) &&
          !conversations.some((c) => c.id === activeConversation.id)
       ) {
+         if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            const match =
+               activeConversation.title?.toLowerCase().includes(q) ||
+               activeConversation.healthProfile?.fullName
+                  ?.toLowerCase()
+                  .includes(q) ||
+               activeConversation.healthProfile?.phoneNumber?.includes(q);
+            if (!match) return conversations;
+         }
          return [activeConversation, ...conversations];
       }
       return conversations;
-   }, [conversations, activeConversation]);
+   }, [conversations, activeConversation, selectedType, searchQuery]);
 
    // 2. Lấy danh sách tin nhắn của hội thoại đang chọn
    const { data: messagesData, isLoading: isLoadingMessages } =
@@ -264,8 +301,7 @@ export const ConversationWorkspace: React.FC = () => {
                // Thay thế tin tạm (temp-) cùng nội dung nếu có
                const tempIndex = prev.findIndex(
                   (m) =>
-                     m.id.startsWith("temp-") &&
-                     m.content === message.content,
+                     m.id.startsWith("temp-") && m.content === message.content,
                );
 
                if (tempIndex !== -1) {
@@ -458,7 +494,8 @@ export const ConversationWorkspace: React.FC = () => {
                   staffCode: effectiveUser?.staffCode,
                   username: effectiveUser?.username,
                },
-               replyToMessageId: sent.replyToMessageId || payload.replyToMessageId,
+               replyToMessageId:
+                  sent.replyToMessageId || payload.replyToMessageId,
                replyToMessage: sent.replyToMessage || replyingMessage,
                isDeleted: false,
             };
@@ -536,12 +573,14 @@ export const ConversationWorkspace: React.FC = () => {
          <div className="lg:col-span-4 xl:col-span-3 h-full overflow-hidden">
             <ConversationList
                conversations={displayConversations}
-               isLoading={isLoadingConversations && displayConversations.length === 0}
+               isLoading={
+                  isLoadingConversations && displayConversations.length === 0
+               }
                selectedConversationId={activeId}
                searchQuery={searchQuery}
-               onSearchChange={setSearchQuery}
+               onSearchChange={handleSearchChange}
                selectedType={selectedType}
-               onTypeChange={setSelectedType}
+               onTypeChange={handleTypeChange}
                onSelectConversation={handleSelectConversation}
                onRefresh={refetchConversations}
             />

@@ -104,26 +104,6 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
                   </Badge>
                ) : null}
             </div>
-
-            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-               <Badge
-                  variant="default"
-                  className={cn(
-                     "text-[10px] px-1.5 py-0 font-medium rounded",
-                     isCareTeam
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-blue-100 text-blue-800",
-                  )}
-               >
-                  {isCareTeam ? "Gói chăm sóc" : "1-1 Bác sĩ"}
-               </Badge>
-
-               {conversation.healthProfile?.fullName && (
-                  <span className="text-[11px] text-slate-500 truncate max-w-35">
-                     BN: {conversation.healthProfile.fullName}
-                  </span>
-               )}
-            </div>
          </div>
       </button>
    );

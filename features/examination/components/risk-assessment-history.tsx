@@ -12,6 +12,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import RiskAssessmentEvaluationModal from "./risk-assessment-evaluation-modal";
 import RiskAssessmentDetailModal from "./risk-assessment-detail-modal";
+import { RotateCcw } from "lucide-react";
+import {
+   RiskLevelBadge,
+   getRiskLevelConfig,
+} from "@/components/common/risk-level-badge";
 
 export interface RiskAssessmentHistoryProps {
    healthProfileId?: string;
@@ -32,7 +37,7 @@ const RiskAssessmentCardItem = ({
    onEvaluate: (record: RiskAssessmentResult) => void;
    onViewDetails: (record: RiskAssessmentResult) => void;
 }) => {
-   const dateStr = record.evaluatedAt || record.createdAt;
+   const dateStr = record.createdAt;
    const formattedDate = dateStr
       ? format(new Date(dateStr), "dd/MM/yyyy HH:mm")
       : "—";
@@ -43,31 +48,7 @@ const RiskAssessmentCardItem = ({
          ? `${record.assessmentInput.systolicBp}/${record.assessmentInput.diastolicBp} mmHg`
          : null;
 
-   const riskColorConfig = {
-      VERY_HIGH: {
-         badge: "bg-rose-50 text-rose-700 border-rose-200",
-         label: "Nguy cơ rất cao",
-         border: "hover:border-rose-300",
-      },
-      HIGH: {
-         badge: "bg-amber-50 text-amber-700 border-amber-200",
-         label: "Nguy cơ cao",
-         border: "hover:border-amber-300",
-      },
-      LOW: {
-         badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-         label: "Nguy cơ thấp",
-         border: "hover:border-emerald-300",
-      },
-   };
-
-   const riskInfo = riskColorConfig[
-      record.riskLevel as keyof typeof riskColorConfig
-   ] || {
-      badge: "bg-slate-50 text-slate-700 border-slate-200",
-      label: record.riskLevel || "Chưa rõ",
-      border: "hover:border-slate-300",
-   };
+   const riskInfo = getRiskLevelConfig(record.riskLevel);
 
    return (
       <div
@@ -79,7 +60,7 @@ const RiskAssessmentCardItem = ({
             "flex flex-col gap-2.5 p-3 rounded-lg border bg-white transition-all cursor-pointer shadow-2xs",
             isSelected
                ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-               : cn("border-slate-200", riskInfo.border),
+               : cn("border-slate-200", riskInfo.borderHover),
          )}
       >
          {/* Row 1: Header - Ngày đánh giá & Phân loại */}
@@ -95,18 +76,11 @@ const RiskAssessmentCardItem = ({
          {/* Row 2: Mức nguy cơ & Điểm 10 năm */}
          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-               <span
-                  className={cn(
-                     "px-2 py-0.5 rounded-full text-xs font-bold border",
-                     riskInfo.badge,
-                  )}
-               >
-                  {riskInfo.label}
-               </span>
+               <RiskLevelBadge level={record.riskLevel} />
             </div>
             <div className="flex items-baseline gap-1">
                <span className="text-[11px] text-slate-500">
-                  Biến cố 10 năm:
+                  Nguy cơ biến cố trong 10 năm:
                </span>
                <span className="text-xs font-extrabold text-slate-900">
                   {record.riskScore}%
@@ -132,7 +106,7 @@ const RiskAssessmentCardItem = ({
          )}
 
          {/* Row 4: Người thực hiện & Thao tác */}
-         <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+         <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-2 min-w-0">
                <Avatar className="w-6 h-6 bg-slate-100 border border-slate-200 shrink-0">
                   <AvatarFallback className="text-[10px] font-semibold text-slate-600">
@@ -161,6 +135,7 @@ const RiskAssessmentCardItem = ({
                   variant="outline"
                   size="sm"
                   className="h-7 text-xs px-2 font-medium border-emerald-300 text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                  endIcon={record.doctor ? <RotateCcw /> : null}
                   onClick={(e) => {
                      e.stopPropagation();
                      onEvaluate(record);

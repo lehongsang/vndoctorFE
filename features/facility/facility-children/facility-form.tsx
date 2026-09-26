@@ -14,6 +14,7 @@ import {
    useGetDetailFacilityQuery,
 } from "@/store/api/facility/facility-api";
 import { toast } from "react-toastify";
+import { FormTextarea } from "@/components/common/form-textarea";
 
 const FACILITY_TYPES = [
    "CENTRAL_HOSPITAL",
@@ -57,6 +58,8 @@ export interface FacilityFormProps {
    mode?: "create" | "update" | "view";
    onClose?: () => void;
    onCreatedSuccess?: (newFacility: Factility) => void;
+   onCreateAdmin?: (facility: Factility) => void;
+   hideTitle?: boolean;
 }
 
 export const FacilityForm = ({
@@ -69,13 +72,12 @@ export const FacilityForm = ({
    mode = "create",
    onClose,
    onCreatedSuccess,
+   onCreateAdmin,
+   hideTitle = false,
 }: FacilityFormProps) => {
    const targetFacilityId = facilityId || id || facility?.id;
    const targetParentId =
-      parentId ||
-      parentFacilityId ||
-      parentFacility?.id ||
-      facility?.parentId;
+      parentId || parentFacilityId || parentFacility?.id || facility?.parentId;
 
    const isView = mode === "view";
 
@@ -182,8 +184,8 @@ export const FacilityForm = ({
       (mode === "create" &&
          Boolean(
             targetParentId &&
-               !currentParentFacility?.facilityName &&
-               (isLoadingParent || isFetchingParent),
+            !currentParentFacility?.facilityName &&
+            (isLoadingParent || isFetchingParent),
          ));
 
    if (isDetailLoading) {
@@ -244,20 +246,19 @@ export const FacilityForm = ({
    };
 
    return (
-      <form
-         onSubmit={handleSubmit(onSubmit)}
-         className="flex flex-col gap-4 mt-4"
-      >
-         <div className="w-full border-b-2 border-b-primary pb-2">
-            <span className="text-xl font-bold">
-               {mode === "create"
-                  ? "Thêm mới cơ sở con"
-                  : isView
-                     ? "Chi tiết cơ sở y tế"
-                     : "Cập nhật thông tin cơ sở"}
-            </span>
-         </div>
-         <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+         {!hideTitle && (
+            <div className="w-full">
+               <span className="text-xl font-bold">
+                  {mode === "create"
+                     ? "Thêm mới cơ sở con"
+                     : isView
+                       ? "Chi tiết cơ sở y tế"
+                       : "Cập nhật thông tin cơ sở"}
+               </span>
+            </div>
+         )}
+         <div className="flex flex-col gap-4">
             <FormInput
                key="input-facility-name"
                label="Tên cơ sở"
@@ -267,17 +268,7 @@ export const FacilityForm = ({
                {...register("facilityName")}
                error={errors.facilityName?.message}
             />
-            <FormInput
-               key="input-facility-code"
-               label="Mã cơ sở"
-               disabled
-               value={
-                  mode !== "create"
-                     ? currentFacility?.facilityCode || ""
-                     : "Hệ thống tự động tạo mã"
-               }
-               className="bg-slate-100 text-slate-500 cursor-not-allowed italic"
-            />
+            <input type="hidden" {...register("parentId")} />
             <Controller
                control={control}
                name="facilityType"
@@ -294,21 +285,6 @@ export const FacilityForm = ({
                   />
                )}
             />
-            <div>
-               <input type="hidden" {...register("parentId")} />
-               <FormInput
-                  key="input-parent-facility"
-                  label="Cơ sở cha"
-                  disabled
-                  value={
-                     currentParentFacility?.facilityName ||
-                     currentFacility?.parentId ||
-                     "Trực thuộc Bộ / Sở Y tế"
-                  }
-                  error={errors.parentId?.message}
-                  className="bg-slate-100 text-slate-600 cursor-not-allowed"
-               />
-            </div>
             <FormInput
                key="input-phone-number"
                label="Số điện thoại"
@@ -318,7 +294,7 @@ export const FacilityForm = ({
                {...register("phoneNumber")}
                error={errors.phoneNumber?.message}
             />
-            <FormInput
+            <FormTextarea
                key="input-address"
                label="Địa chỉ"
                required={!isView}
@@ -350,41 +326,52 @@ export const FacilityForm = ({
                </div>
             )}
          </div>
-         <div className="flex justify-end gap-2">
-            {isView ? (
-               <CustomButton
-                  type="button"
-                  onClick={onClose}
-                  className="min-w-20"
-               >
-                  Đóng
-               </CustomButton>
-            ) : (
-               <>
+         <div className="flex flex-wrap justify-between items-center gap-2 pt-2">
+            <div>
+               {currentFacility && onCreateAdmin && (
                   <CustomButton
                      type="button"
-                     variant="outline"
-                     onClick={handleReset}
-                     className="min-w-20 bg-slate-200 text-black hover:bg-slate-300 hover:text-black"
+                     onClick={() => onCreateAdmin(currentFacility)}
                   >
-                     Reset
+                     Tạo tài khoản quản trị
                   </CustomButton>
+               )}
+            </div>
+            <div className="flex justify-end gap-2">
+               {isView ? (
                   <CustomButton
                      type="button"
                      onClick={onClose}
-                     className="min-w-20 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
-                  >
-                     Hủy
-                  </CustomButton>
-                  <CustomButton
-                     type="submit"
-                     isLoading={isCreatingFacility || isUpdatingFacility}
                      className="min-w-20"
                   >
-                     Lưu
+                     Đóng
                   </CustomButton>
-               </>
-            )}
+               ) : (
+                  <>
+                     <CustomButton
+                        type="button"
+                        onClick={handleReset}
+                        className="w-fit bg-slate-200 text-black hover:bg-slate-300 hover:text-black"
+                     >
+                        Xóa nội dung
+                     </CustomButton>
+                     <CustomButton
+                        type="button"
+                        onClick={onClose}
+                        className="min-w-20 bg-rose-600 hover:bg-rose-700 text-white hover:text-white"
+                     >
+                        Hủy
+                     </CustomButton>
+                     <CustomButton
+                        type="submit"
+                        isLoading={isCreatingFacility || isUpdatingFacility}
+                        className="min-w-20"
+                     >
+                        Lưu
+                     </CustomButton>
+                  </>
+               )}
+            </div>
          </div>
       </form>
    );

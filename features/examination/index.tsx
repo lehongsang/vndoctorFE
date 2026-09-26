@@ -1,5 +1,5 @@
 import { useGetDetailHealthProfileQuery } from "@/store/api/health-profile/health-profile-api";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { ExaminationInfo } from "./components/examination-info";
 import CloverLoading from "@/components/common/clover-loading";
 import { useState, useMemo } from "react";
@@ -14,6 +14,7 @@ import { HealthProfile } from "@/store/api/health-profile/type";
 import { ExaminationService } from "./components/service";
 import { RiskAssessmentHistory } from "./components/risk-assessment-history";
 import { useGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
+import { useLazyGetExaminationByIdQuery } from "@/store/api/examination/examination-api";
 import { ArrowLeft } from "lucide-react";
 
 export const ExaminationPage = () => {
@@ -23,6 +24,9 @@ export const ExaminationPage = () => {
       assessmentId?: string;
    }>();
    const searchParams = useSearchParams();
+
+   const router = useRouter();
+   const [getExaminationById] = useLazyGetExaminationByIdQuery();
 
    const id = params?.id;
    const action = params?.action || searchParams.get("action");
@@ -71,6 +75,41 @@ export const ExaminationPage = () => {
       isCreateExamination || (action === "create" && !examination);
    const effectiveEditingData = editingExamination ?? assessmentInitialData;
 
+   const handleExaminationSaved = async (savedExam: Examination) => {
+      // Dọn dẹp query param action=create trên URL nếu có
+      if (action === "create" && id) {
+         router.replace(`/health-profile/examination/${id}`);
+      }
+
+      if (savedExam.status === "COMPLETED") {
+         // Khi hoàn thành: hiển thị chi tiết phiếu khám vừa hoàn thành
+         setIsCreateExamination(false);
+         setEditingExamination(null);
+         try {
+            const fullExam = await getExaminationById(
+               savedExam.id,
+               false,
+            ).unwrap();
+            setExamination(fullExam);
+         } catch {
+            setExamination(savedExam);
+         }
+      } else {
+         // Khi lưu (IN_PROGRESS hoặc trạng thái khác): vẫn hiển thị phiếu để tiếp tục
+         setIsCreateExamination(false);
+         setExamination(null);
+         try {
+            const fullExam = await getExaminationById(
+               savedExam.id,
+               false,
+            ).unwrap();
+            setEditingExamination(fullExam);
+         } catch {
+            setEditingExamination(savedExam);
+         }
+      }
+   };
+
    const handleStartCreateExamination = (
       initialVitals?: Partial<Examination>,
    ) => {
@@ -91,7 +130,7 @@ export const ExaminationPage = () => {
 
    return (
       <div className="grid grid-cols-12 w-full h-[calc(100vh-4rem)] overflow-hidden">
-         <div className="col-span-3 flex flex-col gap-4 px-4 pt-2">
+         <div className="col-span-3 flex flex-col gap-4 px-4 pt-2 border-r border-slate-200">
             <CustomButton
                className="w-fit"
                startIcon={<ArrowLeft />}
@@ -123,9 +162,19 @@ export const ExaminationPage = () => {
             {selectedOption === "history" ? (
                <ExaminationHistory
                   healthProfileId={id || ""}
-                  onSelectExamination={(examination) =>
-                     setExamination(examination)
+                  selectedExaminationId={
+                     examination?.id || editingExamination?.id
                   }
+                  onSelectExamination={(exam) => {
+                     setEditingExamination(null);
+                     setIsCreateExamination(false);
+                     setExamination(exam);
+                  }}
+                  onEditExamination={(exam) => {
+                     setExamination(null);
+                     setIsCreateExamination(false);
+                     setEditingExamination(exam);
+                  }}
                />
             ) : (
                <RiskAssessmentHistory healthProfileId={id || ""} />
@@ -167,7 +216,7 @@ export const ExaminationPage = () => {
                                     }
                                     className="flex items-center gap-1.5 w-fit px-6"
                                  >
-                                    Tạo đợt khám mới (F2)
+                                    Tạo phiếu khám mới
                                  </CustomButton>
                               </div>
                            )}
@@ -183,9 +232,8 @@ export const ExaminationPage = () => {
                                           setIsCreateExamination(false);
                                           setEditingExamination(null);
                                        }}
-                                       onSuccess={() => {
-                                          setIsCreateExamination(false);
-                                          setEditingExamination(null);
+                                       onSuccess={(savedExam) => {
+                                          handleExaminationSaved(savedExam);
                                        }}
                                     />
                                  </div>

@@ -14,7 +14,6 @@ import {
    useCreateRiskAssessmentMutation,
    useGetRiskAssessmentFormSchemaQuery,
 } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
-import { useGetChronicDiseasesByHealthProfileIdQuery } from "@/store/api/chronic-diseases/chronic-diseases-api";
 import { FormInput } from "@/components/common/form-input";
 import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
@@ -22,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Info, Sparkles } from "lucide-react";
+import { ArrowRight, Info, ScanSearch, Sparkles } from "lucide-react";
 import { RiskAssessmentEvaluationModal } from "./risk-assessment-evaluation-modal";
 import {
    OcrExtractedFormValues,
@@ -30,6 +29,10 @@ import {
 } from "./ocr-medical-record-modal";
 import { Examination } from "@/store/api/examination/type";
 import { cn } from "@/lib/utils";
+import {
+   RiskLevelBadge,
+   getRiskContainerClass,
+} from "@/components/common/risk-level-badge";
 
 export interface RiskFactorAssessmentFormProps {
    selectedProfile?: HealthProfile | null;
@@ -328,14 +331,14 @@ const CARDIOVASCULAR_EVENT_ITEMS: {
    name: keyof AssessmentFormValues;
    label: string;
 }[] = [
-   { name: "stroke", label: "Tiền sử đột quỵ não / Tai biến" },
+   { name: "stroke", label: "Đột quỵ" },
    { name: "hasMyocardialInfarction", label: "Nhồi máu cơ tim" },
    { name: "hasAcuteCoronarySyndrome", label: "Hội chứng vành cấp" },
-   { name: "hasCoronaryArteryDisease", label: "Bệnh lý động mạch vành mạn" },
-   { name: "hasTia", label: "Cơn thiếu máu não thoáng qua (TIA)" },
+   { name: "hasCoronaryArteryDisease", label: "Bệnh lý mạch vành" },
+   { name: "hasTia", label: "Thiếu máu não thoáng qua (TIA)" },
    { name: "hasAorticAneurysm", label: "Phình động mạch chủ" },
    { name: "hasPeripheralArteryDisease", label: "Bệnh mạch máu ngoại vi" },
-   { name: "hasAtherosclerosis", label: "Vữa xơ mạch máu lớn" },
+   { name: "hasAtherosclerosis", label: "Xơ vữa mạch máu" },
    {
       name: "hasFamilialHypercholesterolemia",
       label: "Tăng Cholesterol máu gia đình",
@@ -579,12 +582,6 @@ export function RiskFactorAssessmentForm({
       { skip: !selectedProfile?.id },
    );
 
-   const { data: profileChronicDiseases } =
-      useGetChronicDiseasesByHealthProfileIdQuery(
-         { healthProfileId: selectedProfile?.id || "" },
-         { skip: !selectedProfile?.id },
-      );
-
    // Tuổi tính từ ngày sinh hồ sơ
    const profileAge = selectedProfile?.dob
       ? Math.max(
@@ -624,15 +621,7 @@ export function RiskFactorAssessmentForm({
          });
       }
 
-      // 2. Từ danh sách bệnh mạn tính của hồ sơ
-      if (Array.isArray(profileChronicDiseases)) {
-         profileChronicDiseases.forEach((cd) => {
-            const matched = matchDiseaseToField(cd);
-            if (matched) keys.add(matched);
-         });
-      }
-
-      // 3. Từ các trường yếu tố nguy cơ và bệnh lý trong hồ sơ sức khỏe
+      // 2. Từ các trường yếu tố nguy cơ và bệnh lý trong hồ sơ sức khỏe
       if (selectedProfile.hasDiabetes) {
          keys.add("diabetes");
       }
@@ -665,7 +654,7 @@ export function RiskFactorAssessmentForm({
       }
 
       return keys;
-   }, [selectedProfile, schemaData, profileChronicDiseases]);
+   }, [selectedProfile, schemaData]);
 
    const hasRecordedUnderlying =
       Boolean(schemaData?.patientProfile?.hasRecordedUnderlyingDiseases) ||
@@ -1146,11 +1135,7 @@ export function RiskFactorAssessmentForm({
             <div
                className={cn(
                   "p-5 rounded-xl border transition-all text-sm",
-                  assessmentResult.riskLevel === "VERY_HIGH"
-                     ? "bg-rose-50/80 border-rose-300 text-rose-950"
-                     : assessmentResult.riskLevel === "HIGH"
-                       ? "bg-amber-50/80 border-amber-300 text-amber-950"
-                       : "bg-emerald-50/80 border-emerald-300 text-emerald-950",
+                  getRiskContainerClass(assessmentResult.riskLevel),
                )}
             >
                <div className="flex items-start justify-between gap-4">
@@ -1159,22 +1144,11 @@ export function RiskFactorAssessmentForm({
                         <span className="font-bold text-sm sm:text-base">
                            Kết quả phân tầng nguy cơ:
                         </span>
-                        <span
-                           className={cn(
-                              "px-2.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide",
-                              assessmentResult.riskLevel === "VERY_HIGH"
-                                 ? "bg-rose-600 text-white"
-                                 : assessmentResult.riskLevel === "HIGH"
-                                   ? "bg-amber-600 text-white"
-                                   : "bg-emerald-600 text-white",
-                           )}
-                        >
-                           {assessmentResult.riskLevel === "VERY_HIGH"
-                              ? "Nguy cơ rất cao"
-                              : assessmentResult.riskLevel === "HIGH"
-                                ? "Nguy cơ cao"
-                                : "Nguy cơ thấp"}
-                        </span>
+                        <RiskLevelBadge
+                           level={assessmentResult.riskLevel}
+                           variant="solid"
+                           size="md"
+                        />
                      </div>
 
                      <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-1">
@@ -1189,20 +1163,6 @@ export function RiskFactorAssessmentForm({
                         Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
                         mạch châu Âu ESC
                      </p>
-
-                     {assessmentResult.conclusion && (
-                        <p className="text-xs sm:text-sm text-slate-700">
-                           <span className="font-semibold">Kết luận: </span>
-                           {assessmentResult.conclusion}
-                        </p>
-                     )}
-
-                     {assessmentResult.recommendations && (
-                        <p className="text-xs sm:text-sm text-slate-700">
-                           <span className="font-semibold">Khuyến nghị: </span>
-                           {assessmentResult.recommendations}
-                        </p>
-                     )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -1429,9 +1389,9 @@ export function RiskFactorAssessmentForm({
                         )}
                      />
 
-                     <div className="flex flex-col justify-center pt-2">
-                        <div className="flex items-center justify-between gap-1.5 mb-2">
-                           <label className="text-sm font-semibold text-slate-700">
+                     <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between gap-1.5">
+                           <label className="text-xs font-medium text-slate-800">
                               Thói quen hút thuốc
                            </label>
                            {renderSourceBadge("isSmoking")}
@@ -1440,7 +1400,7 @@ export function RiskFactorAssessmentForm({
                            name="isSmoking"
                            control={control}
                            render={({ field }) => (
-                              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                              <label className="flex items-center gap-2 h-10 px-3 rounded-sm border border-input bg-background text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
                                  <Checkbox
                                     checked={field.value}
                                     onCheckedChange={field.onChange}
@@ -1690,9 +1650,10 @@ export function RiskFactorAssessmentForm({
                   type="button"
                   onClick={() => setIsOcrModalOpen(true)}
                   disabled={isSubmitting}
+                  startIcon={<ScanSearch />}
                   className="px-6 h-10 text-xs font-semibold"
                >
-                  OCR Hồ sơ
+                  OCR Phân tích file
                </CustomButton>
                <CustomButton
                   type="submit"

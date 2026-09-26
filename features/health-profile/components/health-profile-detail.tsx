@@ -10,6 +10,8 @@ import {
    FileChartColumn,
    FileText,
    RotateCcwClock,
+   Trash,
+   Activity,
 } from "lucide-react";
 import {
    Accordion,
@@ -17,6 +19,7 @@ import {
    AccordionItem,
    AccordionTrigger,
 } from "@/components/ui/accordion";
+import { PatientDailyHealthRecords } from "./patient-daily-health-records";
 import { useGetExaminationsQuery } from "@/store/api/examination/examination-api";
 import { Examination } from "@/store/api/examination/type";
 import { useState } from "react";
@@ -26,6 +29,7 @@ import { RiskAssessmentResult } from "@/store/api/risk-factor-assessment/type";
 import { RiskAssessmentDetailModal } from "@/features/examination/components/risk-assessment-detail-modal";
 import { cn } from "@/lib/utils";
 import { HealthProfile } from "@/store/api/health-profile/type";
+import { RiskLevelBadge } from "@/components/common/risk-level-badge";
 
 interface HealthProfileDetailProps {
    profileId: string;
@@ -127,21 +131,6 @@ const RiskAssessmentItem = ({
       return `${day}/${month}/${year} - ${hours}:${minutes}`;
    };
 
-   const riskColorConfig = {
-      VERY_HIGH: {
-         badge: "bg-rose-50 text-rose-700 border-rose-200",
-         label: "Nguy cơ rất cao",
-      },
-      HIGH: {
-         badge: "bg-amber-50 text-amber-700 border-amber-200",
-         label: "Nguy cơ cao",
-      },
-      LOW: {
-         badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
-         label: "Nguy cơ thấp",
-      },
-   };
-
    return (
       <div
          className="flex flex-col gap-1.5 p-3 rounded-sm border shadow-sm cursor-pointer hover:border-primary/70"
@@ -150,25 +139,10 @@ const RiskAssessmentItem = ({
       >
          <div className="flex items-center gap-4">
             <span className="text-sm font-semibold text-slate-800">
-               {fomatDate(record.evaluatedAt)}
+               {fomatDate(record.createdAt)}
             </span>
             <div className="flex items-center gap-1.5">
-               {record.riskLevel && (
-                  <span
-                     className={cn(
-                        "px-2 py-0.5 rounded-full text-xs font-semibold border",
-                        riskColorConfig[
-                           record.riskLevel as keyof typeof riskColorConfig
-                        ]?.badge,
-                     )}
-                  >
-                     {
-                        riskColorConfig[
-                           record.riskLevel as keyof typeof riskColorConfig
-                        ]?.label
-                     }
-                  </span>
-               )}
+               {record.riskLevel && <RiskLevelBadge level={record.riskLevel} />}
             </div>
          </div>
 
@@ -187,9 +161,9 @@ const RiskAssessmentItem = ({
             </span>
          )}
 
-         {record.conclusion && (
+         {record.doctorNote && (
             <span className="text-xs text-slate-500">
-               Kết luận: {record.conclusion}
+               Ghi chú: {record.doctorNote}
             </span>
          )}
 
@@ -563,7 +537,7 @@ export function HealthProfileDetail({
                      <div>
                         {profile.facility ? (
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="bg-slate-50/50 p-4 rounded-lg border border-slate-200 flex flex-col gap-2">
+                              <div className="bg-slate-50/50 px-4 border-l-2 border-l-primary flex flex-col gap-2">
                                  <div className="flex items-center justify-between">
                                     <span className="font-semibold text-sm text-slate-800">
                                        {profile.facility.facilityName ||
@@ -599,7 +573,9 @@ export function HealthProfileDetail({
                         <CustomButton
                            id={`delete-${profile.id}`}
                            size="sm"
-                           className="w-20 bg-rose-500 text-white hover:bg-rose-600 hover:text-white"
+                           variant="outline"
+                           className="w-28 text-rose-500 border-rose-300 hover:bg-rose-50/50 hover:text-rose-500"
+                           startIcon={<Trash />}
                            onClick={() => onDelete(profile)}
                         >
                            Xóa hồ sơ
@@ -725,13 +701,13 @@ export function HealthProfileDetail({
                </AccordionTrigger>
                <AccordionContent>
                   {(() => {
-                     const sub = profile?.subscription;
+                     const sub = profile?.careSubscription;
                      const carePackage = sub?.carePackage;
 
                      if (!sub || !carePackage) {
                         return (
-                           <div className="p-6 text-sm text-slate-500 italic border rounded-sm">
-                              Chưa mua gói điều trị
+                           <div className="p-6 text-center text-xs text-slate-500 bg-slate-50">
+                              Chưa có mua gói điều trị.
                            </div>
                         );
                      }
@@ -871,7 +847,10 @@ export function HealthProfileDetail({
                                              </span>
                                              {sub.patientConfirmedAt && (
                                                 <span className="text-xs text-slate-500 font-normal">
-                                                   Lúc {formatDateOnly(sub.patientConfirmedAt)}
+                                                   Lúc{" "}
+                                                   {formatDateOnly(
+                                                      sub.patientConfirmedAt,
+                                                   )}
                                                 </span>
                                              )}
                                           </div>
@@ -1036,6 +1015,18 @@ export function HealthProfileDetail({
                         </div>
                      );
                   })()}
+               </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-5">
+               <AccordionTrigger className="flex border rounded-none">
+                  <div className="flex items-center gap-4 text-base">
+                     <Activity /> Chỉ số sức khỏe hàng ngày của bệnh nhân
+                  </div>
+               </AccordionTrigger>
+               <AccordionContent>
+                  <div className="p-6 border rounded-sm shadow-sm bg-white">
+                     <PatientDailyHealthRecords healthProfileId={profile.id} />
+                  </div>
                </AccordionContent>
             </AccordionItem>
          </Accordion>

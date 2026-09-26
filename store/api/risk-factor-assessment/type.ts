@@ -183,8 +183,7 @@ export type RiskAssessmentResult = {
    riskScore: number | string;
    doctorId?: string | null;
    doctor?: RiskAssessmentDoctor | null;
-   conclusion?: string | null;
-   recommendations?: string | null;
+   doctorNote?: string | null;
    evaluatedAt?: string;
    hasWarningAlert?: boolean;
    redFlags?: RedFlag[];

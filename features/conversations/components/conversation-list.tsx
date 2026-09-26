@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { SearchInput } from "@/components/common/search-input";
 import { CustomButton } from "@/components/common/custom-button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -44,21 +44,27 @@ export const ConversationList: React.FC<ConversationListProps> = ({
    const selectedType =
       propSelectedType !== undefined ? propSelectedType : internalType;
 
-   const handleSearch = (val: string) => {
-      if (onSearchChange) {
-         onSearchChange(val);
-      } else {
-         setInternalSearch(val);
-      }
-   };
+   const handleSearch = useCallback(
+      (val: string) => {
+         if (onSearchChange) {
+            onSearchChange(val);
+         } else {
+            setInternalSearch(val);
+         }
+      },
+      [onSearchChange],
+   );
 
-   const handleTypeChange = (type: "ALL" | ConversationType) => {
-      if (onTypeChange) {
-         onTypeChange(type);
-      } else {
-         setInternalType(type);
-      }
-   };
+   const handleTypeChange = useCallback(
+      (type: "ALL" | ConversationType) => {
+         if (onTypeChange) {
+            onTypeChange(type);
+         } else {
+            setInternalType(type);
+         }
+      },
+      [onTypeChange],
+   );
 
    // Nếu search/filter đã do API xử lý thì hiển thị trực tiếp conversations từ API
    const displayConversations = useMemo(() => {
@@ -150,7 +156,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
          </div>
 
          <p className="text-xs text-slate-400 px-4 pb-3">
-            {conversations.length} cuộc hội thoại
+            {displayConversations.length} cuộc hội thoại
          </p>
 
          {/* Danh sách phòng chat */}

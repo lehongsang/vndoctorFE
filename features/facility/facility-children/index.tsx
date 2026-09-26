@@ -6,7 +6,12 @@ import { CloverLoading } from "@/components/common/clover-loading";
 import { Factility, FacilityType } from "@/store/api/facility/type";
 import { FacilityForm } from "./facility-form";
 import { CustomPagination } from "@/components/common/custom-pagination";
-import { StaffForm } from "../facility-staff/staff-form";
+import {
+   Dialog,
+   DialogContent,
+   DialogHeader,
+   DialogTitle,
+} from "@/components/ui/dialog";
 
 const FacilityChildren = ({
    facilityId,
@@ -20,30 +25,7 @@ const FacilityChildren = ({
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
    const [facilityType, setFacilityType] = useState<string>("ALL");
-   const [isFacilityFormOpen, setIsFacilityFormOpen] = useState(false);
-   const [selectedFacilityId, setSelectedFacilityId] = useState<
-      string | undefined
-   >(undefined);
-   const [facilityFormMode, setFacilityFormMode] = useState<
-      "create" | "update" | "view"
-   >("create");
-   const [isCreateAdminOpen, setIsCreateAdminOpen] = useState(false);
-   const [adminFacilityTarget, setAdminFacilityTarget] = useState<
-      Factility | undefined
-   >(undefined);
-
-   const handleOpenCreateAdmin = (fac: Factility) => {
-      setIsFacilityFormOpen(false);
-      setSelectedFacilityId(undefined);
-      setAdminFacilityTarget(fac);
-      setIsCreateAdminOpen(true);
-   };
-
-   const handleCloseCreateAdmin = () => {
-      setIsCreateAdminOpen(false);
-      setAdminFacilityTarget(undefined);
-      refetch();
-   };
+   const [isCreateFacilityOpen, setIsCreateFacilityOpen] = useState(false);
 
    useEffect(() => {
       const handler = setTimeout(() => {
@@ -71,8 +53,6 @@ const FacilityChildren = ({
       },
    );
 
-   
-
    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       setSearchText(event.target.value);
       setPage(1);
@@ -89,33 +69,8 @@ const FacilityChildren = ({
          setDebouncedSearch("");
          setFacilityType("ALL");
          setPage(1);
-         setIsFacilityFormOpen(false);
-         setSelectedFacilityId(undefined);
          refetch();
       }
-   };
-
-   const handleOpenCreateFacility = () => {
-      setSelectedFacilityId(undefined);
-      setFacilityFormMode("create");
-      setIsFacilityFormOpen(true);
-   };
-
-   const handleOpenEditFacility = (fac: Factility) => {
-      setSelectedFacilityId(fac.id);
-      setFacilityFormMode("update");
-      setIsFacilityFormOpen(true);
-   };
-
-   const handleOpenViewFacility = (fac: Factility) => {
-      setSelectedFacilityId(fac.id);
-      setFacilityFormMode("view");
-      setIsFacilityFormOpen(true);
-   };
-
-   const handleCloseFacilityForm = () => {
-      setIsFacilityFormOpen(false);
-      setSelectedFacilityId(undefined);
    };
 
    if (!facilityId) {
@@ -149,71 +104,74 @@ const FacilityChildren = ({
             onFacilityTypeChange={handleFacilityTypeChange}
             refetch={handleRefresh}
             isFetching={isFetching}
-            disabled={!facilityId || isFacilityFormOpen || isCreateAdminOpen}
-            onClickCreate={handleOpenCreateFacility}
+            disabled={!facilityId}
+            onClickCreate={() => setIsCreateFacilityOpen(true)}
          />
-         {isFacilityFormOpen ? (
-            <FacilityForm
-               key={`${facilityFormMode}-${selectedFacilityId ?? "new"}`}
-               facilityId={selectedFacilityId}
-               parentId={facilityId}
-               parentFacility={parentFacility}
-               mode={facilityFormMode}
-               onClose={handleCloseFacilityForm}
-               onCreatedSuccess={(newFacility: Factility) =>
-                  handleOpenCreateAdmin(newFacility)
-               }
-            />
-         ) : isCreateAdminOpen && adminFacilityTarget ? (
-            <StaffForm
-               facility={adminFacilityTarget}
-               facilityId={adminFacilityTarget.id}
-               defaultRole="ADMIN"
-               title={`Tạo tài khoản quản trị cho cơ sở: ${adminFacilityTarget.facilityName}`}
-               onClose={handleCloseCreateAdmin}
-            />
-         ) : (
-            <>
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                  {isFetching || isLoading ? (
-                     <CloverLoading
-                        fullContainer
-                        size="md"
-                        text="Đang tải danh sách cơ sở con..."
-                     />
-                  ) : facilityItems.length === 0 ? (
-                     <div className="col-span-full p-8 text-center text-sm text-slate-500 border border-dashed border-slate-200 rounded-xl bg-white">
-                        Không tìm thấy cơ sở con trực thuộc nào.
-                     </div>
-                  ) : (
-                     facilityItems.map((facility: Factility) => (
-                        <FacilityCard
-                           key={facility.id}
-                           facility={facility}
-                           onViewDetail={handleOpenViewFacility}
-                           onEdit={handleOpenEditFacility}
-                           onCreateAdmin={handleOpenCreateAdmin}
-                        />
-                     ))
-                  )}
+
+         {/* Modal Thêm mới cơ sở con */}
+         <Dialog
+            open={isCreateFacilityOpen}
+            onOpenChange={setIsCreateFacilityOpen}
+         >
+            <DialogContent className="sm:min-w-3xl max-h-[90vh] overflow-y-auto rounded-sm p-4">
+               <DialogHeader className="border-b border-slate-100 pb-3">
+                  <DialogTitle className="text-lg font-bold">
+                     Thêm mới cơ sở con
+                  </DialogTitle>
+               </DialogHeader>
+               <FacilityForm
+                  parentId={facilityId}
+                  parentFacility={parentFacility}
+                  mode="create"
+                  hideTitle
+                  onClose={() => {
+                     setIsCreateFacilityOpen(false);
+                     refetch();
+                  }}
+                  onCreatedSuccess={() => {
+                     setIsCreateFacilityOpen(false);
+                     refetch();
+                  }}
+               />
+            </DialogContent>
+         </Dialog>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {isFetching || isLoading ? (
+               <CloverLoading
+                  fullContainer
+                  size="md"
+                  text="Đang tải danh sách cơ sở con..."
+               />
+            ) : facilityItems.length === 0 ? (
+               <div className="col-span-full p-8 text-center text-sm text-slate-500 border border-slate-100 rounded-sm bg-white">
+                  Không tìm thấy cơ sở con trực thuộc nào.
                </div>
-               {facilityItems.length > 0 && (
-                  <div className="mt-6 flex justify-end">
-                     <CustomPagination
-                        currentPage={page}
-                        totalPages={totalPages}
-                        totalItems={totalItems}
-                        pageSize={limit}
-                        showPageSizeSelector
-                        onPageChange={setPage}
-                        onPageSizeChange={(newLimit) => {
-                           setLimit(newLimit);
-                           setPage(1);
-                        }}
-                     />
-                  </div>
-               )}
-            </>
+            ) : (
+               facilityItems.map((facility: Factility) => (
+                  <FacilityCard
+                     key={facility.id}
+                     facility={facility}
+                  />
+               ))
+            )}
+         </div>
+
+         {facilityItems.length > 0 && (
+            <div className="mt-6 flex justify-end">
+               <CustomPagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  pageSize={limit}
+                  showPageSizeSelector
+                  onPageChange={setPage}
+                  onPageSizeChange={(newLimit) => {
+                     setLimit(newLimit);
+                     setPage(1);
+                  }}
+               />
+            </div>
          )}
       </div>
    );

@@ -435,7 +435,7 @@ export function OcrMedicalRecordModal({
                      /* Hiển thị kết quả bóc tách */
                      <div className="space-y-4">
                         {/* Header thông tin bệnh nhân tóm tắt */}
-                        <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg flex flex-wrap items-center justify-between gap-3">
+                        <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-sm flex flex-wrap items-center justify-between gap-3">
                            <div className="flex items-center gap-2 flex-wrap">
                               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                               <span className="font-semibold text-emerald-950 text-xs">
@@ -446,7 +446,7 @@ export function OcrMedicalRecordModal({
                               </span>
                               {phanLoai?.has_underlying_disease && (
                                  <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold border border-amber-300">
-                                    Có bệnh nền (Non-ASCVD)
+                                    Có bệnh nền
                                  </span>
                               )}
                            </div>
@@ -504,7 +504,7 @@ export function OcrMedicalRecordModal({
                            <div className="space-y-4">
                               {/* Khối 1: Chỉ số sinh lý cơ bản */}
                               <div className="space-y-2">
-                                 <div className="font-bold text-slate-800 uppercase tracking-wide text-[11px] pb-1 border-b border-slate-200">
+                                 <div className="font-bold text-slate-800 text-sm">
                                     A. Chỉ số sinh lý cơ bản & Xét nghiệm
                                  </div>
                                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -591,7 +591,7 @@ export function OcrMedicalRecordModal({
 
                               {/* Khối 2: Tổn thương cơ quan đích */}
                               <div className="space-y-2">
-                                 <div className="font-bold text-slate-800 uppercase tracking-wide text-[11px] pb-1 border-b border-slate-200">
+                                 <div className="font-bold text-slate-800 text-sm">
                                     B. Dấu hiệu tổn thương cơ quan đích
                                  </div>
                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -632,14 +632,14 @@ export function OcrMedicalRecordModal({
 
                               {/* Khối 3: Bệnh lý mạn tính kèm theo */}
                               <div className="space-y-2">
-                                 <div className="font-bold text-slate-800 uppercase tracking-wide text-[11px] pb-1 border-b border-slate-200">
+                                 <div className="font-bold text-slate-800 text-sm">
                                     C. Bệnh lý mạn tính & Tiền sử biến cố tim
                                     mạch
                                  </div>
                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     <div className="p-2 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
                                        <span className="text-slate-700">
-                                          Bệnh lý động mạch vành
+                                          Bệnh lý mạch vành
                                        </span>
                                        {renderBooleanBadge(
                                           benhManTinh?.benh_ly_mach_vanh,
@@ -671,7 +671,7 @@ export function OcrMedicalRecordModal({
                                     </div>
                                     <div className="p-2 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
                                        <span className="text-slate-700">
-                                          Đột quỵ não
+                                          Đột quỵ
                                        </span>
                                        {renderBooleanBadge(
                                           benhManTinh?.dot_quy_nao,
@@ -687,7 +687,7 @@ export function OcrMedicalRecordModal({
                                     </div>
                                     <div className="p-2 bg-slate-50 rounded border border-slate-200 flex items-center justify-between">
                                        <span className="text-slate-700">
-                                          Vữa xơ mạch máu lớn
+                                          Vữa xơ mạch máu
                                        </span>
                                        {renderBooleanBadge(
                                           benhManTinh?.vua_xo_mach_mau,
@@ -725,8 +725,8 @@ export function OcrMedicalRecordModal({
                         {/* Tab 2: Thông tin bệnh nhân & Tiền sử */}
                         {activeTab === "profile" && (
                            <div className="space-y-4">
-                              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-                                 <div className="font-semibold text-slate-800 border-b border-slate-200 pb-1 uppercase tracking-wide text-[11px]">
+                              <div className="p-3 bg-slate-50 rounded-sm border border-slate-200 space-y-2">
+                                 <div className="font-semibold text-slate-800 border-b border-slate-200 pb-1 text-sm">
                                     Thông tin hành chính
                                  </div>
                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -789,8 +789,8 @@ export function OcrMedicalRecordModal({
                                  </div>
                               </div>
 
-                              <div className="p-3 bg-amber-50/50 rounded-lg border border-amber-200 space-y-2">
-                                 <div className="font-semibold text-amber-900 border-b border-amber-200 pb-1 uppercase tracking-wide text-[11px]">
+                              <div className="p-3 rounded-sm border border-slate-200 space-y-2">
+                                 <div className="font-semibold text-slate-800 border-b border-slate-200 pb-1 text-sm">
                                     Tiền sử bệnh lý & Thể trạng
                                  </div>
                                  <div className="space-y-2 text-xs">
@@ -828,11 +828,11 @@ export function OcrMedicalRecordModal({
                                     </div>
 
                                     {sucKhoe?.tien_su_benh_ly && (
-                                       <div className="pt-1">
+                                       <div className="flex items-baseline gap-1">
                                           <span className="text-slate-500 block text-[11px] font-medium">
                                              Tiền sử bệnh án ghi nhận:
                                           </span>
-                                          <p className="font-medium text-slate-900 bg-white p-2.5 rounded border border-amber-200 mt-1 leading-relaxed">
+                                          <p className="font-medium text-slate-900 leading-relaxed">
                                              {sucKhoe.tien_su_benh_ly}
                                           </p>
                                        </div>
@@ -845,52 +845,55 @@ export function OcrMedicalRecordModal({
                         {/* Tab 3: Dữ liệu JSON gốc */}
                         {activeTab === "json" && (
                            <div className="space-y-2">
-                              <pre className="p-3.5 bg-slate-900 text-emerald-400 rounded-lg text-[11px] font-mono whitespace-pre-wrap max-h-96 overflow-y-auto leading-relaxed border border-slate-800">
+                              <pre className="p-3.5 bg-slate-900 text-emerald-400 rounded-sm text-[11px] font-mono whitespace-pre-wrap max-h-96 overflow-y-auto leading-relaxed border border-slate-800">
                                  {JSON.stringify(result, null, 2)}
                               </pre>
                            </div>
                         )}
 
                         {/* Footer với nút Áp dụng vào biểu mẫu */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
-                           <div className="flex items-center gap-1.5 text-slate-600 text-xs">
-                              <AlertCircle className="w-4 h-4 text-primary shrink-0" />
-                              <span>
-                                 Phát hiện{" "}
-                                 <strong className="text-slate-900">
-                                    {applicableCount}
-                                 </strong>{" "}
-                                 chỉ số tương thích với biểu mẫu phân tầng nguy
-                                 cơ.
-                              </span>
-                           </div>
-
-                           <div className="flex items-center gap-2">
-                              <CustomButton
-                                 type="button"
-                                 variant="destructive"
-                                 size="sm"
-                                 onClick={onClose}
-                                 className="w-20"
-                              >
-                                 Đóng
-                              </CustomButton>
-
-                              {onApplyToForm && applicableCount > 0 && (
-                                 <CustomButton
-                                    type="button"
-                                    size="sm"
-                                    onClick={handleApply}
-                                 >
-                                    Áp dụng vào biểu mẫu
-                                 </CustomButton>
-                              )}
-                           </div>
-                        </div>
                      </div>
                   )}
                </div>
             </ScrollArea>
+
+            {/* Footer cố định — chỉ hiện khi có kết quả */}
+            {result && (
+               <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-slate-200 bg-white">
+                  <div className="flex items-center gap-1.5 text-slate-600 text-xs">
+                     <AlertCircle className="w-4 h-4 text-primary shrink-0" />
+                     <span>
+                        Phát hiện{" "}
+                        <strong className="text-slate-900">
+                           {applicableCount}
+                        </strong>{" "}
+                        chỉ số tương thích với biểu mẫu phân tầng nguy cơ.
+                     </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                     <CustomButton
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={onClose}
+                        className="w-20"
+                     >
+                        Đóng
+                     </CustomButton>
+
+                     {onApplyToForm && applicableCount > 0 && (
+                        <CustomButton
+                           type="button"
+                           size="sm"
+                           onClick={handleApply}
+                        >
+                           Áp dụng vào biểu mẫu
+                        </CustomButton>
+                     )}
+                  </div>
+               </div>
+            )}
          </DialogContent>
       </Dialog>
    );

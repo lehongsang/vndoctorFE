@@ -12,11 +12,14 @@ import {
    DialogContent,
    DialogHeader,
    DialogTitle,
-   DialogDescription,
 } from "@/components/ui/dialog";
 import { FormTextarea } from "@/components/common/form-textarea";
 import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
+import {
+   RiskLevelBadge,
+   RISK_LEVEL_OPTIONS,
+} from "@/components/common/risk-level-badge";
 
 export interface RiskAssessmentEvaluationModalProps {
    isOpen: boolean;
@@ -24,12 +27,6 @@ export interface RiskAssessmentEvaluationModalProps {
    assessment: RiskAssessmentResult | null;
    onSuccess?: (updated: RiskAssessmentResult) => void;
 }
-
-const RISK_LEVEL_OPTIONS = [
-   { label: "Nguy cơ thấp", value: "LOW" },
-   { label: "Nguy cơ cao", value: "HIGH" },
-   { label: "Nguy cơ rất cao", value: "VERY_HIGH" },
-];
 
 function EvaluationFormContent({
    assessment,
@@ -44,7 +41,7 @@ function EvaluationFormContent({
       assessment.riskLevel || "LOW",
    );
    const [doctorNote, setDoctorNote] = useState<string>(
-      assessment.conclusion || "",
+      assessment.doctorNote || "",
    );
    const [errors, setErrors] = useState<{
       doctorNote?: string;
@@ -60,7 +57,8 @@ function EvaluationFormContent({
 
       const newErrors: { doctorNote?: string; riskLevel?: string } = {};
       if (!doctorNote.trim()) {
-         newErrors.doctorNote = "Vui lòng nhập ghi chú / kết luận thẩm định của bác sĩ";
+         newErrors.doctorNote =
+            "Vui lòng nhập ghi chú / kết luận thẩm định của bác sĩ";
       }
       if (!riskLevel) {
          newErrors.riskLevel = "Vui lòng chọn mức phân tầng nguy cơ";
@@ -98,28 +96,20 @@ function EvaluationFormContent({
             <DialogTitle className="text-base font-bold text-slate-900">
                Thẩm định & Xác nhận phân tầng nguy cơ
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-               Bác sĩ thẩm định lại mức phân tầng nguy cơ tim mạch và ghi nhận kết
-               luận chuyên môn vào hồ sơ bệnh nhân.
-            </DialogDescription>
          </DialogHeader>
 
          {/* Thông tin tham khảo từ kết quả phân tầng hiện tại */}
          <div className="flex items-center justify-between p-3.5 rounded-sm bg-slate-50 border border-slate-200 text-xs mt-1">
             <div className="flex items-center gap-2">
                <span className="text-slate-500">Mức phân tầng ban đầu:</span>
-               <span className="font-semibold text-slate-800">
-                  {assessment.riskLevel === "VERY_HIGH"
-                     ? "Nguy cơ rất cao"
-                     : assessment.riskLevel === "HIGH"
-                       ? "Nguy cơ cao"
-                       : "Nguy cơ thấp"}
-               </span>
+               <RiskLevelBadge level={assessment.riskLevel} />
             </div>
             {assessment.riskScore !== undefined &&
                assessment.riskScore !== null && (
                   <div className="flex items-center gap-1.5">
-                     <span className="text-slate-500">Điểm nguy cơ (10 năm):</span>
+                     <span className="text-slate-500">
+                        Nguy cơ biến cố trong 10 năm:
+                     </span>
                      <span className="font-bold text-primary">
                         {assessment.riskScore}%
                      </span>
@@ -158,7 +148,7 @@ function EvaluationFormContent({
                placeholder="Ví dụ: Bác sĩ đã thăm khám lâm sàng, xác nhận bệnh nhân thuộc nhóm nguy cơ tim mạch rất cao, đề nghị kiểm soát chặt chẽ huyết áp và lipid máu..."
             />
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-2.5">
                <CustomButton
                   type="button"
                   variant="destructive"
@@ -195,7 +185,7 @@ export function RiskAssessmentEvaluationModal({
             if (!open) onClose();
          }}
       >
-         <DialogContent className="sm:min-w-2xl rounded-md">
+         <DialogContent className="sm:min-w-2xl rounded-md p-4">
             {assessment && (
                <EvaluationFormContent
                   key={assessment.id}
