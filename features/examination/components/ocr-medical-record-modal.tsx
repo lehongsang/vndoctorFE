@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { FileText, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { toast } from "react-toastify";
 import {
@@ -21,6 +21,11 @@ import {
    OcrMedicalRecordStructuredData,
 } from "@/store/api/ocr/type";
 import { cn } from "@/lib/utils";
+import {
+   ExpectedPatientInfo,
+   verifyPatientMatch,
+} from "@/lib/ocr-verification";
+import { PatientOcrVerificationBanner } from "@/components/common/patient-ocr-verification-banner";
 
 export interface OcrExtractedFormValues {
    hasUnderlyingDisease?: boolean | null;
@@ -31,6 +36,7 @@ export interface OcrExtractedFormValues {
    diastolicBp?: number | null;
    totalCholesterol?: number | null;
    hdlCholesterol?: number | null;
+   nonHdlCholesterol?: number | null;
    glucoseFasting?: number | null;
    heightCm?: number | null;
    weightKg?: number | null;
@@ -56,6 +62,7 @@ export interface OcrMedicalRecordModalProps {
    isOpen: boolean;
    onClose: () => void;
    onApplyToForm?: (values: OcrExtractedFormValues) => void;
+   expectedPatient?: ExpectedPatientInfo;
 }
 
 type TabType = "assessment" | "profile" | "json";
@@ -64,6 +71,7 @@ export function OcrMedicalRecordModal({
    isOpen,
    onClose,
    onApplyToForm,
+   expectedPatient,
 }: OcrMedicalRecordModalProps) {
    const [file, setFile] = useState<File | null>(null);
    const [engine, setEngine] = useState<OcrEngine>("rapidocr");
@@ -177,12 +185,47 @@ export function OcrMedicalRecordModal({
       ) {
          values.hdlCholesterol = sinhLy.hdl_cholesterol;
       }
+      if (
+         sinhLy?.non_hdl_cholesterol !== undefined &&
+         sinhLy?.non_hdl_cholesterol !== null
+      ) {
+         values.nonHdlCholesterol = sinhLy.non_hdl_cholesterol;
+      } else if (
+         values.totalCholesterol != null &&
+         values.hdlCholesterol != null &&
+         values.totalCholesterol > values.hdlCholesterol
+      ) {
+         values.nonHdlCholesterol =
+            Math.round(
+               (values.totalCholesterol - values.hdlCholesterol) * 100,
+            ) / 100;
+      }
 
       if (sucKhoe?.chieu_cao !== undefined && sucKhoe?.chieu_cao !== null) {
          values.heightCm = sucKhoe.chieu_cao;
       }
       if (sucKhoe?.can_nang !== undefined && sucKhoe?.can_nang !== null) {
          values.weightKg = sucKhoe.can_nang;
+      }
+
+      // Hỗ trợ thêm trường hợp OCR trả về qua cấu trúc vitals
+      const ocrVitals =
+         result?.vitals ||
+         (result?.data &&
+         typeof result.data === "object" &&
+         "vitals" in result.data
+            ? (
+                 result.data as {
+                    vitals?: { heightCm?: number; weightKg?: number };
+                 }
+              ).vitals
+            : undefined);
+
+      if (values.heightCm == null && ocrVitals?.heightCm != null) {
+         values.heightCm = Number(ocrVitals.heightCm);
+      }
+      if (values.weightKg == null && ocrVitals?.weightKg != null) {
+         values.weightKg = Number(ocrVitals.weightKg);
       }
 
       // Tổn thương cơ quan đích
@@ -201,10 +244,20 @@ export function OcrMedicalRecordModal({
 
       // Bệnh lý mạn tính
       if (benhManTinh?.egfr !== undefined && benhManTinh?.egfr !== null) {
-         values.egfr = benhManTinh.egfr;
+         const raw = benhManTinh.egfr as unknown;
+         const parsed =
+            typeof raw === "string"
+               ? parseFloat(raw.replace(",", "."))
+               : Number(raw);
+         values.egfr = !isNaN(parsed) ? parsed : benhManTinh.egfr;
       }
       if (benhManTinh?.acr !== undefined && benhManTinh?.acr !== null) {
-         values.acr = benhManTinh.acr;
+         const raw = benhManTinh.acr as unknown;
+         const parsed =
+            typeof raw === "string"
+               ? parseFloat(raw.replace(",", "."))
+               : Number(raw);
+         values.acr = !isNaN(parsed) ? parsed : benhManTinh.acr;
       }
       if (benhManTinh?.dai_thao_duong !== undefined) {
          values.diabetes = benhManTinh.dai_thao_duong;
@@ -241,8 +294,37 @@ export function OcrMedicalRecordModal({
       return values;
    };
 
+   // Đối chiếu thông tin bệnh nhân giữa tài liệu OCR và hồ sơ bệnh nhân hiện tại
+   const verification = useMemo(() => {
+      if (!result) return null;
+      const ocrFullName =
+         caNhan?.ho_va_ten ||
+         (result as { patient?: { fullName?: string } })?.patient?.fullName ||
+         "";
+      const ocrDob =
+         caNhan?.ngay_sinh ||
+         (result as { patient?: { dob?: string } })?.patient?.dob ||
+         "";
+      const ocrAge = sinhLy?.tuoi;
+
+      return verifyPatientMatch({
+         expectedFullName: expectedPatient?.fullName,
+         expectedDob: expectedPatient?.dob,
+         ocrFullName,
+         ocrDob,
+         ocrAge,
+      });
+   }, [result, expectedPatient, caNhan, sinhLy]);
+
    const handleApply = () => {
       if (!onApplyToForm) return;
+      if (verification && !verification.isMatched) {
+         toast.error(
+            verification.errorMessage ||
+               "Thông tin bệnh nhân không trùng khớp. Không thể áp dụng dữ liệu!",
+         );
+         return;
+      }
       const values = getApplicableValues();
       onApplyToForm(values);
       toast.success("Đã áp dụng các chỉ số OCR vào biểu mẫu đánh giá!");
@@ -272,7 +354,8 @@ export function OcrMedicalRecordModal({
       return `${val} ${unit}`.trim();
    };
 
-   const applicableCount = Object.keys(getApplicableValues()).length;
+   const applicableValues = getApplicableValues();
+   const applicableCount = Object.keys(applicableValues).length;
 
    return (
       <Dialog
@@ -434,6 +517,11 @@ export function OcrMedicalRecordModal({
                   ) : (
                      /* Hiển thị kết quả bóc tách */
                      <div className="space-y-4">
+                        {/* Thẻ kiểm tra & đối chiếu thông tin bệnh nhân */}
+                        <PatientOcrVerificationBanner
+                           verification={verification}
+                        />
+
                         {/* Header thông tin bệnh nhân tóm tắt */}
                         <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-sm flex flex-wrap items-center justify-between gap-3">
                            <div className="flex items-center gap-2 flex-wrap">
@@ -569,6 +657,18 @@ export function OcrMedicalRecordModal({
                                     </div>
                                     <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
                                        <span className="text-slate-500 block text-[11px]">
+                                          Non-HDL-Cholesterol
+                                       </span>
+                                       <span className="font-bold text-slate-900 text-sm">
+                                          {formatVal(
+                                             sinhLy?.non_hdl_cholesterol ??
+                                                applicableValues.nonHdlCholesterol,
+                                             "mmol/L",
+                                          )}
+                                       </span>
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
+                                       <span className="text-slate-500 block text-[11px]">
                                           eGFR (Cầu thận)
                                        </span>
                                        <span className="font-bold text-slate-900 text-sm">
@@ -584,6 +684,28 @@ export function OcrMedicalRecordModal({
                                        </span>
                                        <span className="font-bold text-slate-900 text-sm">
                                           {formatVal(benhManTinh?.acr, "mg/g")}
+                                       </span>
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
+                                       <span className="text-slate-500 block text-[11px]">
+                                          Chiều cao
+                                       </span>
+                                       <span className="font-bold text-slate-900 text-sm">
+                                          {formatVal(
+                                             applicableValues.heightCm,
+                                             "cm",
+                                          )}
+                                       </span>
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
+                                       <span className="text-slate-500 block text-[11px]">
+                                          Cân nặng
+                                       </span>
+                                       <span className="font-bold text-slate-900 text-sm">
+                                          {formatVal(
+                                             applicableValues.weightKg,
+                                             "kg",
+                                          )}
                                        </span>
                                     </div>
                                  </div>
@@ -860,16 +982,26 @@ export function OcrMedicalRecordModal({
             {/* Footer cố định — chỉ hiện khi có kết quả */}
             {result && (
                <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-slate-200 bg-white">
-                  <div className="flex items-center gap-1.5 text-slate-600 text-xs">
-                     <AlertCircle className="w-4 h-4 text-primary shrink-0" />
-                     <span>
-                        Phát hiện{" "}
-                        <strong className="text-slate-900">
-                           {applicableCount}
-                        </strong>{" "}
-                        chỉ số tương thích với biểu mẫu phân tầng nguy cơ.
-                     </span>
-                  </div>
+                  {verification && !verification.isMatched ? (
+                     <div className="flex items-center gap-1.5 text-rose-600 text-xs font-semibold">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>
+                           Không thể áp dụng: Thông tin bệnh nhân không trùng
+                           khớp!
+                        </span>
+                     </div>
+                  ) : (
+                     <div className="flex items-center gap-1.5 text-slate-600 text-xs">
+                        <AlertCircle className="w-4 h-4 text-primary shrink-0" />
+                        <span>
+                           Phát hiện{" "}
+                           <strong className="text-slate-900">
+                              {applicableCount}
+                           </strong>{" "}
+                           chỉ số tương thích với biểu mẫu phân tầng nguy cơ.
+                        </span>
+                     </div>
+                  )}
 
                   <div className="flex items-center gap-2">
                      <CustomButton
@@ -887,6 +1019,14 @@ export function OcrMedicalRecordModal({
                            type="button"
                            size="sm"
                            onClick={handleApply}
+                           disabled={
+                              verification !== null && !verification.isMatched
+                           }
+                           className={cn(
+                              verification &&
+                                 !verification.isMatched &&
+                                 "opacity-50 cursor-not-allowed bg-slate-300 hover:bg-slate-300 text-slate-500",
+                           )}
                         >
                            Áp dụng vào biểu mẫu
                         </CustomButton>

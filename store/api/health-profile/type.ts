@@ -38,6 +38,7 @@ export type HealthProfile = {
    hasPeripheralArteryDisease: boolean;
    hasAtherosclerosis: boolean;
    hasFamilialHypercholesterolemia: boolean;
+   hasChronicKidneyDisease?: boolean;
    facilityId: string;
    facilityLink?: {
       id: string;
@@ -98,6 +99,7 @@ export type CreateHealthProfile = {
    hasPeripheralArteryDisease: boolean;
    hasAtherosclerosis: boolean;
    hasFamilialHypercholesterolemia: boolean;
+   hasChronicKidneyDisease?: boolean;
 };
 
 export type UpdateHealthProfile = Partial<CreateHealthProfile> & {

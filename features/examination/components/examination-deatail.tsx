@@ -200,17 +200,13 @@ export function ExaminationDetail({
    const hasHeartRate = hasValue(examination.heartRate);
    const hasSpo2 = hasValue(examination.spo2);
    const hasTemp = hasValue(examination.temperature);
-   const hasHeight = hasValue(examination.heightCm);
-   const hasWeight = hasValue(examination.weightKg);
-   const hasBmi = hasValue(examination.bmi);
+   const hasRespiratoryRate = hasValue(examination.respiratoryRate);
    const hasVitalSigns =
       hasBp ||
       hasHeartRate ||
       hasSpo2 ||
       hasTemp ||
-      hasHeight ||
-      hasWeight ||
-      hasBmi;
+      hasRespiratoryRate;
 
    // Check diagnosis section
    const hasDiagnosis = hasValue(examination.diagnosis);
@@ -553,52 +549,18 @@ export function ExaminationDetail({
                         </div>
                      )}
 
-                     {/* Chiều cao */}
-                     {hasHeight && (
+                     {/* Nhịp thở */}
+                     {hasRespiratoryRate && (
                         <div className="p-3 rounded-sm border border-slate-200 bg-slate-50/70 flex flex-col justify-between gap-1">
                            <span className="text-xs font-medium text-slate-500">
-                              Chiều cao
+                              Nhịp thở
                            </span>
                            <div className="flex items-baseline gap-1">
                               <span className="text-base font-bold text-slate-900">
-                                 {examination.heightCm}
+                                 {examination.respiratoryRate}
                               </span>
                               <span className="text-xs text-slate-500 font-medium">
-                                 cm
-                              </span>
-                           </div>
-                        </div>
-                     )}
-
-                     {/* Cân nặng */}
-                     {hasWeight && (
-                        <div className="p-3 rounded-sm border border-slate-200 bg-slate-50/70 flex flex-col justify-between gap-1">
-                           <span className="text-xs font-medium text-slate-500">
-                              Cân nặng
-                           </span>
-                           <div className="flex items-baseline gap-1">
-                              <span className="text-base font-bold text-slate-900">
-                                 {examination.weightKg}
-                              </span>
-                              <span className="text-xs text-slate-500 font-medium">
-                                 kg
-                              </span>
-                           </div>
-                        </div>
-                     )}
-
-                     {/* BMI */}
-                     {hasBmi && (
-                        <div className="p-3 rounded-sm border border-slate-200 bg-slate-50/70 flex flex-col justify-between gap-1">
-                           <span className="text-xs font-medium text-slate-500">
-                              Chỉ số BMI
-                           </span>
-                           <div className="flex items-baseline gap-1">
-                              <span className="text-base font-bold text-slate-900">
-                                 {examination.bmi}
-                              </span>
-                              <span className="text-xs text-slate-500 font-medium">
-                                 kg/m²
+                                 lần/phút
                               </span>
                            </div>
                         </div>

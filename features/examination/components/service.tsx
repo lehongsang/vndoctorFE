@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { CustomButton } from "@/components/common/custom-button";
 import { SearchInput } from "@/components/common/search-input";
-import { MessageSquare, Plus, Users } from "lucide-react";
+import { MessageSquare, Plus, Users, Lock } from "lucide-react";
 import { HealthProfile } from "@/store/api/health-profile/type";
+import { checkHealthProfileCarePackage } from "@/lib/care-package-utils";
+import { toast } from "react-toastify";
 import { useAuth } from "@/hooks/use-auth";
 import {
    useGetConversationsQuery,
@@ -46,6 +48,7 @@ export function ExaminationService({
    const router = useRouter();
    const { user } = useAuth();
 
+   const packageCheck = checkHealthProfileCarePackage(healthProfile);
    const carePackage = healthProfile?.careSubscription?.carePackage;
    const isVip = carePackage?.type === "VIP";
    const targetType: ConversationType = isVip ? "CARE_TEAM" : "DIRECT";
@@ -79,6 +82,14 @@ export function ExaminationService({
          : null;
 
    const handleNavigateToChat = async () => {
+      if (!packageCheck.canChat) {
+         toast.error(
+            packageCheck.reason ||
+               "Hồ sơ sức khỏe chưa mua gói hoặc gói đã hết hạn. Không thể mở trò chuyện!",
+         );
+         return;
+      }
+
       if (!healthProfile?.id) {
          router.push(`/online-consult?type=${targetType}`);
          return;
@@ -146,7 +157,28 @@ export function ExaminationService({
                </div>
             )}
 
-            {isVip ? (
+            {!packageCheck.canChat ? (
+               <div className="flex flex-col items-center gap-1.5 w-full">
+                  <CustomButton
+                     disabled
+                     className="w-56 opacity-50 cursor-not-allowed bg-slate-300 text-slate-600 hover:bg-slate-300"
+                     title={
+                        packageCheck.reason ||
+                        "Chưa mua gói hoặc gói đã hết hạn"
+                     }
+                  >
+                     <Lock className="w-4 h-4 mr-1.5" />
+                     {isVip
+                        ? "Nhóm điều trị (Đã khóa)"
+                        : "Trò chuyện (Đã khóa)"}
+                  </CustomButton>
+                  <span className="text-[11px] text-rose-600 font-medium text-center">
+                     {packageCheck.isExpired
+                        ? "Gói đã hết hạn — Khóa chat"
+                        : "Chưa mua gói — Khóa chat"}
+                  </span>
+               </div>
+            ) : isVip ? (
                <CustomButton
                   onClick={handleNavigateToChat}
                   isLoading={isBusy}

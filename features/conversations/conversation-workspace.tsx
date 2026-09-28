@@ -24,10 +24,12 @@ import { ConversationList } from "./components/conversation-list";
 import { ChatHeader } from "./components/chat-header";
 import { ChatMessages } from "./components/chat-messages";
 import { MessageInput } from "./components/message-input";
+import { Lock } from "lucide-react";
+import { checkCarePackageStatus } from "@/lib/care-package-utils";
+import { toast } from "react-toastify";
 import { useChatSocket } from "./hooks/use-chat-socket";
 import { useAuth } from "@/hooks/use-auth";
 import { MessageSquare } from "lucide-react";
-import { toast } from "react-toastify";
 
 export const ConversationWorkspace: React.FC = () => {
    const dispatch = useAppDispatch();
@@ -203,6 +205,14 @@ export const ConversationWorkspace: React.FC = () => {
             conversationDetail?.subscription,
       } as Conversation;
    }, [selectedConversation, conversationDetail]);
+
+   const activePackageCheck = useMemo(() => {
+      if (!activeConversation) return null;
+      return checkCarePackageStatus(
+         activeConversation.healthProfile?.careSubscription ||
+            activeConversation.subscription,
+      );
+   }, [activeConversation]);
 
    const displayConversations = useMemo(() => {
       if (
@@ -444,6 +454,14 @@ export const ConversationWorkspace: React.FC = () => {
    }) => {
       if (!activeConversation) return;
 
+      if (activePackageCheck && !activePackageCheck.canChat) {
+         toast.error(
+            activePackageCheck.reason ||
+               "Hồ sơ sức khỏe chưa mua gói hoặc gói đã hết hạn. Không thể gửi tin nhắn!",
+         );
+         return;
+      }
+
       const tempId = `temp-${Date.now()}`;
       const optimisticMessage: Message = {
          id: tempId,
@@ -609,11 +627,27 @@ export const ConversationWorkspace: React.FC = () => {
                      onDelete={handleDeleteMessage}
                   />
 
+                  {activePackageCheck && !activePackageCheck.canChat && (
+                     <div className="p-3 bg-rose-50 border-t border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2 shrink-0">
+                        <div className="flex items-center gap-2">
+                           <Lock className="w-4 h-4 text-rose-600 shrink-0" />
+                           <span className="font-medium">
+                              {activePackageCheck.isExpired
+                                 ? "Gói chăm sóc của bệnh nhân đã hết hạn. Tính năng trò chuyện (chat) tạm thời bị khóa."
+                                 : "Hồ sơ sức khỏe này chưa đăng ký gói chăm sóc. Tính năng trò chuyện (chat) tạm thời bị khóa."}
+                           </span>
+                        </div>
+                     </div>
+                  )}
+
                   <MessageInput
                      onSendMessage={handleSendMessage}
                      onTyping={emitTyping}
                      replyingMessage={replyingMessage}
                      onCancelReply={() => setReplyingMessage(null)}
+                     disabled={Boolean(
+                        activePackageCheck && !activePackageCheck.canChat,
+                     )}
                   />
                </>
             ) : (

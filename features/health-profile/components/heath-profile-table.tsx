@@ -37,6 +37,12 @@ import { ConfirmModal } from "@/components/common/confirm-modal";
 import { formatAge } from "@/lib/utils";
 import RiskFactorAssessmentForm from "@/features/examination/components/risk-factor-assessment-form";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+   checkCarePackageStatus,
+   checkHealthProfileCarePackage,
+} from "@/lib/care-package-utils";
+import { Badge } from "@/components/ui/badge";
+import { RotateCw, Send } from "lucide-react";
 
 const GENDER_LABELS: Record<string, string> = {
    MALE: "Nam",
@@ -265,14 +271,14 @@ export function HealthProfileTable({
       {
          id: "stt",
          header: "STT",
-         headerClassName: "w-14 pl-4 text-xs font-semibold text-slate-600",
+         headerClassName: "w-14 pl-4 text-sm font-semibold text-slate-600",
          cellClassName: "w-14 pl-4text-xs text-slate-600 font-medium",
          cell: (_profile, index) => (page - 1) * limit + index + 1,
       },
       {
          id: "code",
          header: "Mã hồ sơ",
-         headerClassName: "text-xs font-semibold text-slate-600 min-w-60",
+         headerClassName: "text-sm font-semibold text-slate-600 min-w-60",
          cell: (profile) => (
             <span className="font-medium text-xs text-slate-700 ">
                {profile?.hospitalPatientCode || "—"}
@@ -282,20 +288,58 @@ export function HealthProfileTable({
       {
          id: "fullName",
          header: "Tên khách hàng",
-         headerClassName: "text-xs font-semibold text-slate-600 min-w-60",
-         cell: (profile) => (
-            <span
-               className="font-medium text-sm text-blue-800 underline cursor-pointer"
-               onClick={() => handleOpenViewProfile(profile.id, profile)}
-            >
-               {profile.fullName}
-            </span>
-         ),
+         headerClassName: "text-sm font-semibold text-slate-600 min-w-60",
+         cell: (profile) => {
+            const roleMe = user?.role;
+            const sub = profile?.careSubscription;
+            let assignId: string | undefined;
+
+            if (roleMe === "DOCTOR") {
+               assignId =
+                  sub?.assignedDoctorId ||
+                  sub?.assignedDoctor?.id ||
+                  sub?.carePackage?.assignedDoctor?.id;
+            } else if (roleMe === "NURSE") {
+               assignId =
+                  sub?.assignedNurseId ||
+                  sub?.assignedNurse?.id ||
+                  sub?.carePackage?.assignedNurse?.id;
+            } else if (roleMe === "DOCTOR_EXPERT" || roleMe === "EXPERT") {
+               assignId =
+                  sub?.assignedExpertId ||
+                  sub?.assignedExpert?.id ||
+                  sub?.carePackage?.assignedExpert?.id;
+            }
+
+            const isAssignToMe = Boolean(
+               user?.id && assignId && assignId === user.id,
+            );
+
+            return (
+               <div className="flex items-center gap-2">
+                  <span
+                     className="font-medium text-sm text-blue-800 underline cursor-pointer"
+                     onClick={() => handleOpenViewProfile(profile.id, profile)}
+                  >
+                     {profile.fullName}
+                  </span>
+                  {isAssignToMe && (
+                     <Badge
+                        variant="outline"
+                        className="text-xs h-5 px-1.5 bg-blue-50 text-blue-700 border-none"
+                     >
+                        (Của tôi)
+                     </Badge>
+                  )}
+               </div>
+            );
+         },
       },
+
       {
          id: "gender",
          header: "Giới tính",
-         headerClassName: "text-xs font-semibold text-slate-600",
+         headerClassName: "text-sm font-semibold text-slate-600",
          cell: (profile) => (
             <span className="text-xs text-slate-700 font-medium">
                {GENDER_LABELS[profile.gender] ?? profile.gender}
@@ -305,7 +349,7 @@ export function HealthProfileTable({
       {
          id: "age",
          header: "Tuổi",
-         headerClassName: "text-xs font-semibold text-slate-600",
+         headerClassName: "text-sm font-semibold text-slate-600",
          cell: (profile) => (
             <span className="text-xs text-slate-700 font-medium">
                {formatAge(profile.dob)}
@@ -315,7 +359,7 @@ export function HealthProfileTable({
       {
          id: "carePackage",
          header: "Gói điều trị",
-         headerClassName: "text-xs font-semibold text-slate-600",
+         headerClassName: "text-sm font-semibold text-slate-600",
          cell: (profile: HealthProfile) => {
             const sub = profile?.careSubscription;
             const carePackage = sub?.carePackage;
@@ -332,6 +376,7 @@ export function HealthProfileTable({
                );
             }
 
+            const packageCheck = checkCarePackageStatus(sub);
             const isStandard = carePackage.type === "STANDARD";
 
             // Xử lý các trạng thái xác nhận của bệnh nhân & gói
@@ -344,7 +389,8 @@ export function HealthProfileTable({
                Boolean(sub) &&
                sub.isPatientConfirmed &&
                sub.status === "PENDING";
-            const isActive = sub.status === "ACTIVE";
+            const isExpired = packageCheck.isExpired;
+            const isActive = packageCheck.isActive;
 
             return (
                <div className="flex flex-col gap-0 items-start leading-tight">
@@ -368,9 +414,27 @@ export function HealthProfileTable({
                   <div className="flex items-center gap-1 flex-wrap mt-0.5 text-xs text-slate-500">
                      <span>Trạng thái:</span>
                      {isActive && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-emerald-50 text-emerald-700">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-emerald-100 text-emerald-700">
                            Đang sử dụng
                         </span>
+                     )}
+
+                     {isExpired && (
+                        <div className="inline-flex items-center gap-1 flex-wrap">
+                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-red-50 text-red-700">
+                              Hết hạn
+                           </span>
+                           <button
+                              type="button"
+                              onClick={(e) => {
+                                 e.stopPropagation();
+                                 setBuyingProfile(profile);
+                              }}
+                              className="text-[11px] text-red-600 hover:text-red-800 underline underline-offset-2 cursor-pointer font-medium"
+                           >
+                              Gia hạn
+                           </button>
+                        </div>
                      )}
 
                      {isWaitingConfirm && (
@@ -378,13 +442,13 @@ export function HealthProfileTable({
                            className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-amber-100 text-amber-700"
                            title="Đã gửi đăng ký gói đến bệnh nhân, đang chờ xác nhận trên App"
                         >
-                           Chờ xác nhận
+                           Chờ App xác nhận
                         </span>
                      )}
 
                      {isWaitingCoordinate && (
                         <span
-                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-blue-50 text-blue-700"
+                           className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-amber-100 text-amber-700"
                            title="Bệnh nhân đã xác nhận, vui lòng hoàn tất điều phối nhân viên"
                         >
                            Chờ điều phối
@@ -393,7 +457,7 @@ export function HealthProfileTable({
 
                      {isRejected && (
                         <div className="inline-flex items-center gap-1 flex-wrap">
-                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-rose-50 text-rose-700">
+                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium bg-rose-100 text-rose-700">
                               Bị từ chối
                            </span>
                            <button
@@ -422,7 +486,7 @@ export function HealthProfileTable({
       {
          id: "linkStatus",
          header: "Trạng thái liên kết App",
-         headerClassName: "text-xs font-semibold text-slate-600",
+         headerClassName: "text-sm font-semibold text-slate-600",
          cell: (profile: HealthProfile) => {
             if (profile.linkStatus === "PENDING") {
                const isResendingThis = resendingProfileId === profile.id;
@@ -458,15 +522,16 @@ export function HealthProfileTable({
             if (profile.linkStatus === "UNLINKED") {
                return (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                     <span className="inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                        Đã hủy liên kết
+                     <span className="inline-flex items-center px-2 py-1 rounded-sm text-xs font-medium bg-red-100 text-red-700">
+                        Đã hủy
                      </span>
                      <CustomButton
                         className="h-8 px-2 text-xs"
                         onClick={() => setLinkingProfile(profile)}
                         isLoading={isLinking}
+                        title="Gửi lại lời mời liên kết"
                      >
-                        Gửi lại
+                        <RotateCw />
                      </CustomButton>
                   </div>
                );
@@ -487,18 +552,20 @@ export function HealthProfileTable({
       {
          id: "actions",
          header: "Thao tác",
-         headerClassName: "text-right text-xs font-semibold text-slate-600",
+         headerClassName: "text-right text-sm font-semibold text-slate-600",
          cellClassName: "py-2 text-right",
          cell: (profile: HealthProfile) => {
             const sub = profile?.careSubscription;
-            const canExamine = Boolean(sub) && sub?.status === "ACTIVE";
+            const packageCheck = checkHealthProfileCarePackage(profile);
+            const canExamine = packageCheck.canCreateExamination;
+            const isExpired = packageCheck.isExpired;
             const isRejected =
                Boolean(sub?.rejectionReason) ||
                (sub?.status === "CANCELLED" && !sub?.isPatientConfirmed);
 
             return (
                <div className="flex items-center justify-end gap-1.5">
-                  {canExamine ? (
+                  {canExamine && user?.role === "DOCTOR" ? (
                      <CustomButton
                         size="sm"
                         className="h-8 px-2.5 text-xs"
@@ -509,6 +576,15 @@ export function HealthProfileTable({
                         }
                      >
                         Khám bệnh
+                     </CustomButton>
+                  ) : isExpired ? (
+                     <CustomButton
+                        size="sm"
+                        className="h-8 px-2.5 text-xs bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() => setBuyingProfile(profile)}
+                        title="Gói chăm sóc đã hết hạn. Bấm để mua/gia hạn gói mới."
+                     >
+                        Gia hạn gói
                      </CustomButton>
                   ) : isRejected ? (
                      <CustomButton
@@ -578,7 +654,7 @@ export function HealthProfileTable({
                <div>
                   <Table>
                      <TableHeader className="bg-slate-50/60">
-                        <TableRow className="hover:bg-transparent border-b border-slate-300">
+                        <TableRow className="hover:bg-transparent border-b border-slate-400">
                            {columns.map((col) => (
                               <TableHead
                                  key={col.id}
@@ -615,7 +691,7 @@ export function HealthProfileTable({
                            profileList.map((profile, index) => (
                               <TableRow
                                  key={profile.id}
-                                 className="border-b border-slate-300 transition-colors hover:bg-slate-100"
+                                 className="border-b border-slate-400 transition-colors hover:bg-slate-200/50"
                               >
                                  {columns.map((col) => (
                                     <TableCell
@@ -696,6 +772,15 @@ export function HealthProfileTable({
                      <RiskFactorAssessmentForm
                         selectedProfile={assessingProfile}
                         onStartExaminationWithAssessment={() => {
+                           const packageCheck =
+                              checkHealthProfileCarePackage(assessingProfile);
+                           if (!packageCheck.canCreateExamination) {
+                              toast.warning(
+                                 packageCheck.reason ||
+                                    "Hồ sơ này chưa có gói điều trị hợp lệ để tạo phiếu khám.",
+                              );
+                              return;
+                           }
                            const id = assessingProfile.id;
                            setAssessingProfile(null);
                            router.push(`/health-profile/examination/${id}`);

@@ -113,6 +113,7 @@ export type OcrChiSoSinhLyCoBan = {
    huyet_ap_tam_thu_sbp?: number | null;
    cholesterol_toan_phan?: number | null;
    hdl_cholesterol?: number | null;
+   non_hdl_cholesterol?: number | null;
 };
 
 export type OcrTonThuongCoQuanDich = {

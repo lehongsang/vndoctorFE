@@ -7,6 +7,7 @@ import { z } from "zod";
 import { toast } from "react-toastify";
 import { HealthProfile } from "@/store/api/health-profile/type";
 import {
+   AssessmentInput,
    CreateRiskAssessmentRequest,
    RiskAssessmentResult,
 } from "@/store/api/risk-factor-assessment/type";
@@ -33,6 +34,7 @@ import {
    RiskLevelBadge,
    getRiskContainerClass,
 } from "@/components/common/risk-level-badge";
+import { useAuth } from "@/hooks/use-auth";
 
 export interface RiskFactorAssessmentFormProps {
    selectedProfile?: HealthProfile | null;
@@ -52,6 +54,7 @@ const assessmentSchema = z
       diastolicBp: z.number().nullable().optional(),
       totalCholesterol: z.number().nullable().optional(),
       hdlCholesterol: z.number().nullable().optional(),
+      nonHdlCholesterol: z.number().nullable().optional(),
       glucoseFasting: z.number().nullable().optional(),
       heightCm: z.number().nullable().optional(),
       weightKg: z.number().nullable().optional(),
@@ -204,7 +207,32 @@ const assessmentSchema = z
             }
          }
 
-         // 7. Đường huyết lúc đói (nếu nhập): 2.0 - 35.0 mmol/L
+         // 7. Non-HDL-Cholesterol (nếu nhập): 1.0 - 15.0 mmol/L
+         if (
+            data.nonHdlCholesterol !== null &&
+            data.nonHdlCholesterol !== undefined
+         ) {
+            if (data.nonHdlCholesterol < 1.0 || data.nonHdlCholesterol > 15.0) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Non-HDL-Cholesterol hợp lệ từ 1.0 - 15.0 mmol/L",
+                  path: ["nonHdlCholesterol"],
+               });
+            } else if (
+               data.totalCholesterol !== null &&
+               data.totalCholesterol !== undefined &&
+               data.nonHdlCholesterol >= data.totalCholesterol
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message:
+                     "Non-HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần",
+                  path: ["nonHdlCholesterol"],
+               });
+            }
+         }
+
+         // 8. Đường huyết lúc đói (nếu nhập): 2.0 - 35.0 mmol/L
          if (
             data.glucoseFasting !== null &&
             data.glucoseFasting !== undefined
@@ -311,19 +339,19 @@ const TARGET_ORGAN_DAMAGE_ITEMS: {
 }[] = [
    {
       name: "hasLeftVentricularHypertrophy",
-      label: "Phì đại thất trái (ECG / Siêu âm tim)",
+      label: "Phì đại thất trái trên siêu âm tim hoặc điện tim",
    },
    {
       name: "hasAlbuminuria",
-      label: "Có Albumin niệu / Microalbumin niệu",
+      label: "Có Albumin/Microalbumin niệu",
    },
    {
       name: "hasRetinopathy",
-      label: "Tổn thương võng mạc do THA / mạch cảnh",
+      label: "Có tổn thương đáy mắt",
    },
    {
       name: "hasSilentBrainInfarct",
-      label: "Nhồi máu não thầm lặng",
+      label: "Tổn thương thầm lặng trên não (slient infact)",
    },
 ];
 
@@ -501,6 +529,64 @@ function matchDiseaseToField(disease: {
    return null;
 }
 
+const getPositiveFactors = (input?: AssessmentInput | null) => {
+   if (!input) return [];
+   const factors: { label: string; value?: string }[] = [];
+
+   if (input.diabetes) {
+      const details: string[] = [];
+      if (input.diabetesDurationYears)
+         details.push(`${input.diabetesDurationYears} năm`);
+      if (input.glycemicControl)
+         details.push(`kiểm soát ${input.glycemicControl}`);
+      factors.push({
+         label: "Đái tháo đường",
+         value: details.length > 0 ? `Có (${details.join(", ")})` : "Có",
+      });
+   }
+   if (input.hasLeftVentricularHypertrophy) {
+      factors.push({ label: "Phì đại thất trái (ECG/Siêu âm tim)" });
+   }
+   if (input.hasAlbuminuria) {
+      factors.push({ label: "Có Albumin niệu / Microalbumin niệu" });
+   }
+   if (input.hasRetinopathy) {
+      factors.push({ label: "Tổn thương võng mạc do THA / mạch cảnh" });
+   }
+   if (input.hasSilentBrainInfarct) {
+      factors.push({ label: "Nhồi máu não thầm lặng" });
+   }
+   if (input.stroke) {
+      factors.push({ label: "Đột quỵ" });
+   }
+   if (input.hasMyocardialInfarction) {
+      factors.push({ label: "Nhồi máu cơ tim" });
+   }
+   if (input.hasAcuteCoronarySyndrome) {
+      factors.push({ label: "Hội chứng vành cấp" });
+   }
+   if (input.hasCoronaryArteryDisease) {
+      factors.push({ label: "Bệnh lý mạch vành" });
+   }
+   if (input.hasTia) {
+      factors.push({ label: "Cơn thiếu máu não thoáng qua (TIA)" });
+   }
+   if (input.hasAorticAneurysm) {
+      factors.push({ label: "Phình động mạch chủ" });
+   }
+   if (input.hasPeripheralArteryDisease) {
+      factors.push({ label: "Bệnh mạch máu ngoại vi" });
+   }
+   if (input.hasAtherosclerosis) {
+      factors.push({ label: "Vữa xơ mạch máu" });
+   }
+   if (input.hasFamilialHypercholesterolemia) {
+      factors.push({ label: "Tăng Cholesterol máu gia đình" });
+   }
+
+   return factors;
+};
+
 export type FieldDataSource = "PROFILE" | "OCR" | "MANUAL";
 
 interface CheckboxCardItemProps {
@@ -538,7 +624,7 @@ function CheckboxCardItem({
                      field.onChange(checked);
                   }}
                   disabled={disabled}
-                  className="rounded! border border-primary"
+                  className="border border-primary"
                />
                <span className="flex items-center gap-1.5 flex-wrap">
                   {label}
@@ -668,7 +754,8 @@ export function RiskFactorAssessmentForm({
       Boolean(selectedProfile?.hasAorticAneurysm) ||
       Boolean(selectedProfile?.hasPeripheralArteryDisease) ||
       Boolean(selectedProfile?.hasAtherosclerosis) ||
-      Boolean(selectedProfile?.hasFamilialHypercholesterolemia);
+      Boolean(selectedProfile?.hasFamilialHypercholesterolemia) ||
+      Boolean(selectedProfile?.hasChronicKidneyDisease);
 
    const isAgeLocked = Boolean(
       profileAge !== null || schemaData?.patientProfile?.calculatedAge,
@@ -676,20 +763,81 @@ export function RiskFactorAssessmentForm({
    const isGenderLocked = Boolean(
       profileGender || schemaData?.patientProfile?.gender,
    );
-   const isSmokingLocked = selectedProfile?.isSmoking !== undefined;
+   const isSmokingLocked =
+      selectedProfile?.isSmoking !== undefined &&
+      selectedProfile?.isSmoking !== null;
+
+   // Trích xuất chiều cao & cân nặng từ hồ sơ sức khỏe
+   const profileHeight = useMemo(() => {
+      if (!selectedProfile) return null;
+      const raw = selectedProfile.height;
+      if (raw !== null && raw !== undefined) {
+         const num = Number(raw);
+         if (!isNaN(num) && num > 0) return num;
+      }
+      return null;
+   }, [selectedProfile]);
+
+   const profileWeight = useMemo(() => {
+      if (!selectedProfile) return null;
+      const raw = selectedProfile.weight;
+      if (raw !== null && raw !== undefined) {
+         const num = Number(raw);
+         if (!isNaN(num) && num > 0) return num;
+      }
+      return null;
+   }, [selectedProfile]);
+
+   // Trích xuất bổ sung từ schema nếu có
+   const schemaHeight = useMemo(() => {
+      if (!schemaData?.sections) return null;
+      for (const sec of schemaData.sections) {
+         for (const f of sec.fields) {
+            if (f.name === "heightCm" || f.name === "height") {
+               const num = Number(f.value);
+               if (!isNaN(num) && num > 0) return num;
+            }
+         }
+      }
+      return null;
+   }, [schemaData]);
+
+   const schemaWeight = useMemo(() => {
+      if (!schemaData?.sections) return null;
+      for (const sec of schemaData.sections) {
+         for (const f of sec.fields) {
+            if (f.name === "weightKg" || f.name === "weight") {
+               const num = Number(f.value);
+               if (!isNaN(num) && num > 0) return num;
+            }
+         }
+      }
+      return null;
+   }, [schemaData]);
+
+   const effectiveHeight = profileHeight ?? schemaHeight;
+   const effectiveWeight = profileWeight ?? schemaWeight;
+   const isHeightFromProfile = Boolean(
+      effectiveHeight !== null && effectiveHeight !== undefined,
+   );
+   const isWeightFromProfile = Boolean(
+      effectiveWeight !== null && effectiveWeight !== undefined,
+   );
 
    const getFieldSource = (
       fieldName: keyof AssessmentFormValues,
    ): FieldDataSource => {
+      if (fieldSources[fieldName] === "OCR") return "OCR";
       const isFromProfile =
          (fieldName === "age" && isAgeLocked) ||
          (fieldName === "gender" && isGenderLocked) ||
          (fieldName === "isSmoking" && isSmokingLocked) ||
+         (fieldName === "heightCm" && isHeightFromProfile) ||
+         (fieldName === "weightKg" && isWeightFromProfile) ||
          (fieldName === "hasUnderlyingDisease" && hasRecordedUnderlying) ||
          lockedDiseaseKeys.has(fieldName);
 
       if (isFromProfile) return "PROFILE";
-      if (fieldSources[fieldName] === "OCR") return "OCR";
       return "MANUAL";
    };
 
@@ -739,6 +887,7 @@ export function RiskFactorAssessmentForm({
       handleSubmit,
       control,
       setValue,
+      getValues,
       formState: { errors },
    } = useForm<AssessmentFormValues>({
       resolver: zodResolver(assessmentSchema),
@@ -751,9 +900,10 @@ export function RiskFactorAssessmentForm({
          diastolicBp: null,
          totalCholesterol: null,
          hdlCholesterol: null,
+         nonHdlCholesterol: null,
          glucoseFasting: null,
-         heightCm: null,
-         weightKg: null,
+         heightCm: effectiveHeight,
+         weightKg: effectiveWeight,
          hasLeftVentricularHypertrophy: false,
          hasAlbuminuria: false,
          hasRetinopathy: false,
@@ -774,6 +924,23 @@ export function RiskFactorAssessmentForm({
          hasFamilialHypercholesterolemia: false,
       },
    });
+
+   const { user } = useAuth();
+   const isDoctorOrExpert =
+      user?.role === "DOCTOR" ||
+      user?.role === "DOCTOR_EXPERT" ||
+      user?.role === "EXPERT";
+   const hasCarePackage = Boolean(
+      selectedProfile?.careSubscription || selectedProfile?.careSubscriptionId,
+   );
+
+   const positiveFactors = useMemo(() => {
+      if (!assessmentResult) return [];
+      if (assessmentResult.assessmentInput) {
+         return getPositiveFactors(assessmentResult.assessmentInput);
+      }
+      return getPositiveFactors(getValues() as unknown as AssessmentInput);
+   }, [assessmentResult, getValues]);
 
    // Tự động điền thông tin và khóa dữ liệu từ hồ sơ bệnh nhân
    useEffect(() => {
@@ -799,6 +966,18 @@ export function RiskFactorAssessmentForm({
          setValue("isSmoking", Boolean(selectedProfile.isSmoking));
       }
 
+      // Tự động điền chiều cao và cân nặng từ hồ sơ (nếu có)
+      if (effectiveHeight !== null && effectiveHeight !== undefined) {
+         setValue("heightCm", effectiveHeight, {
+            shouldValidate: true,
+         });
+      }
+      if (effectiveWeight !== null && effectiveWeight !== undefined) {
+         setValue("weightKg", effectiveWeight, {
+            shouldValidate: true,
+         });
+      }
+
       if (hasRecordedUnderlying) {
          setValue("hasUnderlyingDisease", true);
          lockedDiseaseKeys.forEach((key) => {
@@ -810,6 +989,8 @@ export function RiskFactorAssessmentForm({
       schemaData,
       profileAge,
       profileGender,
+      effectiveHeight,
+      effectiveWeight,
       hasRecordedUnderlying,
       lockedDiseaseKeys,
       setValue,
@@ -819,6 +1000,25 @@ export function RiskFactorAssessmentForm({
       useWatch({ control, name: "hasUnderlyingDisease" }),
    );
    const diabetes = Boolean(useWatch({ control, name: "diabetes" }));
+   const watchedTotalChol = useWatch({ control, name: "totalCholesterol" });
+   const watchedHdlChol = useWatch({ control, name: "hdlCholesterol" });
+
+   // Tự động tính Non-HDL-Cholesterol khi có cả Cholesterol toàn phần và HDL-Cholesterol
+   useEffect(() => {
+      if (
+         typeof watchedTotalChol === "number" &&
+         !isNaN(watchedTotalChol) &&
+         typeof watchedHdlChol === "number" &&
+         !isNaN(watchedHdlChol) &&
+         watchedTotalChol > watchedHdlChol
+      ) {
+         const diff =
+            Math.round((watchedTotalChol - watchedHdlChol) * 100) / 100;
+         setValue("nonHdlCholesterol", diff, {
+            shouldValidate: true,
+         });
+      }
+   }, [watchedTotalChol, watchedHdlChol, setValue]);
 
    const handleApplyOcr = (values: OcrExtractedFormValues) => {
       const newSources: Partial<
@@ -875,7 +1075,11 @@ export function RiskFactorAssessmentForm({
       }
 
       // 4. Các chỉ số sinh lý & xét nghiệm (OCR điền vào form, người dùng vẫn có thể chỉnh sửa tay tiếp)
-      if (values.isSmoking !== undefined && values.isSmoking !== null) {
+      if (
+         !isSmokingLocked &&
+         values.isSmoking !== undefined &&
+         values.isSmoking !== null
+      ) {
          setValue("isSmoking", values.isSmoking, {
             shouldDirty: true,
             shouldValidate: true,
@@ -915,6 +1119,16 @@ export function RiskFactorAssessmentForm({
             shouldValidate: true,
          });
          newSources.hdlCholesterol = "OCR";
+      }
+      if (
+         values.nonHdlCholesterol !== undefined &&
+         values.nonHdlCholesterol !== null
+      ) {
+         setValue("nonHdlCholesterol", values.nonHdlCholesterol, {
+            shouldDirty: true,
+            shouldValidate: true,
+         });
+         newSources.nonHdlCholesterol = "OCR";
       }
       if (
          values.glucoseFasting !== undefined &&
@@ -1050,6 +1264,7 @@ export function RiskFactorAssessmentForm({
                diastolicBp: data.diastolicBp ?? undefined,
                totalCholesterol: data.totalCholesterol ?? undefined,
                hdlCholesterol: data.hdlCholesterol ?? undefined,
+               nonHdlCholesterol: data.nonHdlCholesterol ?? undefined,
                glucoseFasting: data.glucoseFasting ?? null,
                heightCm: data.heightCm ?? null,
                weightKg: data.weightKg ?? null,
@@ -1134,7 +1349,7 @@ export function RiskFactorAssessmentForm({
          {assessmentResult && (
             <div
                className={cn(
-                  "p-5 rounded-xl border transition-all text-sm",
+                  "p-5 rounded-sm flex flex-col gap-4 border transition-all text-sm",
                   getRiskContainerClass(assessmentResult.riskLevel),
                )}
             >
@@ -1166,67 +1381,59 @@ export function RiskFactorAssessmentForm({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                     <CustomButton
-                        type="button"
-                        size="sm"
-                        className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
-                        onClick={() => {
-                           if (!assessmentResult || !selectedProfile?.id)
-                              return;
-                           const input = assessmentResult.assessmentInput;
-                           const initialData: Partial<Examination> = {
-                              assessmentInputId:
-                                 assessmentResult.assessmentInputId ||
-                                 assessmentResult.assessmentInput?.id ||
-                                 assessmentResult.id,
-                              systolicBp:
-                                 input?.systolicBp != null
-                                    ? Number(input.systolicBp)
-                                    : undefined,
-                              diastolicBp:
-                                 input?.diastolicBp != null
-                                    ? Number(input.diastolicBp)
-                                    : undefined,
-                              heightCm:
-                                 input?.heightCm != null
-                                    ? Number(input.heightCm)
-                                    : undefined,
-                              weightKg:
-                                 input?.weightKg != null
-                                    ? Number(input.weightKg)
-                                    : undefined,
-                              bmi:
-                                 input?.bmi != null
-                                    ? Number(input.bmi)
-                                    : undefined,
-                              status: "IN_PROGRESS",
-                           };
+                     {isDoctorOrExpert && hasCarePackage && (
+                        <CustomButton
+                           type="button"
+                           size="sm"
+                           className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+                           onClick={() => {
+                              if (!assessmentResult || !selectedProfile?.id)
+                                 return;
+                              const input = assessmentResult.assessmentInput;
+                              const initialData: Partial<Examination> = {
+                                 assessmentInputId:
+                                    assessmentResult.assessmentInputId ||
+                                    assessmentResult.assessmentInput?.id ||
+                                    assessmentResult.id,
+                                 systolicBp:
+                                    input?.systolicBp != null
+                                       ? Number(input.systolicBp)
+                                       : undefined,
+                                 diastolicBp:
+                                    input?.diastolicBp != null
+                                       ? Number(input.diastolicBp)
+                                       : undefined,
+                                 status: "IN_PROGRESS",
+                              };
 
-                           if (onStartExaminationWithAssessment) {
-                              onStartExaminationWithAssessment(
-                                 assessmentResult,
-                                 initialData,
-                              );
-                           } else {
-                              router.push(
-                                 `/work?profileId=${selectedProfile.id}`,
-                              );
-                           }
-                        }}
-                     >
-                        Khám bệnh ngay
-                     </CustomButton>
-                     <CustomButton
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-9"
-                        onClick={() => setIsEvaluationModalOpen(true)}
-                     >
-                        {assessmentResult.doctor
-                           ? "Thẩm định lại"
-                           : "Thẩm định"}
-                     </CustomButton>
+                              if (onStartExaminationWithAssessment) {
+                                 onStartExaminationWithAssessment(
+                                    assessmentResult,
+                                    initialData,
+                                 );
+                              } else {
+                                 router.push(
+                                    `/work?profileId=${selectedProfile.id}`,
+                                 );
+                              }
+                           }}
+                        >
+                           Khám bệnh ngay
+                        </CustomButton>
+                     )}
+                     {isDoctorOrExpert && (
+                        <CustomButton
+                           type="button"
+                           size="sm"
+                           variant="outline"
+                           className="h-9"
+                           onClick={() => setIsEvaluationModalOpen(true)}
+                        >
+                           {assessmentResult.doctor
+                              ? "Thẩm định lại"
+                              : "Thẩm định"}
+                        </CustomButton>
+                     )}
                      <CustomButton
                         type="button"
                         variant="destructive"
@@ -1238,33 +1445,42 @@ export function RiskFactorAssessmentForm({
                   </div>
                </div>
 
+               {positiveFactors.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                     <div className="font-bold text-slate-800 text-sm">
+                        Yếu tố nguy cơ & Bệnh nền ghi nhận
+                     </div>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {positiveFactors.map((factor, idx) => (
+                           <div
+                              key={idx}
+                              className="p-2 rounded bg-rose-50/70 border border-rose-200 text-xs flex items-center justify-between"
+                           >
+                              <span className="font-medium text-rose-900">
+                                 {factor.label}
+                              </span>
+                              <span className="font-semibold text-rose-700 text-[11px]">
+                                 {factor.value || "Có"}
+                              </span>
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+               )}
+
                {assessmentResult.redFlags &&
                   assessmentResult.redFlags.length > 0 && (
-                     <div className="pt-3">
-                        <div className="text-xs font-bold uppercase tracking-wider text-rose-700 mb-2">
-                           Dấu hiệu cảnh báo nguy cơ cao:
+                     <div className="flex flex-col gap-2 pt-1">
+                        <div className="font-bold text-rose-700 uppercase tracking-wide text-[11px]">
+                           Cảnh báo nguy cơ cao
                         </div>
-                        <div className="">
+                        <div className="flex flex-col gap-0.5">
                            {assessmentResult.redFlags.map((flag, idx) => (
                               <div
                                  key={idx}
-                                 className="bg-white/90 rounded-md px-3 py-2 border border-slate-200 text-xs flex items-center gap-2"
+                                 className="text-xs flex items-baseline"
                               >
-                                 <span className="font-medium text-slate-800">
-                                    {flag.title || flag.metric}
-                                 </span>
-                                 <span
-                                    className={cn(
-                                       "font-semibold px-2 py-0.5 rounded text-[11px]",
-                                       flag.level === "DANGER"
-                                          ? "bg-rose-100 text-rose-700"
-                                          : flag.level === "WARNING"
-                                            ? "bg-amber-100 text-amber-700"
-                                            : "bg-blue-100 text-blue-700",
-                                    )}
-                                 >
-                                    {flag.value}
-                                 </span>
+                                 + {flag.title || flag.metric} : {flag.value}
                               </div>
                            ))}
                         </div>
@@ -1392,22 +1608,97 @@ export function RiskFactorAssessmentForm({
                      <div className="flex flex-col gap-1">
                         <div className="flex items-center justify-between gap-1.5">
                            <label className="text-xs font-medium text-slate-800">
-                              Thói quen hút thuốc
+                              Thói quen hút thuốc{" "}
+                              {isSmokingLocked && (
+                                 <span className="text-[11px] font-normal text-slate-400">
+                                    (Theo hồ sơ)
+                                 </span>
+                              )}
                            </label>
                            {renderSourceBadge("isSmoking")}
                         </div>
                         <Controller
                            name="isSmoking"
                            control={control}
-                           render={({ field }) => (
-                              <label className="flex items-center gap-2 h-10 px-3 rounded-sm border border-input bg-background text-xs font-medium text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
-                                 <Checkbox
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                 />
-                                 Có hút thuốc lá
-                              </label>
-                           )}
+                           render={({ field }) => {
+                              return (
+                                 <div className="grid grid-cols-2 h-10 rounded-sm border border-input overflow-hidden">
+                                    <div
+                                       onClick={() => {
+                                          if (!isSmokingLocked)
+                                             field.onChange(true);
+                                       }}
+                                       className={cn(
+                                          "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
+                                          isSmokingLocked
+                                             ? "cursor-not-allowed opacity-70 bg-slate-50"
+                                             : "cursor-pointer hover:bg-slate-50",
+                                          field.value === true
+                                             ? "bg-primary/5 text-primary font-semibold"
+                                             : "bg-background text-slate-700",
+                                       )}
+                                    >
+                                       <Checkbox
+                                          id="smoking-yes"
+                                          checked={field.value === true}
+                                          disabled={isSmokingLocked}
+                                          onCheckedChange={() => {
+                                             if (!isSmokingLocked)
+                                                field.onChange(true);
+                                          }}
+                                       />
+                                       <Label
+                                          htmlFor="smoking-yes"
+                                          className={cn(
+                                             "text-xs font-medium",
+                                             isSmokingLocked
+                                                ? "cursor-not-allowed text-slate-500"
+                                                : "cursor-pointer",
+                                          )}
+                                       >
+                                          Có
+                                       </Label>
+                                    </div>
+
+                                    <div
+                                       onClick={() => {
+                                          if (!isSmokingLocked)
+                                             field.onChange(false);
+                                       }}
+                                       className={cn(
+                                          "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
+                                          isSmokingLocked
+                                             ? "cursor-not-allowed opacity-70 bg-slate-50"
+                                             : "cursor-pointer hover:bg-slate-50",
+                                          field.value === false
+                                             ? "bg-primary/5 text-primary font-semibold"
+                                             : "bg-background text-slate-700",
+                                       )}
+                                    >
+                                       <Checkbox
+                                          id="smoking-no"
+                                          checked={field.value === false}
+                                          disabled={isSmokingLocked}
+                                          onCheckedChange={() => {
+                                             if (!isSmokingLocked)
+                                                field.onChange(false);
+                                          }}
+                                       />
+                                       <Label
+                                          htmlFor="smoking-no"
+                                          className={cn(
+                                             "text-xs font-medium",
+                                             isSmokingLocked
+                                                ? "cursor-not-allowed text-slate-500"
+                                                : "cursor-pointer",
+                                          )}
+                                       >
+                                          Không
+                                       </Label>
+                                    </div>
+                                 </div>
+                              );
+                           }}
                         />
                      </div>
 
@@ -1445,7 +1736,7 @@ export function RiskFactorAssessmentForm({
                            "totalCholesterol",
                         )}
                         type="number"
-                        step="0.1"
+                        step="any"
                         placeholder="Ví dụ: 5.0"
                         error={errors.totalCholesterol?.message}
                         {...register("totalCholesterol", {
@@ -1460,10 +1751,30 @@ export function RiskFactorAssessmentForm({
                            "hdlCholesterol",
                         )}
                         type="number"
-                        step="0.1"
+                        step="any"
                         placeholder="Ví dụ: 1.2"
                         error={errors.hdlCholesterol?.message}
                         {...register("hdlCholesterol", {
+                           setValueAs: (v) =>
+                              v === "" || isNaN(v) ? null : Number(v),
+                        })}
+                     />
+
+                     <FormInput
+                        label={renderFieldLabel(
+                           "Non-HDL-Cholesterol (mmol/L)",
+                           "nonHdlCholesterol",
+                           typeof watchedTotalChol === "number" &&
+                              typeof watchedHdlChol === "number" &&
+                              watchedTotalChol > watchedHdlChol
+                              ? "(Tự tính: TC - HDL)"
+                              : undefined,
+                        )}
+                        type="number"
+                        step="any"
+                        placeholder="Ví dụ: 3.8"
+                        error={errors.nonHdlCholesterol?.message}
+                        {...register("nonHdlCholesterol", {
                            setValueAs: (v) =>
                               v === "" || isNaN(v) ? null : Number(v),
                         })}
@@ -1475,7 +1786,7 @@ export function RiskFactorAssessmentForm({
                            "glucoseFasting",
                         )}
                         type="number"
-                        step="0.1"
+                        step="any"
                         placeholder="Ví dụ: 5.5"
                         error={errors.glucoseFasting?.message}
                         {...register("glucoseFasting", {
@@ -1484,11 +1795,12 @@ export function RiskFactorAssessmentForm({
                         })}
                      />
 
-                     <div className="grid grid-cols-2 gap-2">
+                     <div className="col-span-full grid grid-cols-2 gap-2">
                         <FormInput
                            label={renderFieldLabel(
                               "Chiều cao (cm)",
                               "heightCm",
+                              isHeightFromProfile ? "(Theo hồ sơ)" : undefined,
                            )}
                            type="number"
                            placeholder="Ví dụ: 165"
@@ -1499,7 +1811,11 @@ export function RiskFactorAssessmentForm({
                            })}
                         />
                         <FormInput
-                           label={renderFieldLabel("Cân nặng (kg)", "weightKg")}
+                           label={renderFieldLabel(
+                              "Cân nặng (kg)",
+                              "weightKg",
+                              isWeightFromProfile ? "(Theo hồ sơ)" : undefined,
+                           )}
                            type="number"
                            placeholder="Ví dụ: 65"
                            error={errors.weightKg?.message}
@@ -1548,7 +1864,7 @@ export function RiskFactorAssessmentForm({
                                        field.onChange(checked);
                                     }}
                                     disabled={lockedDiseaseKeys.has("diabetes")}
-                                    className="rounded! border border-primary"
+                                    className="border border-primary"
                                  />
                                  <span className="flex items-center gap-1.5 flex-wrap">
                                     Mắc đái tháo đường
@@ -1604,12 +1920,20 @@ export function RiskFactorAssessmentForm({
                            "egfr",
                         )}
                         type="number"
-                        step="0.1"
-                        placeholder="Ví dụ: 55"
+                        step="any"
+                        placeholder="Ví dụ: 55.67"
                         error={errors.egfr?.message}
                         {...register("egfr", {
-                           setValueAs: (v) =>
-                              v === "" || isNaN(v) ? null : Number(v),
+                           setValueAs: (v) => {
+                              if (v === "" || v === null || v === undefined)
+                                 return null;
+                              if (typeof v === "string") {
+                                 const clean = v.replace(",", ".");
+                                 const num = parseFloat(clean);
+                                 return isNaN(num) ? null : num;
+                              }
+                              return isNaN(Number(v)) ? null : Number(v);
+                           },
                         })}
                      />
 
@@ -1619,12 +1943,20 @@ export function RiskFactorAssessmentForm({
                            "acr",
                         )}
                         type="number"
-                        step="0.1"
-                        placeholder="Ví dụ: 35"
+                        step="any"
+                        placeholder="Ví dụ: 33.56"
                         error={errors.acr?.message}
                         {...register("acr", {
-                           setValueAs: (v) =>
-                              v === "" || isNaN(v) ? null : Number(v),
+                           setValueAs: (v) => {
+                              if (v === "" || v === null || v === undefined)
+                                 return null;
+                              if (typeof v === "string") {
+                                 const clean = v.replace(",", ".");
+                                 const num = parseFloat(clean);
+                                 return isNaN(num) ? null : num;
+                              }
+                              return isNaN(Number(v)) ? null : Number(v);
+                           },
                         })}
                      />
                   </div>
@@ -1681,6 +2013,10 @@ export function RiskFactorAssessmentForm({
             isOpen={isOcrModalOpen}
             onClose={() => setIsOcrModalOpen(false)}
             onApplyToForm={handleApplyOcr}
+            expectedPatient={{
+               fullName: selectedProfile?.fullName,
+               dob: selectedProfile?.dob,
+            }}
          />
       </div>
    );

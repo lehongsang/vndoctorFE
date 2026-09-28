@@ -73,6 +73,7 @@ export function CoordinateForm({
    const { data: staffAssign, isLoading: isStaffAssignLoading } =
       useGetAllStaffQuery(
          {
+            facilityId: subcription?.carePackage?.facilityId,
             search: searchStaff,
             page: pageStaff,
             limit: limitStaff,
@@ -238,7 +239,9 @@ export function CoordinateForm({
                />
                <RowItem
                   label="Giới tính"
-                  value={subcription.healthProfile?.gender}
+                  value={
+                     subcription.healthProfile?.gender === "MALE" ? "Nam" : "Nữ"
+                  }
                />
                <RowItem
                   label="Gói đã mua"
@@ -249,16 +252,18 @@ export function CoordinateForm({
                   value={
                      <span
                         className={cn(
-                           "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide",
+                           "inline-flex items-center gap-1 px-3 py-1 rounded-sm text-xs font-semibold tracking-wide",
                            isVip
-                              ? "bg-amber-100 text-amber-800 border border-amber-200"
-                              : "bg-emerald-100 text-emerald-800 border border-emerald-200",
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-blue-100 text-blue-800",
                         )}
                      >
                         {isVip && (
                            <Sparkles className="size-3 text-amber-600" />
                         )}
-                        {subcription.carePackage?.type || "Chưa xác định"}
+                        {subcription.carePackage?.type === "STANDARD"
+                           ? "Cơ bản"
+                           : "VIP"}
                      </span>
                   }
                />
@@ -287,15 +292,18 @@ export function CoordinateForm({
                         </span>
                      </div>
 
-                     {subcription.assignedExpert?.fullName ? (
+                     {subcription.carePackage?.doctorExpert?.fullName ? (
                         <div className="flex flex-col gap-0.5 mt-1">
                            <span className="text-sm font-semibold text-slate-800">
-                              {subcription.assignedExpert.fullName}
+                              {subcription.carePackage.doctorExpert.fullName}
                            </span>
-                           {subcription.assignedExpert.specialty && (
+                           {subcription.carePackage.doctorExpert.specialty && (
                               <span className="text-xs text-slate-500">
                                  Chuyên khoa:{" "}
-                                 {subcription.assignedExpert.specialty}
+                                 {
+                                    subcription.carePackage.doctorExpert
+                                       .specialty
+                                 }
                               </span>
                            )}
                         </div>

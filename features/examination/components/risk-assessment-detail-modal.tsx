@@ -21,6 +21,8 @@ import {
    RiskLevelBadge,
    getRiskContainerClass,
 } from "@/components/common/risk-level-badge";
+import { toast } from "react-toastify";
+import { checkHealthProfileCarePackage } from "@/lib/care-package-utils";
 
 const getPositiveFactors = (input?: AssessmentInput) => {
    if (!input) return [];
@@ -143,7 +145,18 @@ export function RiskAssessmentDetailModal({
       }
    }
 
+   const packageCheck = assessment?.healthProfile
+      ? checkHealthProfileCarePackage(assessment.healthProfile)
+      : null;
+
    const handleStartExam = () => {
+      if (packageCheck && !packageCheck.canCreateExamination) {
+         toast.warning(
+            packageCheck.reason ||
+               "Hồ sơ này chưa có gói điều trị hợp lệ để tạo phiếu khám.",
+         );
+         return;
+      }
       onClose();
       if (onStartExamination) {
          onStartExamination(assessment);
@@ -281,6 +294,15 @@ export function RiskAssessmentDetailModal({
                            value: formatMetric(input?.hdlCholesterol, "mmol/L"),
                         });
                      }
+                     if (isValidNumber(input?.nonHdlCholesterol)) {
+                        metrics.push({
+                           label: "Non-HDL-Cholesterol",
+                           value: formatMetric(
+                              input?.nonHdlCholesterol,
+                              "mmol/L",
+                           ),
+                        });
+                     }
                      if (isValidNumber(input?.ldlCholesterol)) {
                         metrics.push({
                            label: "LDL-Cholesterol",
@@ -413,6 +435,11 @@ export function RiskAssessmentDetailModal({
                      size="sm"
                      className="h-8 text-xs font-semibold px-4 cursor-pointer bg-primary hover:bg-primary/90 text-white flex items-center gap-1.5"
                      onClick={handleStartExam}
+                     title={
+                        packageCheck && !packageCheck.canCreateExamination
+                           ? packageCheck.reason
+                           : undefined
+                     }
                   >
                      Khám ngay
                   </CustomButton>

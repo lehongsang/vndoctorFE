@@ -28,7 +28,40 @@ import { TreatmentTarget } from "@/store/api/treatment-target/type";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "react-toastify";
 import { SearchInput } from "@/components/common/search-input";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const COMMON_CUSTOM_TARGET_PRESETS = [
+   { key: "uricAcid", label: "Acid Uric", defaultVal: "< 360 umol/L" },
+   {
+      key: "restingHeartRate",
+      label: "Nhịp tim khi nghỉ",
+      defaultVal: "60 - 75 bpm",
+   },
+   { key: "triglyceride", label: "Triglyceride", defaultVal: "< 1.7 mmol/L" },
+   { key: "microalbumin", label: "Microalbumin niệu", defaultVal: "< 30 mg/g" },
+];
+
+const parseCustomTargets = (
+   raw?: Record<string, string> | { [key: string]: string }[] | null,
+): { id: string; key: string; value: string }[] => {
+   if (!raw) return [];
+   return Array.isArray(raw)
+      ? raw.flatMap((item, idx) =>
+           item && typeof item === "object"
+              ? Object.entries(item).map(([k, v]) => ({
+                   id: `ct-${idx}-${k}`,
+                   key: k,
+                   value: String(v ?? ""),
+                }))
+              : [],
+        )
+      : Object.entries(raw).map(([k, v], idx) => ({
+           id: `ct-${idx}-${k}`,
+           key: k,
+           value: String(v ?? ""),
+        }));
+};
 
 interface TreatmentTargetTemplateModalProps {
    isOpen: boolean;
@@ -103,12 +136,54 @@ export function TreatmentTargetTemplateModal({
       initialMode === "create" ? currentTargetData?.doctorNotes || "" : "",
    );
    const [formIsPublic, setFormIsPublic] = useState(false);
-   const [formCustomTargets, setFormCustomTargets] = useState<
-      Record<string, string>
-   >(() => (initialMode === "create" ? customTargets || {} : {}));
+   const [customTargetList, setCustomTargetList] = useState<
+      { id: string; key: string; value: string }[]
+   >(() =>
+      initialMode === "create"
+         ? parseCustomTargets(currentTargetData?.customTargets || customTargets)
+         : [],
+   );
 
    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
    const [prevInitialMode, setPrevInitialMode] = useState(initialMode);
+
+   const getCustomTargetsObject = (): Record<string, string> => {
+      const res: Record<string, string> = {};
+      customTargetList.forEach((item) => {
+         const k = item.key.trim();
+         if (k) {
+            res[k] = item.value.trim();
+         }
+      });
+      return res;
+   };
+
+   const handleAddCustomTarget = () => {
+      setCustomTargetList((prev) => [
+         ...prev,
+         {
+            id: `ct-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            key: "",
+            value: "",
+         },
+      ]);
+   };
+
+   const handleUpdateCustomTarget = (
+      id: string,
+      field: "key" | "value",
+      val: string,
+   ) => {
+      setCustomTargetList((prev) =>
+         prev.map((item) =>
+            item.id === id ? { ...item, [field]: val } : item,
+         ),
+      );
+   };
+
+   const handleRemoveCustomTarget = (id: string) => {
+      setCustomTargetList((prev) => prev.filter((item) => item.id !== id));
+   };
 
    const resetForm = () => {
       setFormName("");
@@ -123,7 +198,7 @@ export function TreatmentTargetTemplateModal({
       setFormSmokingAdvice("");
       setFormDoctorNotes("");
       setFormIsPublic(false);
-      setFormCustomTargets({});
+      setCustomTargetList([]);
       setEditingTemplate(null);
    };
 
@@ -140,7 +215,13 @@ export function TreatmentTargetTemplateModal({
          setFormExerciseAdvice(currentTargetData.exerciseAdvice || "");
          setFormSmokingAdvice(currentTargetData.smokingAdvice || "");
          setFormDoctorNotes(currentTargetData.doctorNotes || "");
-         setFormCustomTargets(customTargets || {});
+         setCustomTargetList(
+            parseCustomTargets(
+               currentTargetData.customTargets || customTargets,
+            ),
+         );
+      } else if (customTargets) {
+         setCustomTargetList(parseCustomTargets(customTargets));
       }
       setMode("create");
    };
@@ -169,7 +250,11 @@ export function TreatmentTargetTemplateModal({
             setFormSmokingAdvice(currentTargetData?.smokingAdvice || "");
             setFormDoctorNotes(currentTargetData?.doctorNotes || "");
             setFormIsPublic(false);
-            setFormCustomTargets(customTargets || {});
+            setCustomTargetList(
+               parseCustomTargets(
+                  currentTargetData?.customTargets || customTargets,
+               ),
+            );
             setEditingTemplate(null);
          } else {
             setMode("list");
@@ -185,7 +270,7 @@ export function TreatmentTargetTemplateModal({
             setFormSmokingAdvice("");
             setFormDoctorNotes("");
             setFormIsPublic(false);
-            setFormCustomTargets({});
+            setCustomTargetList([]);
             setEditingTemplate(null);
          }
       }
@@ -205,7 +290,7 @@ export function TreatmentTargetTemplateModal({
       setFormSmokingAdvice(tpl.smokingAdvice || "");
       setFormDoctorNotes(tpl.doctorNotes || "");
       setFormIsPublic(false);
-      setFormCustomTargets(tpl.customTargets || {});
+      setCustomTargetList(parseCustomTargets(tpl.customTargets));
       setMode("edit");
    };
 
@@ -219,6 +304,8 @@ export function TreatmentTargetTemplateModal({
       const facilityId = user?.facilityId || user?.facility?.id || "";
 
       try {
+         const customTargetsMap = getCustomTargetsObject();
+
          if (mode === "create") {
             const body: CreateTreatmentTargetTemplateInput = {
                name: formName.trim(),
@@ -233,7 +320,7 @@ export function TreatmentTargetTemplateModal({
                dietAdvice: formDietAdvice,
                exerciseAdvice: formExerciseAdvice,
                smokingAdvice: formSmokingAdvice,
-               customTargets: formCustomTargets,
+               customTargets: customTargetsMap,
                doctorNotes: formDoctorNotes,
                isPublic: formIsPublic,
             };
@@ -253,7 +340,7 @@ export function TreatmentTargetTemplateModal({
                dietAdvice: formDietAdvice,
                exerciseAdvice: formExerciseAdvice,
                smokingAdvice: formSmokingAdvice,
-               customTargets: formCustomTargets,
+               customTargets: customTargetsMap,
                doctorNotes: formDoctorNotes,
             }).unwrap();
             toast.success("Cập nhật mẫu mục tiêu thành công!");
@@ -470,6 +557,30 @@ export function TreatmentTargetTemplateModal({
                                           </span>
                                        </div>
                                     )}
+                                    {tpl.renalTarget && (
+                                       <div>
+                                          <span className="text-slate-400">
+                                             Thận:{" "}
+                                          </span>
+                                          <span className="font-medium text-slate-800">
+                                             {tpl.renalTarget}
+                                          </span>
+                                       </div>
+                                    )}
+                                    {tpl.customTargets &&
+                                       typeof tpl.customTargets === "object" &&
+                                       Object.entries(tpl.customTargets).map(
+                                          ([k, v]) => (
+                                             <div key={k}>
+                                                <span className="text-slate-400">
+                                                   {k}:{" "}
+                                                </span>
+                                                <span className="font-medium text-slate-800">
+                                                   {v}
+                                                </span>
+                                             </div>
+                                          ),
+                                       )}
                                  </div>
                               </div>
                            ))}
@@ -543,6 +654,129 @@ export function TreatmentTargetTemplateModal({
                                  setFormRenalTarget(e.target.value)
                               }
                            />
+                        </div>
+
+                        {/* Mục tiêu điều trị tùy chỉnh / bổ sung */}
+                        <div className="space-y-2 pt-2 border-t border-slate-100">
+                           <div className="flex items-center justify-between">
+                              <div className="text-xs font-bold text-slate-800">
+                                 Mục tiêu tùy chỉnh / bổ sung
+                              </div>
+                           </div>
+
+                           {/* Gợi ý nhanh */}
+                           <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                              <span className="text-[11px] text-slate-400">
+                                 Gợi ý nhanh:
+                              </span>
+                              {COMMON_CUSTOM_TARGET_PRESETS.map((preset) => {
+                                 const isAdded = customTargetList.some(
+                                    (t) =>
+                                       t.key.toLowerCase() ===
+                                       preset.key.toLowerCase(),
+                                 );
+                                 return (
+                                    <button
+                                       key={preset.key}
+                                       type="button"
+                                       disabled={isAdded}
+                                       onClick={() => {
+                                          setCustomTargetList((prev) => [
+                                             ...prev,
+                                             {
+                                                id: `ct-${Date.now()}-${preset.key}`,
+                                                key: preset.key,
+                                                value: preset.defaultVal,
+                                             },
+                                          ]);
+                                       }}
+                                       className={cn(
+                                          "text-[11px] px-2 py-0.5 rounded-full border transition-all cursor-pointer",
+                                          isAdded
+                                             ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                                             : "bg-white text-slate-600 hover:text-primary-600 hover:border-primary-300 border-slate-200 shadow-2xs",
+                                       )}
+                                    >
+                                       + {preset.label}
+                                    </button>
+                                 );
+                              })}
+                           </div>
+
+                           {/* Danh sách mục tiêu tùy chỉnh đã thêm */}
+                           {customTargetList.length > 0 && (
+                              <div className="space-y-2 mt-2">
+                                 {customTargetList.map((item, idx) => (
+                                    <div
+                                       key={item.id}
+                                       className="flex flex-col sm:flex-row gap-2 items-start sm:items-center"
+                                    >
+                                       <div className="flex-1 w-full sm:w-auto">
+                                          <FormInput
+                                             label={
+                                                idx === 0
+                                                   ? "Tên / Mã chỉ số"
+                                                   : undefined
+                                             }
+                                             placeholder="VD: uricAcid, Acid Uric..."
+                                             value={item.key}
+                                             onChange={(e) =>
+                                                handleUpdateCustomTarget(
+                                                   item.id,
+                                                   "key",
+                                                   e.target.value,
+                                                )
+                                             }
+                                             containerClassName="w-full"
+                                          />
+                                       </div>
+                                       <div className="flex-1 w-full sm:w-auto">
+                                          <FormInput
+                                             label={
+                                                idx === 0
+                                                   ? "Mục tiêu cần đạt"
+                                                   : undefined
+                                             }
+                                             placeholder="VD: < 360 umol/L"
+                                             value={item.value}
+                                             onChange={(e) =>
+                                                handleUpdateCustomTarget(
+                                                   item.id,
+                                                   "value",
+                                                   e.target.value,
+                                                )
+                                             }
+                                             containerClassName="w-full"
+                                          />
+                                       </div>
+                                       <button
+                                          type="button"
+                                          onClick={() =>
+                                             handleRemoveCustomTarget(item.id)
+                                          }
+                                          className={cn(
+                                             "p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors self-end sm:self-center cursor-pointer",
+                                             idx === 0 && "sm:mt-5",
+                                          )}
+                                          title="Xóa mục tiêu này"
+                                       >
+                                          <Trash2 className="w-4 h-4" />
+                                       </button>
+                                    </div>
+                                 ))}
+                              </div>
+                           )}
+                           <div className="flex justify-center">
+                              <CustomButton
+                                 type="button"
+                                 size="sm"
+                                 onClick={handleAddCustomTarget}
+                                 className="text-xs h-8 px-2"
+                              >
+                                 <Plus className="w-3.5 h-3.5 mr-1" />
+                                 Thêm mục tiêu
+                              </CustomButton>
+                           </div>
                         </div>
 
                         <div className="text-xs font-bold text-slate-800">

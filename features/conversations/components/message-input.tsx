@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { FormInput } from "@/components/common/form-input";
 import { Send, Paperclip, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface MessageInputProps {
    onSendMessage: (payload: {
@@ -202,7 +203,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
          )}
 
          {/* Khung soạn thảo */}
-         <div className="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-md p-2 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+         <div
+            className={cn(
+               "flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-md p-2 focus-within:ring-1 focus-within:ring-primary/20 transition-all",
+               disabled && "opacity-60 bg-slate-100 cursor-not-allowed",
+            )}
+         >
             {/* Nút menu đính kèm chuyên biệt y tế */}
             <DropdownMenu>
                <DropdownMenuTrigger
@@ -262,8 +268,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                onChange={handleChange}
                onKeyDown={handleKeyDown}
                disabled={disabled}
-               placeholder="Nhập tin nhắn tư vấn y tế (Enter để gửi, Shift+Enter xuống dòng)..."
-               className="flex-1 bg-transparent border-0 outline-none text-xs sm:text-sm text-slate-800 resize-none py-2 px-1 max-h-32 min-h-9"
+               placeholder={
+                  disabled
+                     ? "Tính năng trò chuyện tạm thời bị khóa do bệnh nhân chưa mua gói hoặc gói đã hết hạn..."
+                     : "Nhập tin nhắn tư vấn y tế (Enter để gửi, Shift+Enter xuống dòng)..."
+               }
+               className="flex-1 bg-transparent border-0 outline-none text-xs sm:text-sm text-slate-800 resize-none py-2 px-1 max-h-32 min-h-9 disabled:cursor-not-allowed"
             />
 
             {/* Nút gửi */}

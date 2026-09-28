@@ -6,6 +6,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CustomButton } from "@/components/common/custom-button";
 import { Conversation } from "@/store/api/conversation/type";
 import { cn } from "@/lib/utils";
+import { Lock } from "lucide-react";
+import { checkCarePackageStatus } from "@/lib/care-package-utils";
 
 interface ChatHeaderProps {
    conversation: Conversation;
@@ -24,7 +26,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       profile?.id ||
       conversation.healthProfileId ||
       conversation.subscription?.healthProfileId;
-   const carePackage = conversation.subscription?.carePackage;
+
+   const packageCheck = checkCarePackageStatus(
+      conversation.healthProfile?.careSubscription || conversation.subscription,
+   );
+   const carePackage =
+      conversation.subscription?.carePackage ||
+      conversation.healthProfile?.careSubscription?.carePackage;
    const packageName = carePackage?.name;
    const packageType = carePackage?.type;
 
@@ -95,29 +103,39 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                      <span className="text-primary font-medium text-[11px] animate-pulse">
                         Đang nhập tin nhắn...
                      </span>
-                  ) : carePackage ? (
+                  ) : packageCheck.hasPackage ? (
                      <div className="flex items-center gap-1.5 truncate">
                         <span
                            className="font-medium text-slate-700 truncate"
-                           title={packageName}
+                           title={packageCheck.packageName || packageName}
                         >
-                           Gói: {packageName}
+                           Gói: {packageCheck.packageName || packageName}
                         </span>
-                        {packageType && (
+                        {packageCheck.packageType && (
                            <span
                               className={cn(
                                  "px-1.5 py-1 text-[10px] font-semibold rounded-full shrink-0",
-                                 packageType === "VIP"
+                                 packageCheck.packageType === "VIP"
                                     ? "bg-amber-100 text-amber-800 "
                                     : "bg-blue-100 text-blue-700 ",
                               )}
                            >
-                              Loại gói: {getPackageTypeLabel(packageType)}
+                              Loại gói:{" "}
+                              {getPackageTypeLabel(packageCheck.packageType)}
                            </span>
                         )}
+                        {packageCheck.isExpired ? (
+                           <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700 shrink-0 border border-rose-200">
+                              Hết hạn
+                           </span>
+                        ) : !packageCheck.isActive ? (
+                           <span className="px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-slate-100 text-slate-600 shrink-0">
+                              Chưa kích hoạt
+                           </span>
+                        ) : null}
                      </div>
                   ) : (
-                     <span className="text-[11px] text-slate-400 italic">
+                     <span className="text-[11px] text-rose-500 font-medium italic">
                         Chưa đăng ký gói
                      </span>
                   )}
@@ -143,15 +161,30 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                      </CustomButton>
                   </Link>
 
-                  <Link
-                     href={`/health-profile/examination/${targetProfileId}?action=create`}
-                     target="_blank"
-                     rel="noreferrer"
-                  >
-                     <CustomButton size="sm" className="h-8 text-xs">
+                  {packageCheck.canCreateExamination ? (
+                     <Link
+                        href={`/health-profile/examination/${targetProfileId}?action=create`}
+                        target="_blank"
+                        rel="noreferrer"
+                     >
+                        <CustomButton size="sm" className="h-8 text-xs">
+                           Tạo phiếu khám
+                        </CustomButton>
+                     </Link>
+                  ) : (
+                     <CustomButton
+                        size="sm"
+                        disabled
+                        className="h-8 text-xs opacity-50 cursor-not-allowed bg-slate-200 text-slate-500 hover:bg-slate-200"
+                        title={
+                           packageCheck.reason ||
+                           "Bệnh nhân chưa mua gói hoặc gói đã hết hạn"
+                        }
+                     >
+                        <Lock className="w-3 h-3 mr-1" />
                         Tạo phiếu khám
                      </CustomButton>
-                  </Link>
+                  )}
 
                   <Link
                      href={`/health-profile/examination/${targetProfileId}`}

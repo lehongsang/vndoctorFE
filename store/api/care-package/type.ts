@@ -23,8 +23,11 @@ export type CarePackage = {
    code: string;
    name: string;
    type: CarePackageType;
-   doctorExpertId?: string;
    doctorExpert?: Staff;
+   doctorExpertId?: string;
+   assignedDoctor?: Staff | null;
+   assignedExpert?: Staff | null;
+   assignedNurse?: Staff | null;
    description: string;
    durationDays: number;
    priceAmount: number;

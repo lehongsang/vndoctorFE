@@ -82,9 +82,7 @@ const examinationSchema = z.object({
    diastolicBp: z.number().nullable().optional(),
    temperature: z.number().nullable().optional(),
    spo2: z.number().nullable().optional(),
-   heightCm: z.number().nullable().optional(),
-   weightKg: z.number().nullable().optional(),
-   bmi: z.number().nullable().optional(),
+   respiratoryRate: z.number().nullable().optional(),
    diagnosis: z.string().optional(),
    icd10Code: z.string().optional(),
    nextAppointmentDate: z.string().optional(),
@@ -104,11 +102,9 @@ type VitalFieldKey =
    | "systolicBp"
    | "diastolicBp"
    | "heartRate"
+   | "respiratoryRate"
    | "spo2"
-   | "temperature"
-   | "heightCm"
-   | "weightKg"
-   | "bmi";
+   | "temperature";
 
 const VITAL_INPUT_CONFIGS: {
    name: VitalFieldKey;
@@ -122,11 +118,13 @@ const VITAL_INPUT_CONFIGS: {
       placeholder: "vd: 80",
    },
    { name: "heartRate", label: "Mạch (lần/phút)", placeholder: "vd: 75" },
+   {
+      name: "respiratoryRate",
+      label: "Nhịp thở (lần/phút)",
+      placeholder: "vd: 16",
+   },
    { name: "spo2", label: "SpO2 (%)", placeholder: "vd: 98" },
    { name: "temperature", label: "Nhiệt độ (°C)", placeholder: "vd: 36.5" },
-   { name: "heightCm", label: "Chiều cao (cm)", placeholder: "vd: 165" },
-   { name: "weightKg", label: "Cân nặng (kg)", placeholder: "vd: 60" },
-   { name: "bmi", label: "BMI (kg/m²)", placeholder: "Tự tính" },
 ];
 
 type TargetStringKey =
@@ -453,9 +451,7 @@ export function ExaminationForm({
          diastolicBp: initialData?.diastolicBp ?? null,
          temperature: initialData?.temperature ?? null,
          spo2: initialData?.spo2 ?? null,
-         heightCm: initialData?.heightCm ?? null,
-         weightKg: initialData?.weightKg ?? null,
-         bmi: initialData?.bmi ?? null,
+         respiratoryRate: initialData?.respiratoryRate ?? null,
          diagnosis: initialData?.diagnosis || "",
          icd10Code: initialData?.icd10Code || "",
          nextAppointmentDate: initialData?.nextAppointmentDate || "",
@@ -622,24 +618,6 @@ export function ExaminationForm({
    };
 
    useEffect(() => {
-      const defaultHeight =
-         initialData?.heightCm ??
-         (healthProfileData?.height && healthProfileData.height > 0
-            ? healthProfileData.height
-            : null);
-      const defaultWeight =
-         initialData?.weightKg ??
-         (healthProfileData?.weight && healthProfileData.weight > 0
-            ? healthProfileData.weight
-            : null);
-      const defaultBmi =
-         initialData?.bmi ??
-         (defaultHeight && defaultWeight && defaultHeight > 0
-            ? Number(
-                 (defaultWeight / Math.pow(defaultHeight / 100, 2)).toFixed(1),
-              )
-            : null);
-
       reset({
          assessmentInputId: initialData?.assessmentInputId || "",
          treatmentTargetId: initialData?.treatmentTargetId || "",
@@ -650,25 +628,13 @@ export function ExaminationForm({
          diastolicBp: initialData?.diastolicBp ?? null,
          temperature: initialData?.temperature ?? null,
          spo2: initialData?.spo2 ?? null,
-         heightCm: defaultHeight,
-         weightKg: defaultWeight,
-         bmi: defaultBmi,
+         respiratoryRate: initialData?.respiratoryRate ?? null,
          diagnosis: initialData?.diagnosis || "",
          icd10Code: initialData?.icd10Code || "",
          nextAppointmentDate: initialData?.nextAppointmentDate || "",
          status: initialData?.status || "IN_PROGRESS",
       });
-   }, [initialData, healthProfileData, reset]);
-
-   const heightCm = useWatch({ control, name: "heightCm" });
-   const weightKg = useWatch({ control, name: "weightKg" });
-
-   useEffect(() => {
-      if (heightCm && weightKg && heightCm > 0) {
-         const heightM = heightCm / 100;
-         setValue("bmi", Number((weightKg / (heightM * heightM)).toFixed(1)));
-      }
-   }, [heightCm, weightKg, setValue]);
+   }, [initialData, reset]);
 
    const initialTargetId = initialData?.treatmentTargetId;
    const currentAssessmentTargetId =
@@ -819,9 +785,7 @@ export function ExaminationForm({
             diastolicBp: values.diastolicBp ?? 0,
             temperature: values.temperature ?? 0,
             spo2: values.spo2 ?? 0,
-            heightCm: values.heightCm ?? 0,
-            weightKg: values.weightKg ?? 0,
-            bmi: values.bmi ?? 0,
+            respiratoryRate: values.respiratoryRate ?? 0,
          };
 
          if (isEditing && initialData?.id) {
@@ -1122,7 +1086,7 @@ export function ExaminationForm({
                   2. Chỉ số sinh tồn
                </h3>
 
-               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {VITAL_INPUT_CONFIGS.map((item) => (
                      <Controller
                         key={item.name}

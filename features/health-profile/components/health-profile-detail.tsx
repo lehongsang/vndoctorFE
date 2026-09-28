@@ -405,7 +405,7 @@ export function HealthProfileDetail({
                      {/* Yếu tố nguy cơ & Tiền sử bệnh tim mạch */}
                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
                         <RowItem
-                           label="Yếu tố nguy cơ tim mạch & chuyển hóa"
+                           label="Yếu tố nguy cơ"
                            value={
                               [
                                  profile.isSmoking ? "Hút thuốc lá" : null,
@@ -413,11 +413,7 @@ export function HealthProfileDetail({
                                     ? "Tăng huyết áp"
                                     : null,
                                  profile.hasDyslipidemia
-                                    ? "Rối loạn lipid máu"
-                                    : null,
-                                 profile.hasDiabetes ? "Đái tháo đường" : null,
-                                 profile.hasFamilialHypercholesterolemia
-                                    ? "Tăng cholesterol máu gia đình"
+                                    ? "Rối loạn chuyển hoá mỡ máu"
                                     : null,
                               ].filter(Boolean).length > 0 ? (
                                  <div className="flex flex-wrap gap-1.5 mt-1">
@@ -429,13 +425,7 @@ export function HealthProfileDetail({
                                           ? "Tăng huyết áp"
                                           : null,
                                        profile.hasDyslipidemia
-                                          ? "Rối loạn lipid máu"
-                                          : null,
-                                       profile.hasDiabetes
-                                          ? "Đái tháo đường"
-                                          : null,
-                                       profile.hasFamilialHypercholesterolemia
-                                          ? "Tăng cholesterol máu gia đình"
+                                          ? "Rối loạn chuyển hoá mỡ máu"
                                           : null,
                                     ]
                                        .filter(Boolean)
@@ -455,9 +445,16 @@ export function HealthProfileDetail({
                         />
 
                         <RowItem
-                           label="Bệnh lý tim mạch & mạch máu"
+                           label="Bệnh lý mạn tính"
                            value={
                               [
+                                 profile.hasDiabetes ? "Đái tháo đường" : null,
+                                 profile.hasFamilialHypercholesterolemia
+                                    ? "Tăng cholesterol máu gia đình"
+                                    : null,
+                                 profile.hasChronicKidneyDisease
+                                    ? "Suy thận"
+                                    : null,
                                  profile.hasCoronaryArteryDisease
                                     ? "Bệnh động mạch vành"
                                     : null,
@@ -483,6 +480,15 @@ export function HealthProfileDetail({
                               ].filter(Boolean).length > 0 ? (
                                  <div className="flex flex-wrap gap-1.5 mt-1">
                                     {[
+                                       profile.hasDiabetes
+                                          ? "Đái tháo đường"
+                                          : null,
+                                       profile.hasFamilialHypercholesterolemia
+                                          ? "Tăng cholesterol máu gia đình"
+                                          : null,
+                                       profile.hasChronicKidneyDisease
+                                          ? "Suy thận"
+                                          : null,
                                        profile.hasCoronaryArteryDisease
                                           ? "Bệnh động mạch vành"
                                           : null,
@@ -984,14 +990,15 @@ export function HealthProfileDetail({
                                        label="Chuyên gia cố vấn (VIP)"
                                        value={
                                           sub.assignedExpert?.fullName ||
-                                          carePackage.doctorExpert?.fullName ? (
+                                          carePackage.assignedExpert
+                                             ?.fullName ? (
                                              <span>
                                                 {sub.assignedExpert?.fullName ||
-                                                   carePackage.doctorExpert
+                                                   carePackage.assignedExpert
                                                       ?.fullName}
                                                 {(sub.assignedExpert
                                                    ?.phoneNumber ||
-                                                   carePackage.doctorExpert
+                                                   carePackage.assignedExpert
                                                       ?.phoneNumber) && (
                                                    <span className="text-slate-500 font-normal">
                                                       {" "}
@@ -999,7 +1006,7 @@ export function HealthProfileDetail({
                                                       {sub.assignedExpert
                                                          ?.phoneNumber ||
                                                          carePackage
-                                                            .doctorExpert
+                                                            .assignedExpert
                                                             ?.phoneNumber}
                                                    </span>
                                                 )}

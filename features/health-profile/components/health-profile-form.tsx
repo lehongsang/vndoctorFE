@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { z } from "zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
    useCreateHealthProfileMutation,
@@ -47,6 +47,10 @@ const BLOOD_TYPE_OPTIONS = [
 const DISEASE_ITEMS = [
    { name: "hasDiabetes" as const, label: "Đái tháo đường" },
    {
+      name: "hasChronicKidneyDisease" as const,
+      label: "Suy thận",
+   },
+   {
       name: "hasFamilialHypercholesterolemia" as const,
       label: "Tăng cholesterol máu gia đình",
    },
@@ -59,14 +63,17 @@ const DISEASE_ITEMS = [
       name: "hasPeripheralArteryDisease" as const,
       label: "Bệnh mạch máu ngoại vi",
    },
-   { name: "hasStroke" as const, label: "Đột quỵ" },
-   { name: "hasTia" as const, label: "Thiếu máu não thoáng qua (TIA)" },
+   { name: "hasStroke" as const, label: "Đột quỵ não" },
+   {
+      name: "hasTia" as const,
+      label: "Cơn thiếu máu não cục bộ thoáng qua (TIA)",
+   },
 ];
 
 const RISK_FACTOR_ITEMS = [
    { name: "isSmoking" as const, label: "Hút thuốc lá" },
    { name: "hasHypertension" as const, label: "Tăng huyết áp" },
-   { name: "hasDyslipidemia" as const, label: "Rối loạn mỡ máu" },
+   { name: "hasDyslipidemia" as const, label: "Rối loạn chuyển hoá mỡ máu" },
 ];
 
 const profileSchema = z.object({
@@ -135,6 +142,7 @@ const profileSchema = z.object({
    hasPeripheralArteryDisease: z.boolean(),
    hasAtherosclerosis: z.boolean(),
    hasFamilialHypercholesterolemia: z.boolean(),
+   hasChronicKidneyDisease: z.boolean().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -214,8 +222,12 @@ export function HealthProfileForm({
          hasPeripheralArteryDisease: false,
          hasAtherosclerosis: false,
          hasFamilialHypercholesterolemia: false,
+         hasChronicKidneyDisease: false,
       },
    });
+
+   const watchedFullName = useWatch({ control, name: "fullName" });
+   const watchedDob = useWatch({ control, name: "dob" });
 
    const handleApplyOcrData = (data: OcrProfileExtractedData) => {
       const newlyFilled: Partial<Record<keyof ProfileFormValues, boolean>> = {};
@@ -401,6 +413,14 @@ export function HealthProfileForm({
          if (data.hasFamilialHypercholesterolemia)
             newlyFilled.hasFamilialHypercholesterolemia = true;
       }
+      if (typeof data.hasChronicKidneyDisease === "boolean") {
+         setValue("hasChronicKidneyDisease", data.hasChronicKidneyDisease, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+         if (data.hasChronicKidneyDisease)
+            newlyFilled.hasChronicKidneyDisease = true;
+      }
 
       setOcrFilledFields((prev) => ({ ...prev, ...newlyFilled }));
    };
@@ -449,6 +469,9 @@ export function HealthProfileForm({
             hasFamilialHypercholesterolemia: Boolean(
                detailData.hasFamilialHypercholesterolemia,
             ),
+            hasChronicKidneyDisease: Boolean(
+               detailData.hasChronicKidneyDisease,
+            ),
          });
       }
    }, [detailData, isUpdate, isView, reset]);
@@ -487,6 +510,7 @@ export function HealthProfileForm({
             hasFamilialHypercholesterolemia: Boolean(
                values.hasFamilialHypercholesterolemia,
             ),
+            hasChronicKidneyDisease: Boolean(values.hasChronicKidneyDisease),
          };
 
          if (isUpdate && profileId) {
@@ -731,6 +755,68 @@ export function HealthProfileForm({
                   />
                </div>
 
+               {/*Bệnh lý */}
+               <div className="col-span-full pt-2 flex flex-col gap-2">
+                  <label className="text-xs font-medium text-slate-800 ">
+                     Bệnh lý mạn tính
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                     {DISEASE_ITEMS.map((item) => (
+                        <Controller
+                           key={item.name}
+                           name={item.name}
+                           control={control}
+                           render={({ field }) => (
+                              <div
+                                 role="button"
+                                 tabIndex={0}
+                                 onClick={() =>
+                                    !isView && field.onChange(!field.value)
+                                 }
+                                 onKeyDown={(e) => {
+                                    if (
+                                       !isView &&
+                                       (e.key === "Enter" || e.key === " ")
+                                    ) {
+                                       e.preventDefault();
+                                       field.onChange(!field.value);
+                                    }
+                                 }}
+                                 className={cn(
+                                    "flex items-center justify-between py-2.5 px-4 rounded-sm border text-left select-none transition-colors",
+                                    isView
+                                       ? "cursor-not-allowed opacity-80"
+                                       : "cursor-pointer hover:bg-slate-50",
+                                    field.value
+                                       ? "border-emerald-600 bg-emerald-100"
+                                       : "border-slate-300 bg-slate-50/40",
+                                 )}
+                              >
+                                 <span className="text-xs sm:text-sm font-medium text-slate-800 pr-2 flex items-center gap-1.5">
+                                    <span>{item.label}</span>
+                                    {renderOcrBadge(item.name)}
+                                 </span>
+                                 <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center shrink-0"
+                                 >
+                                    <Checkbox
+                                       checked={field.value}
+                                       onCheckedChange={(checked) =>
+                                          !isView &&
+                                          field.onChange(Boolean(checked))
+                                       }
+                                       disabled={isView}
+                                       className="size-4.5 rounded border-slate-400 data-checked:bg-emerald-600 data-checked:text-white"
+                                    />
+                                 </div>
+                              </div>
+                           )}
+                        />
+                     ))}
+                  </div>
+               </div>
+
                <div className="col-span-full flex flex-col gap-2">
                   <label className="text-xs font-medium text-slate-800">
                      Yếu tố nguy cơ
@@ -763,69 +849,7 @@ export function HealthProfileForm({
                                        ? "cursor-not-allowed opacity-80"
                                        : "cursor-pointer hover:bg-slate-50",
                                     field.value
-                                       ? "border-emerald-600 bg-emerald-50/20"
-                                       : "border-slate-300 bg-slate-50/40",
-                                 )}
-                              >
-                                 <span className="text-xs sm:text-sm font-medium text-slate-800 pr-2 flex items-center gap-1.5">
-                                    <span>{item.label}</span>
-                                    {renderOcrBadge(item.name)}
-                                 </span>
-                                 <div
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center shrink-0"
-                                 >
-                                    <Checkbox
-                                       checked={field.value}
-                                       onCheckedChange={(checked) =>
-                                          !isView &&
-                                          field.onChange(Boolean(checked))
-                                       }
-                                       disabled={isView}
-                                       className="size-4.5 rounded border-slate-400 data-checked:bg-emerald-600 data-checked:text-white"
-                                    />
-                                 </div>
-                              </div>
-                           )}
-                        />
-                     ))}
-                  </div>
-               </div>
-
-               {/* Yếu tố nguy cơ & Bệnh lý */}
-               <div className="col-span-full pt-2 flex flex-col gap-2">
-                  <label className="text-xs font-medium text-slate-800 ">
-                     Bệnh lý mạn tính
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                     {DISEASE_ITEMS.map((item) => (
-                        <Controller
-                           key={item.name}
-                           name={item.name}
-                           control={control}
-                           render={({ field }) => (
-                              <div
-                                 role="button"
-                                 tabIndex={0}
-                                 onClick={() =>
-                                    !isView && field.onChange(!field.value)
-                                 }
-                                 onKeyDown={(e) => {
-                                    if (
-                                       !isView &&
-                                       (e.key === "Enter" || e.key === " ")
-                                    ) {
-                                       e.preventDefault();
-                                       field.onChange(!field.value);
-                                    }
-                                 }}
-                                 className={cn(
-                                    "flex items-center justify-between py-2.5 px-4 rounded-sm border text-left select-none transition-colors",
-                                    isView
-                                       ? "cursor-not-allowed opacity-80"
-                                       : "cursor-pointer hover:bg-slate-50",
-                                    field.value
-                                       ? "border-emerald-600 bg-emerald-50/20"
+                                       ? "border-emerald-600 bg-emerald-100"
                                        : "border-slate-300 bg-slate-50/40",
                                  )}
                               >
@@ -910,6 +934,10 @@ export function HealthProfileForm({
             isOpen={isOcrModalOpen}
             onClose={() => setIsOcrModalOpen(false)}
             onApply={handleApplyOcrData}
+            expectedPatient={{
+               fullName: detailData?.fullName || watchedFullName,
+               dob: detailData?.dob || watchedDob,
+            }}
          />
       </div>
    );

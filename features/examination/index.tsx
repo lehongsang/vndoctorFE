@@ -15,7 +15,9 @@ import { ExaminationService } from "./components/service";
 import { RiskAssessmentHistory } from "./components/risk-assessment-history";
 import { useGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { useLazyGetExaminationByIdQuery } from "@/store/api/examination/examination-api";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Lock } from "lucide-react";
+import { checkHealthProfileCarePackage } from "@/lib/care-package-utils";
+import { toast } from "react-toastify";
 
 export const ExaminationPage = () => {
    const params = useParams<{
@@ -46,6 +48,11 @@ export const ExaminationPage = () => {
    const { data, isLoading } = useGetDetailHealthProfileQuery(id || "");
    const HealthProfile = data as HealthProfile;
 
+   const packageCheck = useMemo(
+      () => checkHealthProfileCarePackage(HealthProfile),
+      [HealthProfile],
+   );
+
    const { data: assessmentData } = useGetRiskAssessmentDetailQuery(
       assessmentId || "",
       { skip: !assessmentId },
@@ -64,15 +71,13 @@ export const ExaminationPage = () => {
             input?.systolicBp != null ? Number(input.systolicBp) : undefined,
          diastolicBp:
             input?.diastolicBp != null ? Number(input.diastolicBp) : undefined,
-         heightCm: input?.heightCm != null ? Number(input.heightCm) : undefined,
-         weightKg: input?.weightKg != null ? Number(input.weightKg) : undefined,
-         bmi: input?.bmi != null ? Number(input.bmi) : undefined,
          status: "IN_PROGRESS",
-      } as Examination;
+      } as unknown as Examination;
    }, [assessmentData, assessmentId]);
 
    const effectiveIsCreate =
-      isCreateExamination || (action === "create" && !examination);
+      packageCheck.canCreateExamination &&
+      (isCreateExamination || (action === "create" && !examination));
    const effectiveEditingData = editingExamination ?? assessmentInitialData;
 
    const handleExaminationSaved = async (savedExam: Examination) => {
@@ -114,6 +119,13 @@ export const ExaminationPage = () => {
       initialVitals?: Partial<Examination>,
    ) => {
       if (!HealthProfile) return;
+      if (!packageCheck.canCreateExamination) {
+         toast.error(
+            packageCheck.reason ||
+               "Hồ sơ sức khỏe chưa đăng ký gói hoặc gói đã hết hạn, không thể tạo phiếu khám mới!",
+         );
+         return;
+      }
       setIsCreateExamination(true);
       setEditingExamination(
          initialVitals ? (initialVitals as Examination) : null,
@@ -197,6 +209,13 @@ export const ExaminationPage = () => {
                            _assessment,
                            initialVitals,
                         ) => {
+                           if (!packageCheck.canCreateExamination) {
+                              toast.error(
+                                 packageCheck.reason ||
+                                    "Hồ sơ sức khỏe chưa đăng ký gói hoặc gói đã hết hạn, không thể tạo phiếu khám mới!",
+                              );
+                              return;
+                           }
                            handleStartCreateExamination(initialVitals);
                         }}
                      />
@@ -207,17 +226,58 @@ export const ExaminationPage = () => {
                            !effectiveIsCreate &&
                            !effectiveEditingData &&
                            !examination && (
-                              <div className="flex h-[calc(100vh-10rem)] gap-2 justify-center items-center">
-                                 <CustomButton
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() =>
-                                       handleStartCreateExamination()
-                                    }
-                                    className="flex items-center gap-1.5 w-fit px-6"
-                                 >
-                                    Tạo phiếu khám mới
-                                 </CustomButton>
+                              <div className="flex flex-col h-[calc(100vh-10rem)] gap-3 justify-center items-center p-6 text-center max-w-md mx-auto">
+                                 {packageCheck.canCreateExamination ? (
+                                    <CustomButton
+                                       variant="default"
+                                       size="sm"
+                                       onClick={() =>
+                                          handleStartCreateExamination()
+                                       }
+                                       className="flex items-center gap-1.5 w-fit px-6"
+                                    >
+                                       Tạo phiếu khám mới
+                                    </CustomButton>
+                                 ) : (
+                                    <div className="p-5 rounded-lg border border-rose-200 bg-rose-50/80 flex flex-col items-center gap-3">
+                                       <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                                          <AlertTriangle className="w-6 h-6" />
+                                       </div>
+                                       <div className="space-y-1">
+                                          <h3 className="text-sm font-bold text-rose-900">
+                                             {packageCheck.isExpired
+                                                ? "Gói điều trị đã hết hạn"
+                                                : "Chưa đăng ký gói điều trị"}
+                                          </h3>
+                                          <p className="text-xs text-rose-700 leading-relaxed">
+                                             {packageCheck.reason ||
+                                                "Hồ sơ sức khỏe chưa đăng ký gói điều trị hoặc gói đã hết hạn. Không thể tạo phiếu khám mới."}
+                                          </p>
+                                       </div>
+                                       <div className="flex items-center gap-2 pt-1">
+                                          <CustomButton
+                                             variant="default"
+                                             size="sm"
+                                             disabled
+                                             className="opacity-50 cursor-not-allowed text-xs bg-slate-300 text-slate-600 hover:bg-slate-300"
+                                             title={packageCheck.reason}
+                                          >
+                                             <Lock className="w-3.5 h-3.5 mr-1" />
+                                             Tạo phiếu khám mới
+                                          </CustomButton>
+                                          <CustomButton
+                                             variant="outline"
+                                             size="sm"
+                                             className="text-xs border-rose-300 text-rose-700 hover:bg-rose-100"
+                                             onClick={() =>
+                                                router.push("/health-profile")
+                                             }
+                                          >
+                                             Danh sách hồ sơ
+                                          </CustomButton>
+                                       </div>
+                                    </div>
+                                 )}
                               </div>
                            )}
                         {(effectiveIsCreate || effectiveEditingData) &&

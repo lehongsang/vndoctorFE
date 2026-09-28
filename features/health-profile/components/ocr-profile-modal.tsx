@@ -17,10 +17,16 @@ import {
    OcrEngine,
    OcrPdfResponse,
    OcrMedicalRecordStructuredData,
+   OcrBenhLyManTinhKemTheo,
 } from "@/store/api/ocr/type";
 import { toast } from "react-toastify";
 import { FileText, CheckCircle2, AlertCircle, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+   ExpectedPatientInfo,
+   verifyPatientMatch,
+} from "@/lib/ocr-verification";
+import { PatientOcrVerificationBanner } from "@/components/common/patient-ocr-verification-banner";
 
 export interface OcrProfileExtractedData {
    fullName?: string;
@@ -47,12 +53,14 @@ export interface OcrProfileExtractedData {
    hasPeripheralArteryDisease?: boolean;
    hasAtherosclerosis?: boolean;
    hasFamilialHypercholesterolemia?: boolean;
+   hasChronicKidneyDisease?: boolean;
 }
 
-interface OcrProfileModalProps {
+export interface OcrProfileModalProps {
    isOpen: boolean;
    onClose: () => void;
    onApply: (data: OcrProfileExtractedData) => void;
+   expectedPatient?: ExpectedPatientInfo;
 }
 
 type TabType = "profile" | "diseases" | "json";
@@ -135,6 +143,7 @@ export function OcrProfileModal({
    isOpen,
    onClose,
    onApply,
+   expectedPatient,
 }: OcrProfileModalProps) {
    const [file, setFile] = useState<File | null>(null);
    const [engine, setEngine] = useState<OcrEngine>("rapidocr");
@@ -253,6 +262,8 @@ export function OcrProfileModal({
          let hasDyslipidemia: boolean | undefined = undefined;
          if (sinhLy?.cholesterol_toan_phan != null) {
             hasDyslipidemia = sinhLy.cholesterol_toan_phan > 5.2;
+         } else if (sinhLy?.non_hdl_cholesterol != null) {
+            hasDyslipidemia = sinhLy.non_hdl_cholesterol > 4.1;
          } else if (medicalHistory) {
             const lowerHistory = medicalHistory.toLowerCase();
             if (
@@ -304,6 +315,30 @@ export function OcrProfileModal({
             typeof benhManTinh?.tang_cholesterol_mau_gia_dinh === "boolean"
                ? benhManTinh.tang_cholesterol_mau_gia_dinh
                : undefined;
+         const benhManTinhObj = benhManTinh as
+            | (OcrBenhLyManTinhKemTheo & {
+                 suy_than?: boolean | null;
+                 benh_than_man?: boolean | null;
+                 has_chronic_kidney_disease?: boolean | null;
+              })
+            | undefined;
+         const hasChronicKidneyDisease =
+            typeof benhManTinhObj?.suy_than === "boolean"
+               ? benhManTinhObj.suy_than
+               : typeof benhManTinhObj?.benh_than_man === "boolean"
+               ? benhManTinhObj.benh_than_man
+               : typeof benhManTinhObj?.has_chronic_kidney_disease === "boolean"
+               ? benhManTinhObj.has_chronic_kidney_disease
+               : benhManTinhObj?.egfr != null && benhManTinhObj.egfr < 60
+               ? true
+               : medicalHistory
+               ? (
+                    medicalHistory.toLowerCase().includes("suy thận") ||
+                    medicalHistory.toLowerCase().includes("thận mạn") ||
+                    medicalHistory.toLowerCase().includes("chronic kidney") ||
+                    medicalHistory.toLowerCase().includes("ckd")
+                 )
+               : undefined;
 
          const parsed: OcrProfileExtractedData = {
             fullName: fullName.trim(),
@@ -329,6 +364,7 @@ export function OcrProfileModal({
             hasAorticAneurysm,
             hasPeripheralArteryDisease,
             hasFamilialHypercholesterolemia,
+            hasChronicKidneyDisease,
          };
 
          setExtractedData(parsed);
@@ -373,23 +409,57 @@ export function OcrProfileModal({
          count++;
       if (typeof extractedData.hasFamilialHypercholesterolemia === "boolean")
          count++;
+      if (typeof extractedData.hasChronicKidneyDisease === "boolean")
+         count++;
       return count;
    };
 
    const applicableCount = getApplicableCount();
-
-   const handleApply = () => {
-      if (!extractedData) return;
-      onApply(extractedData);
-      toast.success("Đã điền thông tin trích xuất vào hồ sơ thành công!");
-      onClose();
-   };
 
    const dataObj = (result?.data || result) as
       | OcrMedicalRecordStructuredData
       | undefined;
    const phanLoai = dataObj?.PHAN_LOAI_BENH_LY_NEN;
    const caNhan = dataObj?.THONG_TIN_CA_NHAN;
+   const sinhLy = dataObj?.A_CHI_SO_SINH_LY_CO_BAN;
+
+   // Đối chiếu thông tin bệnh nhân giữa tài liệu OCR và hồ sơ bệnh nhân hiện tại
+   const verification = React.useMemo(() => {
+      if (!result && !extractedData) return null;
+      const ocrFullName =
+         extractedData?.fullName ||
+         caNhan?.ho_va_ten ||
+         (result as { patient?: { fullName?: string } })?.patient?.fullName ||
+         "";
+      const ocrDob =
+         extractedData?.dob ||
+         caNhan?.ngay_sinh ||
+         (result as { patient?: { dob?: string } })?.patient?.dob ||
+         "";
+      const ocrAge = sinhLy?.tuoi;
+
+      return verifyPatientMatch({
+         expectedFullName: expectedPatient?.fullName,
+         expectedDob: expectedPatient?.dob,
+         ocrFullName,
+         ocrDob,
+         ocrAge,
+      });
+   }, [result, extractedData, expectedPatient, caNhan, sinhLy]);
+
+   const handleApply = () => {
+      if (!extractedData) return;
+      if (verification && !verification.isMatched) {
+         toast.error(
+            verification.errorMessage ||
+               "Thông tin bệnh nhân không trùng khớp. Không thể áp dụng dữ liệu!",
+         );
+         return;
+      }
+      onApply(extractedData);
+      toast.success("Đã điền thông tin trích xuất vào hồ sơ thành công!");
+      onClose();
+   };
 
    // Danh sách các bệnh lý mạn tính hiển thị toggle
    const chronicDiseasesList = [
@@ -428,6 +498,10 @@ export function OcrProfileModal({
       {
          key: "hasFamilialHypercholesterolemia" as const,
          label: "Tăng Cholesterol máu gia đình",
+      },
+      {
+         key: "hasChronicKidneyDisease" as const,
+         label: "Bệnh thận mạn / Suy thận",
       },
    ];
 
@@ -589,6 +663,11 @@ export function OcrProfileModal({
                   ) : (
                      /* Hiển thị kết quả bóc tách */
                      <div className="space-y-4">
+                        {/* Thẻ kiểm tra & đối chiếu thông tin bệnh nhân */}
+                        <PatientOcrVerificationBanner
+                           verification={verification}
+                        />
+
                         {/* Header thông tin bệnh nhân tóm tắt */}
                         <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-sm flex flex-wrap items-center justify-between gap-3">
                            <div className="flex items-center gap-2 flex-wrap">
@@ -1036,16 +1115,26 @@ export function OcrProfileModal({
             {/* Footer cố định luôn ở bottom — chỉ hiện khi có kết quả */}
             {result && (
                <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-3 border-t border-slate-200 bg-white">
-                  <div className="flex items-center gap-1.5 text-slate-600 text-xs">
-                     <AlertCircle className="w-4 h-4 text-primary shrink-0" />
-                     <span>
-                        Phát hiện{" "}
-                        <strong className="text-slate-900">
-                           {applicableCount}
-                        </strong>{" "}
-                        thông tin tương thích với hồ sơ sức khỏe.
-                     </span>
-                  </div>
+                  {verification && !verification.isMatched ? (
+                     <div className="flex items-center gap-1.5 text-rose-600 text-xs font-semibold">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>
+                           Không thể áp dụng: Thông tin bệnh nhân không trùng
+                           khớp!
+                        </span>
+                     </div>
+                  ) : (
+                     <div className="flex items-center gap-1.5 text-slate-600 text-xs">
+                        <AlertCircle className="w-4 h-4 text-primary shrink-0" />
+                        <span>
+                           Phát hiện{" "}
+                           <strong className="text-slate-900">
+                              {applicableCount}
+                           </strong>{" "}
+                           thông tin tương thích với hồ sơ sức khỏe.
+                        </span>
+                     </div>
+                  )}
 
                   <div className="flex items-center gap-2">
                      <CustomButton
@@ -1062,7 +1151,15 @@ export function OcrProfileModal({
                         type="button"
                         size="sm"
                         onClick={handleApply}
-                        disabled={applicableCount === 0}
+                        disabled={
+                           applicableCount === 0 ||
+                           (verification !== null && !verification.isMatched)
+                        }
+                        className={cn(
+                           verification &&
+                              !verification.isMatched &&
+                              "opacity-50 cursor-not-allowed bg-slate-300 hover:bg-slate-300 text-slate-500",
+                        )}
                      >
                         Áp dụng vào hồ sơ
                      </CustomButton>

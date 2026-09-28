@@ -37,9 +37,7 @@ export type Examination = {
    diastolicBp?: number;
    temperature?: number;
    spo2?: number;
-   heightCm?: number;
-   weightKg?: number;
-   bmi?: number;
+   respiratoryRate?: number;
    reasonForVisit?: string;
    clinicalSymptoms?: string;
    diagnosis: string;
@@ -65,9 +63,7 @@ export type CreateExaminationRequest = {
    diastolicBp?: number;
    temperature?: number;
    spo2?: number;
-   heightCm?: number;
-   weightKg?: number;
-   bmi?: number;
+   respiratoryRate?: number;
    reasonForVisit?: string;
    clinicalSymptoms?: string;
    icd10Code?: string;

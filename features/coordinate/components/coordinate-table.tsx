@@ -155,7 +155,25 @@ export default function CoordinateTable({
                bg: "bg-slate-100",
                text: "text-slate-600",
             };
-            return (
+            return data.registeredByStaffId ? (
+               <div className="flex items-center">
+                  {data.isPatientConfirmed ? (
+                     <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
+                     >
+                        {config.label}
+                     </span>
+                  ) : data.rejectionReason ? (
+                     <span className="text-red-500">
+                        {data.rejectionReason}
+                     </span>
+                  ) : (
+                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                        Chờ App xác nhận
+                     </span>
+                  )}
+               </div>
+            ) : (
                <span
                   className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}
                >
