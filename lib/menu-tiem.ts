@@ -5,7 +5,6 @@ import {
    MessageCircle,
    Book,
    type LucideIcon,
-   Radiation,
    Share2,
    Heart,
 } from "lucide-react";

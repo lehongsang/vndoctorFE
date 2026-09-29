@@ -165,7 +165,8 @@ export function useChatSocket({
          socket.emit("typing", { conversationId, isTyping });
 
          if (isTyping) {
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            if (typingTimeoutRef.current)
+               clearTimeout(typingTimeoutRef.current);
             typingTimeoutRef.current = setTimeout(() => {
                socket.emit("typing", { conversationId, isTyping: false });
             }, 3000);
@@ -195,4 +196,3 @@ export function useChatSocket({
       emitMessageRead,
    };
 }
-

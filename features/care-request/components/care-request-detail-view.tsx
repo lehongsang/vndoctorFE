@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/accordion";
 import { STATUS_CONFIG } from "./care-request-table";
 import { formatDate } from "@/lib/utils";
+import Image from "next/image";
 
 interface CareRequestDetailViewProps {
    requestId: string;
@@ -46,10 +47,11 @@ export function CareRequestDetailView({
    onResolve,
    onCancel,
 }: CareRequestDetailViewProps) {
-   const { data: detail, isLoading, isFetching } = useGetDetailCareRequestQuery(
-      requestId,
-      { skip: !requestId }
-   );
+   const {
+      data: detail,
+      isLoading,
+      isFetching,
+   } = useGetDetailCareRequestQuery(requestId, { skip: !requestId });
 
    if (isLoading || isFetching) {
       return (
@@ -98,7 +100,10 @@ export function CareRequestDetailView({
                      Chi tiết yêu cầu: {detail.requestCode || detail.title}
                   </h2>
                   <p className="text-xs text-slate-500">
-                     Ngày tạo: {detail.createdAt ? formatDate(detail.createdAt, true) : "—"}
+                     Ngày tạo:{" "}
+                     {detail.createdAt
+                        ? formatDate(detail.createdAt, true)
+                        : "—"}
                   </p>
                </div>
             </div>
@@ -124,16 +129,18 @@ export function CareRequestDetailView({
                   </CustomButton>
                )}
 
-               {(detail.status === "PENDING" || detail.status === "IN_PROGRESS") && onCancel && (
-                  <CustomButton
-                     variant="outline"
-                     size="sm"
-                     className="h-9 px-3 text-xs text-rose-600 hover:text-rose-700 border-rose-200 hover:bg-rose-50"
-                     onClick={onCancel}
-                  >
-                     Hủy yêu cầu
-                  </CustomButton>
-               )}
+               {(detail.status === "PENDING" ||
+                  detail.status === "IN_PROGRESS") &&
+                  onCancel && (
+                     <CustomButton
+                        variant="outline"
+                        size="sm"
+                        className="h-9 px-3 text-xs text-rose-600 hover:text-rose-700 border-rose-200 hover:bg-rose-50"
+                        onClick={onCancel}
+                     >
+                        Hủy yêu cầu
+                     </CustomButton>
+                  )}
             </div>
          </div>
 
@@ -145,12 +152,15 @@ export function CareRequestDetailView({
                <AccordionContent>
                   <div className="flex flex-col gap-6 p-6 border rounded-sm shadow-sm bg-white">
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50/50 p-4 rounded-sm">
-                        <RowItem label="Mã yêu cầu" value={detail.requestCode} />
+                        <RowItem
+                           label="Mã yêu cầu"
+                           value={detail.requestCode}
+                        />
                         <RowItem
                            label="Trạng thái"
                            value={
                               <span
-                                 className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
+                                 className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${statusConfig.bg} ${statusConfig.text}`}
                               >
                                  {statusConfig.label}
                               </span>
@@ -185,13 +195,15 @@ export function CareRequestDetailView({
                            <>
                               <RowItem
                                  label="Bệnh nhân"
-                                 value={detail.subscription.healthProfile.fullName}
+                                 value={
+                                    detail.subscription.healthProfile.fullName
+                                 }
                               />
                               <RowItem
                                  label="Số điện thoại"
                                  value={
-                                    detail.subscription.healthProfile.phoneNumber ||
-                                    "Chưa cập nhật"
+                                    detail.subscription.healthProfile
+                                       .phoneNumber || "Chưa cập nhật"
                                  }
                               />
                            </>
@@ -199,7 +211,9 @@ export function CareRequestDetailView({
                         {detail.subscription?.carePackage && (
                            <RowItem
                               label="Gói chăm sóc liên kết"
-                              value={detail.subscription.carePackage.packageName}
+                              value={
+                                 detail.subscription.carePackage.packageName
+                              }
                            />
                         )}
                      </div>
@@ -234,7 +248,8 @@ export function CareRequestDetailView({
                      {detail.mediaUrls && detail.mediaUrls.length > 0 && (
                         <div>
                            <span className="text-xs font-medium text-slate-500 block mb-2">
-                              Tệp / Hình ảnh đính kèm ({detail.mediaUrls.length})
+                              Tệp / Hình ảnh đính kèm ({detail.mediaUrls.length}
+                              )
                            </span>
                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                               {detail.mediaUrls.map((url, idx) => (
@@ -245,12 +260,16 @@ export function CareRequestDetailView({
                                     rel="noreferrer"
                                     className="border rounded-sm p-1.5 block hover:opacity-90 bg-slate-50 transition-opacity"
                                  >
-                                    <img
+                                    <Image
                                        src={url}
                                        alt={`Tệp ${idx + 1}`}
+                                       width={100}
+                                       height={100}
                                        className="w-full h-32 object-cover rounded-sm"
                                        onError={(e) => {
-                                          (e.target as HTMLElement).style.display = "none";
+                                          (
+                                             e.target as HTMLElement
+                                          ).style.display = "none";
                                        }}
                                     />
                                     <span className="text-xs text-blue-700 block mt-1.5 truncate text-center font-medium underline">

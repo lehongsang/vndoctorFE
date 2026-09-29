@@ -1,4 +1,4 @@
-import { configureStore, type Action, type ThunkDispatch } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
 import { authApi } from "./api/auth/auth-api";
 import authReducer from "./slices/auth-slice";
 

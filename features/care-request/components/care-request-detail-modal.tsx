@@ -7,12 +7,12 @@ import {
    DialogHeader,
    DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { CustomButton } from "@/components/common/custom-button";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { useGetDetailCareRequestQuery } from "@/store/api/care-request/care-request-api";
 import { STATUS_MAP } from "./care-request-table";
 import { formatDate } from "@/lib/utils";
+import Image from "next/image";
 
 interface CareRequestDetailModalProps {
    requestId: string | null;
@@ -29,7 +29,7 @@ export function CareRequestDetailModal({
 }: CareRequestDetailModalProps) {
    const { data: detail, isLoading } = useGetDetailCareRequestQuery(
       requestId || "",
-      { skip: !requestId }
+      { skip: !requestId },
    );
 
    if (!requestId) return null;
@@ -37,7 +37,10 @@ export function CareRequestDetailModal({
    const statusInfo = detail?.status ? STATUS_MAP[detail.status] : null;
 
    return (
-      <Dialog open={Boolean(requestId)} onOpenChange={(open) => !open && onClose()}>
+      <Dialog
+         open={Boolean(requestId)}
+         onOpenChange={(open) => !open && onClose()}
+      >
          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
             <DialogHeader className="border-b pb-3">
                <div className="flex items-center justify-between pr-6">
@@ -46,7 +49,7 @@ export function CareRequestDetailModal({
                   </DialogTitle>
                   {statusInfo && (
                      <span
-                        className={`text-xs font-normal border px-2.5 py-0.5 rounded-sm ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}
+                        className={`text-xs font-normal border px-2.5 py-0.5 rounded-sm ${statusInfo.bg} ${statusInfo.text}`}
                      >
                         {statusInfo.label}
                      </span>
@@ -57,7 +60,9 @@ export function CareRequestDetailModal({
             {isLoading ? (
                <div className="h-48 flex flex-col items-center justify-center gap-2">
                   <CloverLoading size="sm" />
-                  <span className="text-xs text-slate-500">Đang tải thông tin chi tiết...</span>
+                  <span className="text-xs text-slate-500">
+                     Đang tải thông tin chi tiết...
+                  </span>
                </div>
             ) : detail ? (
                <div className="space-y-4 text-sm text-slate-700">
@@ -71,7 +76,9 @@ export function CareRequestDetailModal({
                      <div>
                         <span className="text-slate-500">Thời gian tạo:</span>{" "}
                         <span className="font-medium text-slate-900">
-                           {detail.createdAt ? formatDate(detail.createdAt) : "—"}
+                           {detail.createdAt
+                              ? formatDate(detail.createdAt)
+                              : "—"}
                         </span>
                      </div>
                      {detail.subscription?.healthProfile && (
@@ -83,7 +90,9 @@ export function CareRequestDetailModal({
                            {detail.subscription.healthProfile.phoneNumber && (
                               <span className="text-slate-500">
                                  {" "}
-                                 ({detail.subscription.healthProfile.phoneNumber})
+                                 (
+                                 {detail.subscription.healthProfile.phoneNumber}
+                                 )
                               </span>
                            )}
                         </div>
@@ -104,7 +113,9 @@ export function CareRequestDetailModal({
                      </div>
                      {detail.resolvedAt && (
                         <div>
-                           <span className="text-slate-500">Thời gian giải quyết:</span>{" "}
+                           <span className="text-slate-500">
+                              Thời gian giải quyết:
+                           </span>{" "}
                            <span className="font-medium text-slate-900">
                               {formatDate(detail.resolvedAt)}
                            </span>
@@ -144,12 +155,13 @@ export function CareRequestDetailModal({
                                  rel="noreferrer"
                                  className="border rounded p-1 block hover:opacity-90 bg-slate-50"
                               >
-                                 <img
+                                 <Image
                                     src={url}
                                     alt={`Attachment ${idx + 1}`}
                                     className="w-full h-24 object-cover rounded"
                                     onError={(e) => {
-                                       (e.target as HTMLElement).style.display = "none";
+                                       (e.target as HTMLElement).style.display =
+                                          "none";
                                     }}
                                  />
                                  <span className="text-[11px] text-blue-600 block mt-1 truncate">

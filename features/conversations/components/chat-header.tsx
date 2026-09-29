@@ -34,7 +34,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       conversation.subscription?.carePackage ||
       conversation.healthProfile?.careSubscription?.carePackage;
    const packageName = carePackage?.name;
-   const packageType = carePackage?.type;
 
    const getPackageTypeLabel = (type?: string) => {
       if (!type) return null;
