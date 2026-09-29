@@ -350,7 +350,7 @@ export function CareSubscriptionDetail({
             >
                Đóng
             </CustomButton>
-            {onEdit && (
+            {onEdit && !subscription.rejectionReason && (
                <CustomButton
                   size="sm"
                   className="w-fit"

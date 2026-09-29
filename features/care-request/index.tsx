@@ -8,10 +8,7 @@ import {
    useResolveCareRequestMutation,
    useUpdateStatusCareRequestMutation,
 } from "@/store/api/care-request/care-request-api";
-import {
-   CareRequest,
-   CareRequestStatus,
-} from "@/store/api/care-request/type";
+import { CareRequest, CareRequestStatus } from "@/store/api/care-request/type";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { CustomPagination } from "@/components/common/custom-pagination";
 import { CareRequestToolbar } from "./components/care-request-toolbar";
@@ -26,8 +23,12 @@ export default function CareRequestModule() {
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
 
-   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
-   const [selectedRequest, setSelectedRequest] = useState<CareRequest | null>(null);
+   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(
+      null,
+   );
+   const [selectedRequest, setSelectedRequest] = useState<CareRequest | null>(
+      null,
+   );
    const [isReceiveOpen, setIsReceiveOpen] = useState(false);
    const [isResolveOpen, setIsResolveOpen] = useState(false);
    const [isCancelOpen, setIsCancelOpen] = useState(false);
@@ -40,7 +41,10 @@ export default function CareRequestModule() {
    } = useGetCareRequestsQuery({
       page,
       limit,
-      status: statusFilter === "ALL" ? undefined : (statusFilter as CareRequestStatus),
+      status:
+         statusFilter === "ALL"
+            ? undefined
+            : (statusFilter as CareRequestStatus),
       search: searchText.trim() || undefined,
    });
 
@@ -75,7 +79,7 @@ export default function CareRequestModule() {
                r.requestCode?.toLowerCase().includes(query) ||
                r.title?.toLowerCase().includes(query) ||
                r.description?.toLowerCase().includes(query) ||
-               r.assignedUser?.fullName?.toLowerCase().includes(query)
+               r.assignedUser?.fullName?.toLowerCase().includes(query),
          );
       }
 
@@ -150,8 +154,8 @@ export default function CareRequestModule() {
       }
    };
 
-   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchText(e.target.value);
+   const handleSearch = (value: string) => {
+      setSearchText(value);
       setPage(1);
    };
 
@@ -205,7 +209,7 @@ export default function CareRequestModule() {
             <>
                <CareRequestToolbar
                   searchText={searchText}
-                  onSearchChange={handleSearchChange}
+                  onSearch={handleSearch}
                   statusFilter={statusFilter as CareRequestStatus | "ALL"}
                   onStatusFilterChange={handleStatusFilterChange}
                   refetch={handleRefresh}

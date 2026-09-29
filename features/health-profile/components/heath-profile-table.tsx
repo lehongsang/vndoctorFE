@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
    useGetHealthProfilesQuery,
@@ -42,7 +42,7 @@ import {
    checkHealthProfileCarePackage,
 } from "@/lib/care-package-utils";
 import { Badge } from "@/components/ui/badge";
-import { RotateCw, Send } from "lucide-react";
+import { RotateCw } from "lucide-react";
 
 const GENDER_LABELS: Record<string, string> = {
    MALE: "Nam",
@@ -69,7 +69,6 @@ export function HealthProfileTable({
    onClickCreate,
 }: HealthProfileTableProps) {
    const [searchText, setSearchText] = useState("");
-   const [debouncedSearch, setDebouncedSearch] = useState("");
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
    const searchParams = useSearchParams();
@@ -118,11 +117,6 @@ export function HealthProfileTable({
       }
    }
 
-   useEffect(() => {
-      const timer = setTimeout(() => setDebouncedSearch(searchText), 400);
-      return () => clearTimeout(timer);
-   }, [searchText]);
-
    const {
       data: profileData,
       isLoading,
@@ -131,7 +125,7 @@ export function HealthProfileTable({
    } = useGetHealthProfilesQuery({
       page,
       limit,
-      search: debouncedSearch.trim() || undefined,
+      search: searchText.trim() || undefined,
       linkStatus: linkStatus !== "ALL" ? (linkStatus as LinkStatus) : undefined,
       packageType:
          packageType !== "ALL"
@@ -203,8 +197,8 @@ export function HealthProfileTable({
       refetch();
    };
 
-   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchText(e.target.value);
+   const handleSearch = (value: string) => {
+      setSearchText(value);
       setPage(1);
    };
 
@@ -225,7 +219,6 @@ export function HealthProfileTable({
 
    const handleRefresh = () => {
       setSearchText("");
-      setDebouncedSearch("");
       setScope("ALL");
       setLinkStatus("ALL");
       setPackageType("ALL");
@@ -639,7 +632,7 @@ export function HealthProfileTable({
             <>
                <HealthProfileToolBar
                   searchText={searchText}
-                  onSearchChange={handleSearchChange}
+                  onSearch={handleSearch}
                   scopeSelected={scope}
                   onChangeScope={handleChangeScope}
                   linkStatusSelected={linkStatus}

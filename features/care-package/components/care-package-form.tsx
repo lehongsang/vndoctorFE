@@ -38,8 +38,8 @@ const stripDecimals = (val: unknown, fallback: number = 0): number => {
 
 const carePackageSchema = z
    .object({
-      facilityId: z.string().min(1, "Cơ sở y tế không được để trống"),
-      name: z.string().min(1, "Tên gói chăm sóc không được để trống"),
+      facilityId: z.string().trim().min(1, "Cơ sở y tế không được để trống"),
+      name: z.string().trim().min(1, "Tên gói chăm sóc không được để trống"),
       type: z.enum(["STANDARD", "VIP"], {
          message: "Loại gói không được để trống",
       }),
@@ -56,7 +56,7 @@ const carePackageSchema = z
          .int("Số người đăng ký tối đa phải là số nguyên")
          .min(1, "Số người đăng ký tối đa tối thiểu là 1"),
       status: z.enum(["ACTIVE", "INACTIVE"]),
-      description: z.string().min(1, "Mô tả gói không được để trống"),
+      description: z.string().trim().optional(),
    })
    .refine((data) => !(data.type === "VIP" && !data.doctorExpertId), {
       message: "Vui lòng chọn bác sĩ phụ trách cho gói VIP",
@@ -288,7 +288,7 @@ export function CarePackageForm({
                durationDays: data.durationDays,
                maxSubscribers: data.maxSubscribers,
                status: data.status,
-               description: data.description,
+               description: data.description || "",
             }).unwrap();
             toast.success("Thêm mới gói chăm sóc thành công!");
          } else if (targetPackageId) {

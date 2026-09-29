@@ -26,6 +26,8 @@ export const PACKAGE_TYPE_OPTIONS = [
 export interface HealthProfileToolBarProps {
    searchText?: string;
    onSearchChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+   onSearch?: (value: string) => void;
+   debounceDelay?: number;
    scopeSelected?: string;
    onChangeScope?: (scope: string) => void;
    linkStatusSelected?: string;
@@ -41,6 +43,8 @@ export interface HealthProfileToolBarProps {
 export function HealthProfileToolBar({
    searchText = "",
    onSearchChange,
+   onSearch,
+   debounceDelay,
    scopeSelected = "ALL",
    onChangeScope = () => {},
    linkStatusSelected = "ALL",
@@ -57,6 +61,8 @@ export function HealthProfileToolBar({
          <SearchInput
             value={searchText}
             onChange={onSearchChange}
+            onSearch={onSearch}
+            debounceDelay={debounceDelay}
             disabled={disabled}
             containerClassName="flex-none min-w-56 w-72"
             placeholder="Nhập tên,SĐT,CCCD,Mã hồ sơ..."

@@ -7,6 +7,8 @@ import { RefreshCcw } from "lucide-react";
 interface FacilityToolBarProps {
    searchText?: string;
    onSearchChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+   onSearch?: (value: string) => void;
+   debounceDelay?: number;
    facilityType?: FacilityType | "ALL";
    onFacilityTypeChange?: (value: string) => void;
    refetch?: () => void;
@@ -18,6 +20,8 @@ interface FacilityToolBarProps {
 export default function FacilityToolBar({
    searchText = "",
    onSearchChange,
+   onSearch,
+   debounceDelay,
    facilityType = "ALL",
    onFacilityTypeChange,
    refetch,
@@ -35,6 +39,9 @@ export default function FacilityToolBar({
          <SearchInput
             value={searchText}
             onChange={onSearchChange}
+            onSearch={onSearch}
+            debounceDelay={debounceDelay}
+            disabled={disabled}
             placeholder="Tìm kiếm theo tên, mã..."
          />
          <div className="w-64">

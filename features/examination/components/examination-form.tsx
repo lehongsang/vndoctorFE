@@ -10,7 +10,7 @@ import {
    useCreateExaminationMutation,
    useUpdateExaminationMutation,
 } from "@/store/api/examination/examination-api";
-import { useGetDetailHealthProfileQuery } from "@/store/api/health-profile/health-profile-api";
+// import { useGetDetailHealthProfileQuery } from "@/store/api/health-profile/health-profile-api";
 import { useGetStaffRiskAssessmentsQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { RiskAssessmentResult } from "@/store/api/risk-factor-assessment/type";
 import { useAuth } from "@/hooks/use-auth";
@@ -75,16 +75,16 @@ const examinationSchema = z.object({
    assessmentInputId: z.string().optional(),
    treatmentTargetId: z.string().optional(),
    treatmentPlanId: z.string().optional(),
-   reasonForVisit: z.string().min(1, "Vui lòng nhập lý do đến khám"),
-   clinicalSymptoms: z.string().optional(),
+   reasonForVisit: z.string().trim().min(1, "Vui lòng nhập lý do đến khám"),
+   clinicalSymptoms: z.string().trim().optional(),
    heartRate: z.number().nullable().optional(),
    systolicBp: z.number().nullable().optional(),
    diastolicBp: z.number().nullable().optional(),
    temperature: z.number().nullable().optional(),
    spo2: z.number().nullable().optional(),
    respiratoryRate: z.number().nullable().optional(),
-   diagnosis: z.string().optional(),
-   icd10Code: z.string().optional(),
+   diagnosis: z.string().trim().optional(),
+   icd10Code: z.string().trim().optional(),
    nextAppointmentDate: z.string().optional(),
    status: z.enum(["IN_PROGRESS", "COMPLETED", "CANCELLED"]),
 });
@@ -217,10 +217,10 @@ export function ExaminationForm({
       { skip: !healthProfileId },
    );
 
-   const { data: healthProfileData } = useGetDetailHealthProfileQuery(
-      healthProfileId,
-      { skip: !healthProfileId },
-   );
+   // const { data: healthProfileData } = useGetDetailHealthProfileQuery(
+   //    healthProfileId,
+   //    { skip: !healthProfileId },
+   // );
 
    const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);

@@ -37,8 +37,10 @@ const STATUS_FILTER_OPTIONS = [
 ];
 
 export interface CarePackageToolbarProps {
-   searchText: string;
-   onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+   searchText?: string;
+   onSearchChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+   onSearch?: (value: string) => void;
+   debounceDelay?: number;
    packageType: CarePackageType | "ALL";
    onPackageTypeChange: (value: CarePackageType | "ALL") => void;
    status: CarePackageStatus | "ALL";
@@ -50,8 +52,10 @@ export interface CarePackageToolbarProps {
 }
 
 export function CarePackageToolbar({
-   searchText,
+   searchText = "",
    onSearchChange,
+   onSearch,
+   debounceDelay,
    packageType = "ALL",
    onPackageTypeChange,
    status = "ALL",
@@ -67,6 +71,8 @@ export function CarePackageToolbar({
          <SearchInput
             value={searchText}
             onChange={onSearchChange}
+            onSearch={onSearch}
+            debounceDelay={debounceDelay}
             disabled={disabled}
             containerClassName="min-w-60 max-w-sm"
             placeholder="Tìm theo tên, mã gói..."

@@ -7,6 +7,8 @@ import { RefreshCcw } from "lucide-react";
 interface StaffToolBarProps {
    searchText?: string;
    onSearchChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+   onSearch?: (value: string) => void;
+   debounceDelay?: number;
    role?: StaffRole | "ALL";
    onRoleChange?: (value: string) => void;
    refetch?: () => void;
@@ -18,6 +20,8 @@ interface StaffToolBarProps {
 export default function StaffToolBar({
    searchText = "",
    onSearchChange,
+   onSearch,
+   debounceDelay,
    role = "ALL",
    onRoleChange,
    refetch,
@@ -35,6 +39,9 @@ export default function StaffToolBar({
          <SearchInput
             value={searchText}
             onChange={onSearchChange}
+            onSearch={onSearch}
+            debounceDelay={debounceDelay}
+            disabled={disabled}
             placeholder="Tìm kiếm theo tên, mã, email..."
          />
          <div className="w-64">

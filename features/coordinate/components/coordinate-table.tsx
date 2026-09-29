@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/table";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { CareSubscriptionDetail } from "./care-subcription-detailt";
+import {
+   Dialog,
+   DialogContent,
+   DialogHeader,
+   DialogTitle,
+   DialogDescription,
+} from "@/components/ui/dialog";
 
 interface CoordinateTableColumn {
    id: string;
@@ -67,6 +74,11 @@ export default function CoordinateTable({
    onEdit,
 }: CoordinateTableProps) {
    const [selectedId, setSelectedId] = useState<string | null>(null);
+   const [viewingRejectionReason, setViewingRejectionReason] = useState<{
+      profileName?: string;
+      packageName?: string;
+      reason: string;
+   } | null>(null);
 
    const handleViewDetail = (id: string) => {
       setSelectedId(id);
@@ -164,9 +176,26 @@ export default function CoordinateTable({
                         {config.label}
                      </span>
                   ) : data.rejectionReason ? (
-                     <span className="text-red-500">
-                        {data.rejectionReason}
-                     </span>
+                     <button
+                        type="button"
+                        onClick={(e) => {
+                           e.stopPropagation();
+                           setViewingRejectionReason({
+                              profileName: data.healthProfile?.fullName,
+                              packageName: data.carePackage?.name,
+                              reason:
+                                 data.rejectionReason ||
+                                 "Không có thông tin lý do cụ thể.",
+                           });
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-rose-700 bg-rose-100 hover:bg-rose-200 transition-colors cursor-pointer"
+                        title="Bấm để xem lý do từ chối"
+                     >
+                        <span>Bị từ chối</span>
+                        <span className="text-[10px] underline underline-offset-2">
+                           (Xem lý do)
+                        </span>
+                     </button>
                   ) : (
                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                         Chờ App xác nhận
@@ -197,15 +226,17 @@ export default function CoordinateTable({
                >
                   Xem
                </CustomButton>
-               <CustomButton
-                  onClick={() => handleEdit(data.id)}
-                  size="sm"
-                  title="Điều phối / Chỉnh sửa"
-                  className="h-8 px-2.5"
-                  startIcon={<ArrowUpRight />}
-               >
-                  Điều phối
-               </CustomButton>
+               {!data?.rejectionReason && (
+                  <CustomButton
+                     onClick={() => handleEdit(data.id)}
+                     size="sm"
+                     title="Điều phối / Chỉnh sửa"
+                     className="h-8 px-2.5"
+                     startIcon={<ArrowUpRight />}
+                  >
+                     Điều phối
+                  </CustomButton>
+               )}
             </div>
          ),
       },
@@ -229,53 +260,105 @@ export default function CoordinateTable({
    }
 
    return (
-      <Table>
-         <TableHeader className="bg-slate-50/60">
-            <TableRow className="hover:bg-transparent border-b border-slate-300">
-               {columns.map((col) => (
-                  <TableHead key={col.id} className={col.headerClassName}>
-                     {col.header}
-                  </TableHead>
-               ))}
-            </TableRow>
-         </TableHeader>
-         <TableBody>
-            {isFetching || isLoading ? (
-               <TableRow>
-                  <TableCell
-                     colSpan={columns.length}
-                     className="h-48 text-center text-sm text-slate-500"
-                  >
-                     <CloverLoading size="md" text="Đang tải dữ liệu..." />
-                  </TableCell>
+      <>
+         <Table>
+            <TableHeader className="bg-slate-50/60">
+               <TableRow className="hover:bg-transparent border-b border-slate-300">
+                  {columns.map((col) => (
+                     <TableHead key={col.id} className={col.headerClassName}>
+                        {col.header}
+                     </TableHead>
+                  ))}
                </TableRow>
-            ) : careSubcriptions.length === 0 ? (
-               <TableRow>
-                  <TableCell
-                     colSpan={columns.length}
-                     className="h-48 text-center text-sm text-slate-500"
-                  >
-                     Chưa có dữ liệu nào.
-                  </TableCell>
-               </TableRow>
-            ) : (
-               careSubcriptions.map((profile, index) => (
-                  <TableRow
-                     key={profile.id}
-                     className="border-b border-slate-300 transition-colors hover:bg-slate-100"
-                  >
-                     {columns.map((col) => (
-                        <TableCell
-                           key={col.id}
-                           className={col.cellClassName ?? "py-0"}
-                        >
-                           {col.cell(profile, index)}
-                        </TableCell>
-                     ))}
+            </TableHeader>
+            <TableBody>
+               {isFetching || isLoading ? (
+                  <TableRow>
+                     <TableCell
+                        colSpan={columns.length}
+                        className="h-48 text-center text-sm text-slate-500"
+                     >
+                        <CloverLoading size="md" text="Đang tải dữ liệu..." />
+                     </TableCell>
                   </TableRow>
-               ))
-            )}
-         </TableBody>
-      </Table>
+               ) : careSubcriptions.length === 0 ? (
+                  <TableRow>
+                     <TableCell
+                        colSpan={columns.length}
+                        className="h-48 text-center text-sm text-slate-500"
+                     >
+                        Chưa có dữ liệu nào.
+                     </TableCell>
+                  </TableRow>
+               ) : (
+                  careSubcriptions.map((profile, index) => (
+                     <TableRow
+                        key={profile.id}
+                        className="border-b border-slate-300 transition-colors hover:bg-slate-100"
+                     >
+                        {columns.map((col) => (
+                           <TableCell
+                              key={col.id}
+                              className={col.cellClassName ?? "py-0"}
+                           >
+                              {col.cell(profile, index)}
+                           </TableCell>
+                        ))}
+                     </TableRow>
+                  ))
+               )}
+            </TableBody>
+         </Table>
+
+         {/* Modal xem chi tiết lý do từ chối gói */}
+         <Dialog
+            open={Boolean(viewingRejectionReason)}
+            onOpenChange={(open) => !open && setViewingRejectionReason(null)}
+         >
+            <DialogContent className="sm:max-w-md p-5 rounded-sm">
+               <DialogHeader>
+                  <DialogTitle className="text-sm font-bold text-rose-700">
+                     Lý do bệnh nhân từ chối gói điều trị
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500">
+                     {viewingRejectionReason?.profileName && (
+                        <>
+                           Bệnh nhân:{" "}
+                           <span className="font-medium text-slate-700">
+                              {viewingRejectionReason.profileName}
+                           </span>
+                        </>
+                     )}
+                     {viewingRejectionReason?.packageName && (
+                        <>
+                           {" "}
+                           - Gói:{" "}
+                           <span className="font-medium text-slate-700">
+                              {viewingRejectionReason.packageName}
+                           </span>
+                        </>
+                     )}
+                  </DialogDescription>
+               </DialogHeader>
+
+               <div className="mt-2 p-3 bg-rose-50/60 border border-rose-200/80 rounded-sm">
+                  <p className="text-xs text-rose-950 whitespace-pre-wrap leading-relaxed">
+                     {viewingRejectionReason?.reason}
+                  </p>
+               </div>
+
+               <div className="mt-2 flex justify-end">
+                  <CustomButton
+                     size="sm"
+                     variant="outline"
+                     className="h-8 px-3 text-xs"
+                     onClick={() => setViewingRejectionReason(null)}
+                  >
+                     Đóng
+                  </CustomButton>
+               </div>
+            </DialogContent>
+         </Dialog>
+      </>
    );
 }

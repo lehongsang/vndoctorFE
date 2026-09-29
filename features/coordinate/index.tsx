@@ -19,7 +19,7 @@ export default function CoordinateFeature() {
       isLoading,
       refetch,
    } = useGetAllSubscriptionsQuery({
-      search,
+      search: search.trim(),
       page,
       limit,
    });
@@ -38,9 +38,8 @@ export default function CoordinateFeature() {
       <div className="flex flex-col gap-4">
          {!isViewingOrCoordinating && (
             <CoordinateToolbar
-               searchText={search}
-               onSearchChange={(e) => {
-                  setSearch(e.target.value);
+               onSearch={(val) => {
+                  setSearch(val);
                   setPage(1);
                }}
                refetch={refetch}

@@ -18,11 +18,11 @@ import { toast } from "react-toastify";
 const getChronicDiseaseSchema = (isCreate: boolean) =>
    z.object({
       code: isCreate
-         ? z.string().min(1, "Mã bệnh không được để trống")
-         : z.string().optional(),
-      name: z.string().min(1, "Tên bệnh không được để trống"),
-      icd10Code: z.string().min(1, "Mã ICD-10 không được để trống"),
-      category: z.string().min(1, "Nhóm bệnh không được để trống"),
+         ? z.string().trim().min(1, "Mã bệnh không được để trống")
+         : z.string().trim().optional(),
+      name: z.string().trim().min(1, "Tên bệnh không được để trống"),
+      icd10Code: z.string().trim().min(1, "Mã ICD-10 không được để trống"),
+      category: z.string().trim().min(1, "Nhóm bệnh không được để trống"),
       displayOrder: z.number().min(0, "Thứ tự hiển thị phải lớn hơn hoặc bằng 0"),
       isActive: z.boolean(),
    });

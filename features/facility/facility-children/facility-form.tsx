@@ -35,14 +35,14 @@ const FACILITY_TYPE_OPTIONS: { label: string; value: FacilityType }[] = [
 ];
 
 const facility_shema = z.object({
-   facilityName: z.string().min(1, "Tên cơ sở không được để trống"),
-   facilityCode: z.string().optional(),
+   facilityName: z.string().trim().min(1, "Tên cơ sở không được để trống"),
+   facilityCode: z.string().trim().optional(),
    facilityType: z.enum(FACILITY_TYPES, {
       message: "Loại cơ sở không được để trống",
    }),
    parentId: z.string().optional(),
-   phoneNumber: z.string().min(1, "Số điện thoại không được để trống"),
-   address: z.string().min(1, "Địa chỉ không được để trống"),
+   phoneNumber: z.string().trim().min(1, "Số điện thoại không được để trống"),
+   address: z.string().trim().min(1, "Địa chỉ không được để trống"),
    isActive: z.boolean(),
 });
 

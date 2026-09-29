@@ -47,8 +47,8 @@ export const CareRequestApi = baseApi.injectEndpoints({
          }
       >({
          query: ({ id, body }) => ({
-            url: `/care-requests/${id}/receive`,
-            method: "PUT",
+            url: `/care-requests/${id}/assign`,
+            method: "PATCH",
             body,
          }),
          invalidatesTags: (_result, _error, { id }) => [
@@ -62,7 +62,7 @@ export const CareRequestApi = baseApi.injectEndpoints({
       >({
          query: ({ id, body }) => ({
             url: `/care-requests/${id}/status`,
-            method: "PUT",
+            method: "PATCH",
             body,
          }),
          invalidatesTags: (_result, _error, { id }) => [

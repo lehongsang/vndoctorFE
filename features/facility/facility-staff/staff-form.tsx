@@ -36,10 +36,11 @@ const getStaffSchema = (
    maxPriority?: number,
 ) =>
    z.object({
-      facilityId: z.string().min(1, "Cơ sở y tế không được để trống"),
-      fullName: z.string().min(1, "Họ và tên không được để trống"),
+      facilityId: z.string().trim().min(1, "Cơ sở y tế không được để trống"),
+      fullName: z.string().trim().min(1, "Họ và tên không được để trống"),
       username: z
          .string()
+         .trim()
          .min(3, "Tên đăng nhập phải có ít nhất 3 ký tự")
          .regex(
             /^[a-zA-Z0-9._-]+$/,
@@ -62,12 +63,13 @@ const getStaffSchema = (
                   "Bạn không có quyền tạo nhân sự với vai trò cao hơn vai trò của bạn",
             },
          ),
-      specialty: z.string().optional(),
+      specialty: z.string().trim().optional(),
       email: z
          .string()
+         .trim()
          .min(1, "Email không được để trống")
          .email("Email không đúng định dạng"),
-      phoneNumber: z.string().min(1, "Số điện thoại không được để trống"),
+      phoneNumber: z.string().trim().min(1, "Số điện thoại không được để trống"),
       isActive: z.boolean(),
    });
 

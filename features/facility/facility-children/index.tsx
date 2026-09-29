@@ -1,5 +1,5 @@
 import { useGetChildrenF1FacilityQuery } from "@/store/api/facility/facility-api";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import FacilityToolBar from "./facility-toolbar";
 import { FacilityCard } from "./facility-card";
 import { CloverLoading } from "@/components/common/clover-loading";
@@ -21,18 +21,11 @@ const FacilityChildren = ({
    parentFacility?: Factility;
 }) => {
    const [searchText, setSearchText] = useState("");
-   const [debouncedSearch, setDebouncedSearch] = useState("");
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
    const [facilityType, setFacilityType] = useState<string>("ALL");
    const [isCreateFacilityOpen, setIsCreateFacilityOpen] = useState(false);
 
-   useEffect(() => {
-      const handler = setTimeout(() => {
-         setDebouncedSearch(searchText);
-      }, 400);
-      return () => clearTimeout(handler);
-   }, [searchText]);
 
    const {
       data: facilities,
@@ -42,7 +35,7 @@ const FacilityChildren = ({
    } = useGetChildrenF1FacilityQuery(
       {
          id: facilityId ?? "",
-         search: debouncedSearch.trim() || undefined,
+         search: searchText.trim() || undefined,
          page,
          limit,
          facilityType:
@@ -53,8 +46,8 @@ const FacilityChildren = ({
       },
    );
 
-   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchText(event.target.value);
+   const handleSearch = (value: string) => {
+      setSearchText(value);
       setPage(1);
    };
 
@@ -66,7 +59,6 @@ const FacilityChildren = ({
    const handleRefresh = () => {
       if (facilityId) {
          setSearchText("");
-         setDebouncedSearch("");
          setFacilityType("ALL");
          setPage(1);
          refetch();
@@ -99,7 +91,7 @@ const FacilityChildren = ({
       <div>
          <FacilityToolBar
             searchText={searchText}
-            onSearchChange={handleSearchChange}
+            onSearch={handleSearch}
             facilityType={facilityType as FacilityType | "ALL"}
             onFacilityTypeChange={handleFacilityTypeChange}
             refetch={handleRefresh}

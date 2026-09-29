@@ -480,14 +480,18 @@ export function CoordinateForm({
                >
                   Đóng
                </CustomButton>
-               <CustomButton
-                  onClick={handleSubmit}
-                  isLoading={isSubmitting}
-                  disabled={isSubmitting}
-                  startIcon={<ArrowUpRight />}
-               >
-                  {!isActive ? "Điều phối & Kích hoạt" : "Cập nhật điều phối"}
-               </CustomButton>
+               {!subcription.rejectionReason && (
+                  <CustomButton
+                     onClick={handleSubmit}
+                     isLoading={isSubmitting}
+                     disabled={isSubmitting}
+                     startIcon={<ArrowUpRight />}
+                  >
+                     {!isActive
+                        ? "Điều phối & Kích hoạt"
+                        : "Cập nhật điều phối"}
+                  </CustomButton>
+               )}
             </div>
          </div>
       </div>

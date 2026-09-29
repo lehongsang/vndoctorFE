@@ -18,6 +18,8 @@ export const STATUS_OPTIONS = [
 export interface CareRequestToolbarProps {
    searchText?: string;
    onSearchChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+   onSearch?: (value: string) => void;
+   debounceDelay?: number;
    statusFilter?: CareRequestStatus | "ALL";
    onStatusFilterChange?: (status: string) => void;
    refetch?: () => void;
@@ -28,6 +30,8 @@ export interface CareRequestToolbarProps {
 export function CareRequestToolbar({
    searchText = "",
    onSearchChange,
+   onSearch,
+   debounceDelay,
    statusFilter = "ALL",
    onStatusFilterChange = () => {},
    refetch,
@@ -39,6 +43,8 @@ export function CareRequestToolbar({
          <SearchInput
             value={searchText}
             onChange={onSearchChange}
+            onSearch={onSearch}
+            debounceDelay={debounceDelay}
             disabled={disabled}
             containerClassName="flex-none min-w-56 w-72"
             placeholder="Tìm mã yêu cầu, tiêu đề, mô tả..."

@@ -105,6 +105,7 @@ const profileSchema = z.object({
    ),
    citizenId: z
       .string()
+      .trim()
       .optional()
       .refine(
          (val) => !val || /^[0-9]{12}$/.test(val),
@@ -112,12 +113,13 @@ const profileSchema = z.object({
       ),
    phoneNumber: z
       .string()
+      .trim()
       .optional()
       .refine(
          (val) => !val || /^(0[35789]|84[35789])[0-9]{8}$/.test(val),
          "Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03, 05, 07, 08, 09)",
       ),
-   address: z.string().optional(),
+   address: z.string().trim().optional(),
    bloodType: z.enum(["UNKNOWN", "A", "B", "AB", "O"]),
    height: z
       .number()
@@ -127,8 +129,8 @@ const profileSchema = z.object({
       .number()
       .min(0, "Cân nặng tối thiểu là 0 kg")
       .max(300, "Cân nặng không vượt quá 300 kg"),
-   allergy: z.string().optional(),
-   medicalHistory: z.string().optional(),
+   allergy: z.string().trim().optional(),
+   medicalHistory: z.string().trim().optional(),
    isSmoking: z.boolean(),
    hasHypertension: z.boolean(),
    hasDyslipidemia: z.boolean(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
    useGetAllChronicDiseasesQuery,
    useDeleteChronicDiseaseMutation,
@@ -33,7 +33,6 @@ interface ChronicDiseaseColumn {
 
 export default function ChronicDiseaseFeature() {
    const [searchText, setSearchText] = useState("");
-   const [debouncedSearch, setDebouncedSearch] = useState("");
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
    const [isFormOpen, setIsFormOpen] = useState(false);
@@ -45,10 +44,6 @@ export default function ChronicDiseaseFeature() {
    );
    const [deletingDisease, setDeletingDisease] = useState<ChronicDisease | null>(null);
 
-   useEffect(() => {
-      const timer = setTimeout(() => setDebouncedSearch(searchText), 400);
-      return () => clearTimeout(timer);
-   }, [searchText]);
 
    const {
       data: diseaseData,
@@ -56,7 +51,7 @@ export default function ChronicDiseaseFeature() {
       isFetching,
       refetch,
    } = useGetAllChronicDiseasesQuery({
-      search: debouncedSearch.trim() || undefined,
+      search: searchText.trim() || undefined,
       page,
       limit,
    });
@@ -88,14 +83,13 @@ export default function ChronicDiseaseFeature() {
       refetch();
    };
 
-   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchText(e.target.value);
+   const handleSearch = (value: string) => {
+      setSearchText(value);
       setPage(1);
    };
 
    const handleRefresh = () => {
       setSearchText("");
-      setDebouncedSearch("");
       setPage(1);
       setIsFormOpen(false);
       setSelectedDiseaseId(undefined);
@@ -256,7 +250,7 @@ export default function ChronicDiseaseFeature() {
             <>
                <ChronicDiseaseToolBar
                   searchText={searchText}
-                  onSearchChange={handleSearchChange}
+                  onSearch={handleSearch}
                   refetch={handleRefresh}
                   isFetching={isFetching}
                   onClickCreate={handleOpenCreateDisease}

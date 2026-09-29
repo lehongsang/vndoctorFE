@@ -28,31 +28,27 @@ export interface CareRequestTableProps {
 
 export const STATUS_CONFIG: Record<
    CareRequestStatus,
-   { label: string; bg: string; text: string; border: string }
+   { label: string; bg: string; text: string }
 > = {
    PENDING: {
       label: "Chờ tiếp nhận",
-      bg: "bg-amber-50",
+      bg: "bg-amber-100",
       text: "text-amber-700",
-      border: "border-amber-200",
    },
    IN_PROGRESS: {
       label: "Đang xử lý",
-      bg: "bg-blue-50",
+      bg: "bg-blue-100",
       text: "text-blue-700",
-      border: "border-blue-200",
    },
    RESOLVED: {
       label: "Đã hoàn thành",
-      bg: "bg-emerald-50",
+      bg: "bg-emerald-100",
       text: "text-emerald-700",
-      border: "border-emerald-200",
    },
    CANCELLED: {
       label: "Đã hủy",
       bg: "bg-slate-100",
       text: "text-slate-600",
-      border: "border-slate-200",
    },
 };
 
@@ -143,11 +139,10 @@ export function CareRequestTable({
                label: item.status,
                bg: "bg-slate-100",
                text: "text-slate-600",
-               border: "border-slate-200",
             };
             return (
                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium border ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
+                  className={`inline-flex items-center px-2 py-0.5 rounded-sm text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}
                >
                   {statusConfig.label}
                </span>
@@ -168,19 +163,11 @@ export function CareRequestTable({
       {
          id: "actions",
          header: "Thao tác",
-         headerClassName: "text-right text-xs font-semibold text-slate-600 pr-4",
+         headerClassName:
+            "text-right text-xs font-semibold text-slate-600 pr-4",
          cellClassName: "py-2 text-right pr-4",
          cell: (item) => (
             <div className="flex items-center justify-end gap-1.5 flex-wrap">
-               <CustomButton
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2.5 text-xs"
-                  onClick={() => onViewDetail(item)}
-               >
-                  Chi tiết
-               </CustomButton>
-
                {item.status === "PENDING" && (
                   <CustomButton
                      size="sm"
@@ -201,11 +188,11 @@ export function CareRequestTable({
                   </CustomButton>
                )}
 
-               {(item.status === "PENDING" || item.status === "IN_PROGRESS") && (
+               {(item.status === "PENDING" ||
+                  item.status === "IN_PROGRESS") && (
                   <CustomButton
-                     variant="outline"
                      size="sm"
-                     className="h-8 px-2 text-xs text-rose-600 hover:text-rose-700 border-rose-200 hover:bg-rose-50"
+                     className="h-8 px-2 text-xs bg-rose-600 hover:bg-rose-700 text-white"
                      onClick={() => onCancel(item)}
                   >
                      Hủy

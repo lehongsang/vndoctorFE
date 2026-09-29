@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
    useDeleteStaffMutation,
    useGetAllStaffQuery,
@@ -34,7 +34,6 @@ export default function FacilityStaff({
    facility,
 }: FacilityStaffProps) {
    const [searchText, setSearchText] = useState("");
-   const [debouncedSearch, setDebouncedSearch] = useState("");
    const [role, setRole] = useState<StaffRole | "ALL">("ALL");
    const [page, setPage] = useState(1);
    const [limit, setLimit] = useState(10);
@@ -70,11 +69,6 @@ export default function FacilityStaff({
       refetch();
    };
 
-   useEffect(() => {
-      const timer = setTimeout(() => setDebouncedSearch(searchText), 400);
-      return () => clearTimeout(timer);
-   }, [searchText]);
-
    const {
       data: staffData,
       isLoading,
@@ -83,7 +77,7 @@ export default function FacilityStaff({
    } = useGetAllStaffQuery(
       {
          facilityId: facilityId || undefined,
-         search: debouncedSearch.trim() || undefined,
+         search: searchText.trim() || undefined,
          role: role === "ALL" ? undefined : role,
          page,
          limit,
@@ -96,8 +90,8 @@ export default function FacilityStaff({
    const [deleteStaff, { isLoading: isDeleting }] = useDeleteStaffMutation();
    const [deletingStaff, setDeletingStaff] = useState<Staff | null>(null);
 
-   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchText(e.target.value);
+   const handleSearch = (value: string) => {
+      setSearchText(value);
       setPage(1);
    };
 
@@ -109,7 +103,6 @@ export default function FacilityStaff({
    const handleRefresh = () => {
       if (facilityId) {
          setSearchText("");
-         setDebouncedSearch("");
          setRole("ALL");
          setPage(1);
          setIsStaffFormOpen(false);
@@ -265,7 +258,7 @@ export default function FacilityStaff({
       <div className="flex flex-col gap-4">
          <StaffToolBar
             searchText={searchText}
-            onSearchChange={handleSearchChange}
+            onSearch={handleSearch}
             role={role}
             onRoleChange={handleRoleChange}
             refetch={handleRefresh}

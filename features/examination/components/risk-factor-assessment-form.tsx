@@ -22,7 +22,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Info, ScanSearch, Sparkles } from "lucide-react";
+import {
+   AlertTriangle,
+   ArrowRight,
+   Info,
+   ScanSearch,
+   Sparkles,
+} from "lucide-react";
 import { RiskAssessmentEvaluationModal } from "./risk-assessment-evaluation-modal";
 import {
    OcrExtractedFormValues,
@@ -84,28 +90,29 @@ const assessmentSchema = z
       hasFamilialHypercholesterolemia: z.boolean(),
    })
    .superRefine((data, ctx) => {
-      if (!data.hasUnderlyingDisease) {
-         if (data.age === null || data.age === undefined) {
-            ctx.addIssue({
-               code: z.ZodIssueCode.custom,
-               message: "Vui lòng nhập tuổi",
-               path: ["age"],
-            });
-         } else if (data.age < 40) {
-            ctx.addIssue({
-               code: z.ZodIssueCode.custom,
-               message:
-                  "Theo quy định Bộ Y tế, tuổi đánh giá SCORE2 bắt buộc từ 40 tuổi trở lên",
-               path: ["age"],
-            });
-         } else if (data.age > 100) {
-            ctx.addIssue({
-               code: z.ZodIssueCode.custom,
-               message: "Tuổi đánh giá tối đa là 100 tuổi",
-               path: ["age"],
-            });
-         }
+      // 1. Tuổi: Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên
+      if (data.age === null || data.age === undefined) {
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Vui lòng nhập tuổi của người bệnh",
+            path: ["age"],
+         });
+      } else if (data.age < 40) {
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+               "Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên",
+            path: ["age"],
+         });
+      } else if (data.age > 100) {
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Tuổi đánh giá tối đa là 100 tuổi",
+            path: ["age"],
+         });
+      }
 
+      if (!data.hasUnderlyingDisease) {
          // 2. Giới tính: Bắt buộc chọn
          if (!data.gender || data.gender.trim() === "") {
             ctx.addIssue({
@@ -949,7 +956,7 @@ export function RiskFactorAssessmentForm({
       const effectiveAge =
          schemaData?.patientProfile?.calculatedAge ?? profileAge;
       if (effectiveAge !== null && effectiveAge !== undefined) {
-         setValue("age", effectiveAge);
+         setValue("age", effectiveAge, { shouldValidate: true });
       }
 
       const effectiveGender =
@@ -999,6 +1006,12 @@ export function RiskFactorAssessmentForm({
    const hasUnderlyingDisease = Boolean(
       useWatch({ control, name: "hasUnderlyingDisease" }),
    );
+   const effectiveAge = schemaData?.patientProfile?.calculatedAge ?? profileAge;
+   const watchedAge = useWatch({ control, name: "age" });
+   const currentAge =
+      (isAgeLocked ? effectiveAge : watchedAge) ?? effectiveAge ?? watchedAge;
+   const isUnder40 =
+      typeof currentAge === "number" && !isNaN(currentAge) && currentAge < 40;
    const diabetes = Boolean(useWatch({ control, name: "diabetes" }));
    const watchedTotalChol = useWatch({ control, name: "totalCholesterol" });
    const watchedHdlChol = useWatch({ control, name: "hdlCholesterol" });
@@ -1251,6 +1264,18 @@ export function RiskFactorAssessmentForm({
             ? profileGender || data.gender
             : data.gender;
 
+         if (finalAge === null || finalAge === undefined) {
+            toast.warning("Vui lòng cung cấp thông tin tuổi của người bệnh");
+            return;
+         }
+
+         if (finalAge < 40) {
+            toast.warning(
+               `Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên (Hiện tại: ${finalAge} tuổi)`,
+            );
+            return;
+         }
+
          let payload: CreateRiskAssessmentRequest;
 
          if (!data.hasUnderlyingDisease) {
@@ -1341,10 +1366,28 @@ export function RiskFactorAssessmentForm({
    return (
       <div className="flex flex-col gap-4 px-0.5">
          <div className="p-3 text-sm flex items-start gap-2 bg-blue-50 border border-blue-200 rounded">
-            <Info className="w-5 h-5" />
-            Phân tầng yếu tố nguy cơ theo thang điểm Score 2; Score-OP;
-            Score-dia được Khuyến cáo của hiệp hội tim mạch châu Âu ESC
+            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <span>
+               Phân tầng yếu tố nguy cơ theo thang điểm Score 2; Score-OP;
+               Score-dia được Khuyến cáo của hiệp hội tim mạch châu Âu ESC
+            </span>
          </div>
+         {isUnder40 && (
+            <div className="p-3 text-sm flex items-start gap-2.5 bg-amber-50 border border-amber-300 text-amber-900 rounded">
+               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+               <div className="space-y-0.5">
+                  <div className="font-semibold text-amber-800">
+                     Không đủ điều kiện phân tầng nguy cơ tim mạch
+                  </div>
+                  <div className="text-xs text-amber-700">
+                     Người bệnh hiện tại{" "}
+                     <span className="font-bold">{currentAge} tuổi</span>.Hệ
+                     thống chỉ cho phép phân tầng nguy cơ cho người từ{" "}
+                     <span className="font-bold">40 tuổi trở lên</span>.
+                  </div>
+               </div>
+            </div>
+         )}
          {/* Hiển thị kết quả đánh giá */}
          {assessmentResult && (
             <div
@@ -1513,6 +1556,140 @@ export function RiskFactorAssessmentForm({
                </div>
             </div>
 
+            {/* Thông tin cơ bản: Tuổi, Giới tính, Thói quen hút thuốc */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+               <FormInput
+                  label={renderFieldLabel(
+                     "Tuổi",
+                     "age",
+                     isAgeLocked ? "(Theo ngày sinh)" : undefined,
+                  )}
+                  type="number"
+                  placeholder="Nhập tuổi (≥ 40)"
+                  disabled={isAgeLocked}
+                  error={errors.age?.message}
+                  {...register("age", {
+                     setValueAs: (v) =>
+                        v === "" || isNaN(v) ? null : Number(v),
+                  })}
+               />
+
+               <Controller
+                  name="gender"
+                  control={control}
+                  render={({ field }) => (
+                     <FormSelect
+                        label={renderFieldLabel(
+                           "Giới tính",
+                           "gender",
+                           isGenderLocked ? "(Theo hồ sơ)" : undefined,
+                        )}
+                        options={GENDER_OPTIONS}
+                        value={field.value || undefined}
+                        onValueChange={field.onChange}
+                        placeholder="Chọn giới tính"
+                        disabled={isGenderLocked}
+                        error={errors.gender?.message}
+                     />
+                  )}
+               />
+
+               <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-1.5">
+                     <label className="text-xs font-medium text-slate-800">
+                        Thói quen hút thuốc{" "}
+                        {isSmokingLocked && (
+                           <span className="text-[11px] font-normal text-slate-400">
+                              (Theo hồ sơ)
+                           </span>
+                        )}
+                     </label>
+                     {renderSourceBadge("isSmoking")}
+                  </div>
+                  <Controller
+                     name="isSmoking"
+                     control={control}
+                     render={({ field }) => {
+                        return (
+                           <div className="grid grid-cols-2 h-10 rounded-sm border border-input overflow-hidden">
+                              <div
+                                 onClick={() => {
+                                    if (!isSmokingLocked) field.onChange(true);
+                                 }}
+                                 className={cn(
+                                    "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
+                                    isSmokingLocked
+                                       ? "cursor-not-allowed opacity-70 bg-slate-50"
+                                       : "cursor-pointer hover:bg-slate-50",
+                                    field.value === true
+                                       ? "bg-primary/5 text-primary font-semibold"
+                                       : "bg-background text-slate-700",
+                                 )}
+                              >
+                                 <Checkbox
+                                    id="smoking-yes"
+                                    checked={field.value === true}
+                                    disabled={isSmokingLocked}
+                                    onCheckedChange={() => {
+                                       if (!isSmokingLocked)
+                                          field.onChange(true);
+                                    }}
+                                 />
+                                 <Label
+                                    htmlFor="smoking-yes"
+                                    className={cn(
+                                       "text-xs font-medium",
+                                       isSmokingLocked
+                                          ? "cursor-not-allowed text-slate-500"
+                                          : "cursor-pointer",
+                                    )}
+                                 >
+                                    Có
+                                 </Label>
+                              </div>
+
+                              <div
+                                 onClick={() => {
+                                    if (!isSmokingLocked) field.onChange(false);
+                                 }}
+                                 className={cn(
+                                    "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
+                                    isSmokingLocked
+                                       ? "cursor-not-allowed opacity-70 bg-slate-50"
+                                       : "cursor-pointer hover:bg-slate-50",
+                                    field.value === false
+                                       ? "bg-primary/5 text-primary font-semibold"
+                                       : "bg-background text-slate-700",
+                                 )}
+                              >
+                                 <Checkbox
+                                    id="smoking-no"
+                                    checked={field.value === false}
+                                    disabled={isSmokingLocked}
+                                    onCheckedChange={() => {
+                                       if (!isSmokingLocked)
+                                          field.onChange(false);
+                                    }}
+                                 />
+                                 <Label
+                                    htmlFor="smoking-no"
+                                    className={cn(
+                                       "text-xs font-medium",
+                                       isSmokingLocked
+                                          ? "cursor-not-allowed text-slate-500"
+                                          : "cursor-pointer",
+                                    )}
+                                 >
+                                    Không
+                                 </Label>
+                              </div>
+                           </div>
+                        );
+                     }}
+                  />
+               </div>
+            </div>
+
             <div>
                <RadioGroup
                   value={hasUnderlyingDisease ? "true" : "false"}
@@ -1569,139 +1746,6 @@ export function RiskFactorAssessmentForm({
             {!hasUnderlyingDisease && (
                <div className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                     <FormInput
-                        label={renderFieldLabel(
-                           "Tuổi",
-                           "age",
-                           isAgeLocked ? "(Theo ngày sinh)" : undefined,
-                        )}
-                        type="number"
-                        placeholder="Nhập tuổi (≥ 40)"
-                        disabled={isAgeLocked}
-                        error={errors.age?.message}
-                        {...register("age", {
-                           setValueAs: (v) =>
-                              v === "" || isNaN(v) ? null : Number(v),
-                        })}
-                     />
-
-                     <Controller
-                        name="gender"
-                        control={control}
-                        render={({ field }) => (
-                           <FormSelect
-                              label={renderFieldLabel(
-                                 "Giới tính",
-                                 "gender",
-                                 isGenderLocked ? "(Theo hồ sơ)" : undefined,
-                              )}
-                              options={GENDER_OPTIONS}
-                              value={field.value || undefined}
-                              onValueChange={field.onChange}
-                              placeholder="Chọn giới tính"
-                              disabled={isGenderLocked}
-                              error={errors.gender?.message}
-                           />
-                        )}
-                     />
-
-                     <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between gap-1.5">
-                           <label className="text-xs font-medium text-slate-800">
-                              Thói quen hút thuốc{" "}
-                              {isSmokingLocked && (
-                                 <span className="text-[11px] font-normal text-slate-400">
-                                    (Theo hồ sơ)
-                                 </span>
-                              )}
-                           </label>
-                           {renderSourceBadge("isSmoking")}
-                        </div>
-                        <Controller
-                           name="isSmoking"
-                           control={control}
-                           render={({ field }) => {
-                              return (
-                                 <div className="grid grid-cols-2 h-10 rounded-sm border border-input overflow-hidden">
-                                    <div
-                                       onClick={() => {
-                                          if (!isSmokingLocked)
-                                             field.onChange(true);
-                                       }}
-                                       className={cn(
-                                          "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
-                                          isSmokingLocked
-                                             ? "cursor-not-allowed opacity-70 bg-slate-50"
-                                             : "cursor-pointer hover:bg-slate-50",
-                                          field.value === true
-                                             ? "bg-primary/5 text-primary font-semibold"
-                                             : "bg-background text-slate-700",
-                                       )}
-                                    >
-                                       <Checkbox
-                                          id="smoking-yes"
-                                          checked={field.value === true}
-                                          disabled={isSmokingLocked}
-                                          onCheckedChange={() => {
-                                             if (!isSmokingLocked)
-                                                field.onChange(true);
-                                          }}
-                                       />
-                                       <Label
-                                          htmlFor="smoking-yes"
-                                          className={cn(
-                                             "text-xs font-medium",
-                                             isSmokingLocked
-                                                ? "cursor-not-allowed text-slate-500"
-                                                : "cursor-pointer",
-                                          )}
-                                       >
-                                          Có
-                                       </Label>
-                                    </div>
-
-                                    <div
-                                       onClick={() => {
-                                          if (!isSmokingLocked)
-                                             field.onChange(false);
-                                       }}
-                                       className={cn(
-                                          "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
-                                          isSmokingLocked
-                                             ? "cursor-not-allowed opacity-70 bg-slate-50"
-                                             : "cursor-pointer hover:bg-slate-50",
-                                          field.value === false
-                                             ? "bg-primary/5 text-primary font-semibold"
-                                             : "bg-background text-slate-700",
-                                       )}
-                                    >
-                                       <Checkbox
-                                          id="smoking-no"
-                                          checked={field.value === false}
-                                          disabled={isSmokingLocked}
-                                          onCheckedChange={() => {
-                                             if (!isSmokingLocked)
-                                                field.onChange(false);
-                                          }}
-                                       />
-                                       <Label
-                                          htmlFor="smoking-no"
-                                          className={cn(
-                                             "text-xs font-medium",
-                                             isSmokingLocked
-                                                ? "cursor-not-allowed text-slate-500"
-                                                : "cursor-pointer",
-                                          )}
-                                       >
-                                          Không
-                                       </Label>
-                                    </div>
-                                 </div>
-                              );
-                           }}
-                        />
-                     </div>
-
                      <FormInput
                         label={renderFieldLabel(
                            "Huyết áp tâm thu (mmHg)",
@@ -1989,6 +2033,7 @@ export function RiskFactorAssessmentForm({
                </CustomButton>
                <CustomButton
                   type="submit"
+                  disabled={isSubmitting || isUnder40}
                   isLoading={isSubmitting}
                   loadingText="Đang đánh giá..."
                   className="px-6 h-10 text-xs font-semibold"

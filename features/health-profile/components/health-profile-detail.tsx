@@ -11,7 +11,7 @@ import {
    FileText,
    RotateCcwClock,
    Trash,
-   Activity,
+   Gauge,
 } from "lucide-react";
 import {
    Accordion,
@@ -1027,13 +1027,11 @@ export function HealthProfileDetail({
             <AccordionItem value="item-5">
                <AccordionTrigger className="flex border rounded-none">
                   <div className="flex items-center gap-4 text-base">
-                     <Activity /> Chỉ số sức khỏe hàng ngày của bệnh nhân
+                     <Gauge /> Chỉ số sức khỏe hàng ngày của bệnh nhân
                   </div>
                </AccordionTrigger>
                <AccordionContent>
-                  <div className="p-6 border rounded-sm shadow-sm bg-white">
-                     <PatientDailyHealthRecords healthProfileId={profile.id} />
-                  </div>
+                  <PatientDailyHealthRecords healthProfileId={profile.id} />
                </AccordionContent>
             </AccordionItem>
          </Accordion>

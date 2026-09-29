@@ -10,9 +10,9 @@ import {
    DialogTitle,
 } from "@/components/ui/dialog";
 import { CustomButton } from "@/components/common/custom-button";
-import { Textarea } from "@/components/ui/textarea";
 import { CareRequest } from "@/store/api/care-request/type";
 import { useAuth } from "@/hooks/use-auth";
+import { FormTextarea } from "@/components/common/form-textarea";
 
 interface ReceiveModalProps {
    open: boolean;
@@ -51,7 +51,7 @@ export function ReceiveModal({
             }
          }}
       >
-         <DialogContent className="max-w-md p-5">
+         <DialogContent className="sm:min-w-md rounded-sm p-5">
             <DialogHeader className="gap-1 text-left">
                <DialogTitle className="text-base font-semibold text-slate-900">
                   Tiếp nhận yêu cầu chăm sóc
@@ -73,22 +73,19 @@ export function ReceiveModal({
                   </div>
                </div>
 
-               <div>
-                  <label className="text-xs font-medium text-slate-700 block mb-1">
-                     Ghi chú tiếp nhận (tùy chọn)
-                  </label>
-                  <Textarea
-                     rows={3}
-                     placeholder="Nhập ghi chú ban đầu..."
-                     value={note}
-                     onChange={(e) => setNote(e.target.value)}
-                     className="text-xs"
-                     disabled={isLoading}
-                  />
-               </div>
+               <FormTextarea
+                  label="Ghi chú tiếp nhận (tùy chọn)"
+                  name="note"
+                  placeholder="Nhập ghi chú ban đầu..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="text-xs"
+                  disabled={isLoading}
+                  rows={5}
+               />
             </div>
 
-            <DialogFooter className="mt-2 flex items-center justify-end gap-2">
+            <DialogFooter className="border-none flex items-center justify-end gap-2">
                <CustomButton
                   type="button"
                   variant="outline"

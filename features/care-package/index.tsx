@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
    useChangeCarePackageStatusMutation,
    useDeleteCarePackageMutation,
@@ -31,7 +31,6 @@ import { useAuth } from "@/hooks/use-auth";
 
 export default function CarePackageModule() {
    const [searchText, setSearchText] = useState("");
-   const [debouncedSearch, setDebouncedSearch] = useState("");
    const [packageType, setPackageType] = useState<CarePackageType | "ALL">(
       "ALL",
    );
@@ -61,12 +60,6 @@ export default function CarePackageModule() {
       null,
    );
 
-   useEffect(() => {
-      const handler = setTimeout(() => {
-         setDebouncedSearch(searchText);
-      }, 400);
-      return () => clearTimeout(handler);
-   }, [searchText]);
 
    const {
       data: packageData,
@@ -76,14 +69,14 @@ export default function CarePackageModule() {
    } = useGetCarePackagesQuery({
       page,
       limit,
-      search: debouncedSearch.trim() || undefined,
+      search: searchText.trim() || undefined,
       type: packageType === "ALL" ? undefined : packageType,
       status: status === "ALL" ? undefined : status,
       facilityId: facilityId || undefined,
    });
 
-   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchText(e.target.value);
+   const handleSearch = (value: string) => {
+      setSearchText(value);
       setPage(1);
    };
 
@@ -99,7 +92,6 @@ export default function CarePackageModule() {
 
    const handleRefresh = () => {
       setSearchText("");
-      setDebouncedSearch("");
       setPackageType("ALL");
       setStatus("ALL");
       setPage(1);
@@ -196,7 +188,7 @@ export default function CarePackageModule() {
             <>
                <CarePackageToolbar
                   searchText={searchText}
-                  onSearchChange={handleSearchChange}
+                  onSearch={handleSearch}
                   packageType={packageType}
                   onPackageTypeChange={handlePackageTypeChange}
                   status={status}
@@ -220,7 +212,7 @@ export default function CarePackageModule() {
                            Chưa có gói chăm sóc nào
                         </h3>
                         <p className="text-xs text-slate-500 max-w-sm">
-                           {debouncedSearch ||
+                           {searchText ||
                            packageType !== "ALL" ||
                            status !== "ALL"
                               ? "Không tìm thấy gói chăm sóc phù hợp với bộ lọc."

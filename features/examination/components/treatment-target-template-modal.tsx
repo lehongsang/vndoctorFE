@@ -425,7 +425,7 @@ export function TreatmentTargetTemplateModal({
                      <div className="flex-1 min-w-50">
                         <SearchInput
                            value={search}
-                           onChange={(e) => setSearch(e.target.value)}
+                           onSearch={(val) => setSearch(val)}
                            placeholder="Tìm kiếm mẫu theo tên, mô tả..."
                         />
                      </div>
