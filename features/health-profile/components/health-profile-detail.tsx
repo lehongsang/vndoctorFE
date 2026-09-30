@@ -409,9 +409,6 @@ export function HealthProfileDetail({
                            value={
                               [
                                  profile.isSmoking ? "Hút thuốc lá" : null,
-                                 profile.hasHypertension
-                                    ? "Tăng huyết áp"
-                                    : null,
                                  profile.hasDyslipidemia
                                     ? "Rối loạn chuyển hoá mỡ máu"
                                     : null,
@@ -420,9 +417,6 @@ export function HealthProfileDetail({
                                     {[
                                        profile.isSmoking
                                           ? "Hút thuốc lá"
-                                          : null,
-                                       profile.hasHypertension
-                                          ? "Tăng huyết áp"
                                           : null,
                                        profile.hasDyslipidemia
                                           ? "Rối loạn chuyển hoá mỡ máu"
@@ -448,6 +442,9 @@ export function HealthProfileDetail({
                            label="Bệnh lý mạn tính"
                            value={
                               [
+                                 profile.hasHypertension
+                                    ? "Tăng huyết áp"
+                                    : null,
                                  profile.hasDiabetes ? "Đái tháo đường" : null,
                                  profile.hasFamilialHypercholesterolemia
                                     ? "Tăng cholesterol máu gia đình"
@@ -480,6 +477,9 @@ export function HealthProfileDetail({
                               ].filter(Boolean).length > 0 ? (
                                  <div className="flex flex-wrap gap-1.5 mt-1">
                                     {[
+                                       profile.hasHypertension
+                                          ? "Tăng huyết áp"
+                                          : null,
                                        profile.hasDiabetes
                                           ? "Đái tháo đường"
                                           : null,
