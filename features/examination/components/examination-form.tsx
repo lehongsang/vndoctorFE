@@ -1544,19 +1544,21 @@ export function ExaminationForm({
                      <kbd>(Esc)</kbd>
                   </CustomButton>
                )}
-               <CustomButton
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  isLoading={submittingStatus === "CANCELLED"}
-                  disabled={isSubmitting || !canEdit}
-                  onClick={() => handleSaveWithStatus("CANCELLED")}
-                  className="h-9 px-3.5 text-xs gap-1.5 cursor-pointer"
-                  title="Hủy đợt khám (F4)"
-               >
-                  <span>Hủy đợt khám</span>
-                  <kbd>(F4)</kbd>
-               </CustomButton>
+               {initialData?.status === "IN_PROGRESS" && (
+                  <CustomButton
+                     type="button"
+                     variant="destructive"
+                     size="sm"
+                     isLoading={submittingStatus === "CANCELLED"}
+                     disabled={isSubmitting || !canEdit}
+                     onClick={() => handleSaveWithStatus("CANCELLED")}
+                     className="h-9 px-3.5 text-xs gap-1.5 cursor-pointer"
+                     title="Hủy đợt khám (F4)"
+                  >
+                     <span>Hủy đợt khám</span>
+                     <kbd>(F4)</kbd>
+                  </CustomButton>
+               )}
 
                <CustomButton
                   type="button"

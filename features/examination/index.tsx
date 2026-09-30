@@ -147,7 +147,7 @@ export const ExaminationPage = () => {
                className="w-fit"
                startIcon={<ArrowLeft />}
                onClick={() => {
-                  window.history.back();
+                  router.push("/health-profile");
                }}
             >
                Quay lại

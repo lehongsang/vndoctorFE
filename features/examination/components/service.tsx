@@ -148,7 +148,7 @@ export function ExaminationService({
                   </span>
                   {carePackage.name && (
                      <span
-                        className="font-medium text-slate-700 max-w-32 truncate"
+                        className="font-medium text-slate-700 max-w-32"
                         title={carePackage.name}
                      >
                         ({carePackage.name})

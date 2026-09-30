@@ -22,6 +22,8 @@ import {
    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { useGetDetailHealthProfileQuery } from "@/store/api/health-profile/health-profile-api";
+
 interface NavbarProps {
    onMenuClick?: () => void;
    isCollapsed?: boolean;
@@ -32,6 +34,7 @@ const ROUTE_LABELS: Record<string, string> = {
    facility: "Quản lý cơ sở y tế",
    "care-package": "Gói chăm sóc",
    "health-profile": "Hồ sơ sức khỏe",
+   examination: "Khám bệnh",
    patients: "Quản lý khách hàng",
    appointments: "Lịch hẹn",
    notifications: "Trung tâm thông báo",
@@ -48,21 +51,62 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
    const pathname = usePathname();
    const router = useRouter();
 
+   // Nhận diện nếu đang ở màn hình khám bệnh: /health-profile/examination/[id]
+   const examinationMatch = pathname?.match(
+      /^\/health-profile\/examination\/([^/]+)/,
+   );
+   const examinationHealthProfileId = examinationMatch
+      ? examinationMatch[1]
+      : undefined;
+
+   const { data: patientProfile, isLoading: isLoadingPatient } =
+      useGetDetailHealthProfileQuery(examinationHealthProfileId || "", {
+         skip: !examinationHealthProfileId,
+      });
+
    const breadcrumbs = React.useMemo(() => {
       if (!pathname || pathname === "/") return [];
       let acc = "";
-      return pathname
-         .split("/")
-         .filter(Boolean)
-         .map((seg, idx, arr) => {
-            acc += `/${seg}`;
-            const label =
-               menuItems.find((m) => m.href === acc)?.label ||
-               ROUTE_LABELS[seg] ||
-               seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, " ");
-            return { path: acc, label, isLast: idx === arr.length - 1 };
-         });
-   }, [pathname]);
+      const segments = pathname.split("/").filter(Boolean);
+
+      return segments.map((seg, idx, arr) => {
+         acc += `/${seg}`;
+
+         // Nếu là segment id của bệnh nhân trong trang khám bệnh (/health-profile/examination/[id])
+         const isExamPatient =
+            idx === 2 &&
+            arr[0] === "health-profile" &&
+            arr[1] === "examination";
+
+         let label =
+            menuItems.find((m) => m.href === acc)?.label ||
+            ROUTE_LABELS[seg] ||
+            seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, " ");
+
+         if (isExamPatient) {
+            if (isLoadingPatient) {
+               label = "Đang tải...";
+            } else if (patientProfile?.fullName) {
+               label = patientProfile.hospitalPatientCode
+                  ? `${patientProfile.fullName} (${patientProfile.hospitalPatientCode})`
+                  : patientProfile.fullName;
+            } else {
+               label = "Chi tiết khám";
+            }
+         }
+
+         const path =
+            acc === "/health-profile/examination" ? "/health-profile" : acc;
+
+         return {
+            key: acc,
+            path,
+            label,
+            isLast: idx === arr.length - 1,
+            isExamPatient,
+         };
+      });
+   }, [pathname, isLoadingPatient, patientProfile]);
 
    const initials = user?.fullName?.charAt(0)?.toUpperCase() ?? "";
    const roleLabel = user?.role
@@ -72,7 +116,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
    return (
       <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-5">
          {/* Left: hamburger + breadcrumb */}
-         <div className="flex items-center gap-2 min-w-0 flex-1">
+         <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto scrollbar-none py-1">
             <button
                type="button"
                onClick={onMenuClick}
@@ -94,14 +138,20 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             {/* Breadcrumbs */}
             {breadcrumbs.map((crumb) => (
                <div
-                  key={crumb.path}
+                  key={crumb.key}
                   className="flex items-center gap-1.5 shrink-0 min-w-0"
                >
                   <ChevronRight className="size-3.5 text-slate-300 shrink-0" />
                   {crumb.isLast ? (
-                     <span className="text-sm font-medium text-slate-500 truncate">
-                        {crumb.label}
-                     </span>
+                     crumb.isExamPatient && patientProfile?.fullName ? (
+                        <span className="text-sm font-medium ">
+                           {patientProfile?.fullName}
+                        </span>
+                     ) : (
+                        <span className="text-sm font-medium truncate">
+                           {crumb.label}
+                        </span>
+                     )
                   ) : (
                      <Link
                         href={crumb.path}

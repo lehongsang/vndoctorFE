@@ -98,14 +98,15 @@ export function CareRequestTable({
       {
          id: "title",
          header: "Tiêu đề & Nội dung",
-         headerClassName: "text-xs font-semibold text-slate-600 min-w-64",
-         cellClassName: "py-2.5",
+         headerClassName:
+            "text-xs font-semibold text-slate-600 min-w-64 max-w-sm",
+         cellClassName: "py-2.5 whitespace-normal break-words max-w-sm",
          cell: (item) => (
-            <div className="flex flex-col gap-0.5 max-w-md">
-               <span className="font-medium text-xs text-slate-900 truncate">
+            <div className="flex flex-col gap-0.5 whitespace-normal wrap-break-word max-w-sm">
+               <span className="font-medium text-xs text-slate-900 whitespace-normal wrap-break-word">
                   {item.title}
                </span>
-               <span className="text-xs text-slate-500 line-clamp-1">
+               <span className="text-xs text-slate-500 whitespace-normal wrap-break-word">
                   {item.description}
                </span>
                {item.mediaUrls && item.mediaUrls.length > 0 && (
