@@ -81,7 +81,7 @@ export const LoginForm = () => {
             className="flex flex-col gap-4"
          >
             {errors.root?.message && (
-               <div className="p-3 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+               <div className="p-3 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
                   <span>{errors.root.message}</span>
                </div>
             )}

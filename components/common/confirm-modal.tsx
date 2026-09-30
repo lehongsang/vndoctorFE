@@ -79,7 +79,9 @@ export function ConfirmModal({
             }
          }}
       >
-         <DialogContent className={`max-w-md p-5 rounded-md ${className ?? ""}`}>
+         <DialogContent
+            className={`max-w-md p-5 rounded-md ${className ?? ""}`}
+         >
             <DialogHeader className="gap-1.5 text-left">
                <DialogTitle className="text-base font-semibold text-slate-900">
                   {title}
@@ -96,7 +98,7 @@ export function ConfirmModal({
                   size="sm"
                   onClick={handleClose}
                   disabled={isLoading}
-                  className="h-9 px-4 text-xs text-slate-700 border-slate-300 rounded-md"
+                  className="h-9 px-4 text-xs"
                >
                   {cancelText}
                </CustomButton>
@@ -107,7 +109,7 @@ export function ConfirmModal({
                   onClick={handleConfirm}
                   isLoading={isLoading}
                   loadingText={loadingText}
-                  className={`h-9 px-4 text-xs font-medium rounded-md ${confirmButtonColor}`}
+                  className={`h-9 px-4 text-xs ${confirmButtonColor}`}
                >
                   {confirmText}
                </CustomButton>
