@@ -286,6 +286,9 @@ export const ExaminationPage = () => {
                               <div className="grid grid-cols-4">
                                  <div className="col-span-3 px-0.5">
                                     <ExaminationForm
+                                       key={
+                                          effectiveEditingData?.id || "new-exam"
+                                       }
                                        healthProfileId={HealthProfile?.id || ""}
                                        initialData={effectiveEditingData}
                                        onCancel={() => {

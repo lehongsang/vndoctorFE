@@ -45,3 +45,23 @@ export type VerifyTreatmentTargetInput = {
 };
 
 export type UpdateTreatmentTargetInput = Partial<TreatmentTarget>;
+
+export type CreateTreatmentTargetInput = {
+   healthProfileId: string;
+   assessmentId?: string;
+   assessmentInputId?: string;
+   assessmentResultId?: string;
+   examinationId?: string;
+   careSubscriptionId?: string;
+   dictionaryCode?: string;
+   bpTarget?: string;
+   lipidTarget?: string;
+   bmiTarget?: string;
+   glycemicTarget?: string;
+   renalTarget?: string;
+   dietAdvice?: string;
+   exerciseAdvice?: string;
+   smokingAdvice?: string;
+   customTargets?: Record<string, string>;
+   doctorNotes?: string;
+};

@@ -353,6 +353,7 @@ export function HealthProfileTable({
          id: "carePackage",
          header: "Gói điều trị",
          headerClassName: "text-sm font-semibold text-slate-600",
+         cellClassName: "whitespace-normal py-2 max-w-[240px]",
          cell: (profile: HealthProfile) => {
             const sub = profile?.careSubscription;
             const carePackage = sub?.carePackage;
@@ -386,14 +387,14 @@ export function HealthProfileTable({
             const isActive = packageCheck.isActive;
 
             return (
-               <div className="flex flex-col gap-0 items-start leading-tight">
+               <div className="flex flex-col gap-0.5 items-start leading-tight whitespace-normal max-w-60">
                   {/* Bên trên: Tên gói + loại gói */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                     <span className="text-xs font-medium text-slate-800">
+                     <span className="text-xs font-medium text-slate-800 wrap-break-word whitespace-normal">
                         {carePackage.name}
                      </span>
                      <span
-                        className={`text-[10px] py-0.5 px-1.5 rounded-sm font-medium ${
+                        className={`text-[10px] py-0.5 px-1.5 rounded-sm font-medium shrink-0 ${
                            isStandard
                               ? "text-blue-600 bg-blue-100"
                               : "text-amber-600 bg-amber-100"

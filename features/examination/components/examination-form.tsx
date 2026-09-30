@@ -20,17 +20,17 @@ import { FormTextarea } from "@/components/common/form-textarea";
 import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
 import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle2, Info, Save, Trash2, X } from "lucide-react";
+import { AlertCircle, Info, Trash2, X } from "lucide-react";
 import { RiskAssessmentEvaluationModal } from "./risk-assessment-evaluation-modal";
 import { RiskAssessmentDetailModal } from "./risk-assessment-detail-modal";
 import { TreatmentTargetTemplateModal } from "./treatment-target-template-modal";
 import { TreatmentTargetTemplate } from "@/store/api/treatment-target-template/type";
 import { useGetTreatmentTargetTemplatesQuery } from "@/store/api/treatment-target-template/treatment-target-template-api";
 import {
+   useCreateTreamentTargetMutation,
+   useLazyGetDetailTreamentTargetQuery,
    useLazyGetTreatmentTargetByAccessmentIdQuery,
-   useLazyGetTreatmentTargetByIdQuery,
    useUpdateTreatmentTargetMutation,
-   useVerifyTreatmentTargetMutation,
 } from "@/store/api/treatment-target/treatment-target-api";
 import { TreatmentTarget } from "@/store/api/treatment-target/type";
 import { Icd10SuggestInput } from "./icd10-suggest-input";
@@ -83,7 +83,7 @@ const examinationSchema = z.object({
    temperature: z.number().nullable().optional(),
    spo2: z.number().nullable().optional(),
    respiratoryRate: z.number().nullable().optional(),
-   diagnosis: z.string().trim().optional(),
+   diagnosis: z.string().trim().min(1, "Vui lòng nhập chẩn đoán"),
    icd10Code: z.string().trim().optional(),
    nextAppointmentDate: z.string().optional(),
    status: z.enum(["IN_PROGRESS", "COMPLETED", "CANCELLED"]),
@@ -126,6 +126,32 @@ const VITAL_INPUT_CONFIGS: {
    { name: "spo2", label: "SpO2 (%)", placeholder: "vd: 98" },
    { name: "temperature", label: "Nhiệt độ (°C)", placeholder: "vd: 36.5" },
 ];
+
+const COMMON_REASONS_FOR_VISIT = [
+   "Khám sức khỏe tổng quát",
+   "Khám sức khỏe định kỳ",
+   "Tái khám theo hẹn",
+   "Khám lấy thuốc định kỳ",
+];
+
+const APPOINTMENT_INTERVALS = [
+   { label: "1 tuần", days: 7, months: 0 },
+   { label: "2 tuần", days: 14, months: 0 },
+   { label: "1 tháng", days: 0, months: 1 },
+   { label: "2 tháng", days: 0, months: 2 },
+   { label: "3 tháng", days: 0, months: 3 },
+   { label: "6 tháng", days: 0, months: 6 },
+];
+
+const calculateFutureDate = (months: number, days: number = 0): string => {
+   const d = new Date();
+   if (months > 0) d.setMonth(d.getMonth() + months);
+   if (days > 0) d.setDate(d.getDate() + days);
+   const year = d.getFullYear();
+   const month = String(d.getMonth() + 1).padStart(2, "0");
+   const day = String(d.getDate()).padStart(2, "0");
+   return `${year}-${month}-${day}`;
+};
 
 type TargetStringKey =
    | "bpTarget"
@@ -189,6 +215,14 @@ const TARGET_TEXTAREA_FIELDS: {
    },
 ];
 
+const unwrapTargetResponse = (raw: unknown): TreatmentTarget | null => {
+   if (!raw || typeof raw !== "object") return null;
+   if ("data" in raw && raw.data && typeof raw.data === "object") {
+      return raw.data as TreatmentTarget;
+   }
+   return raw as TreatmentTarget;
+};
+
 export function ExaminationForm({
    healthProfileId,
    initialData,
@@ -244,13 +278,7 @@ export function ExaminationForm({
       { id: string; key: string; value: string }[]
    >([]);
    const treatmentTargetRef = useRef<HTMLDivElement | null>(null);
-
-   const [prevExamId, setPrevExamId] = useState(initialData?.id);
-   if (initialData?.id !== prevExamId) {
-      setPrevExamId(initialData?.id);
-      setTreatmentTarget(null);
-      setSelectedTemplateId(null);
-   }
+   const isInitialTargetLoadedRef = useRef(false);
 
    const scrollToTarget = () => {
       setTimeout(() => {
@@ -317,6 +345,8 @@ export function ExaminationForm({
          const base = prev || createBlankTargetObj();
          return {
             ...base,
+            id: "",
+            status: "DRAFT",
             bpTarget: template.bpTarget || base.bpTarget,
             lipidTarget: template.lipidTarget || base.lipidTarget,
             bmiTarget: template.bmiTarget || base.bmiTarget,
@@ -328,6 +358,7 @@ export function ExaminationForm({
             doctorNotes: template.doctorNotes || base.doctorNotes,
          };
       });
+      setValue("treatmentTargetId", "", { shouldDirty: true });
 
       if (
          template.customTargets &&
@@ -370,11 +401,11 @@ export function ExaminationForm({
 
    const [fetchTreatmentTarget, { isFetching: isFetchingTarget }] =
       useLazyGetTreatmentTargetByAccessmentIdQuery();
-   const [fetchTreatmentTargetById] = useLazyGetTreatmentTargetByIdQuery();
+   const [fetchDetailTreatmentTarget] = useLazyGetDetailTreamentTargetQuery();
+   const [createTreatmentTarget, { isLoading: isCreatingTarget }] =
+      useCreateTreamentTargetMutation();
    const [updateTreatmentTarget, { isLoading: isUpdatingTarget }] =
       useUpdateTreatmentTargetMutation();
-   const [verifyTreatmentTarget, { isLoading: isVerifyingTarget }] =
-      useVerifyTreatmentTargetMutation();
 
    const riskAssessments: RiskAssessmentResult[] = useMemo(
       () => riskAssessmentData?.data || riskAssessmentData?.items || [],
@@ -437,6 +468,7 @@ export function ExaminationForm({
       handleSubmit,
       reset,
       setValue,
+      getValues,
       formState: { errors },
    } = useForm<ExaminationFormValues>({
       resolver: zodResolver(examinationSchema),
@@ -484,6 +516,32 @@ export function ExaminationForm({
       );
    }, [watchedAssessmentInputId, riskAssessments, updatedAssessment]);
 
+   const handleSelectReasonSuggestion = (suggestion: string) => {
+      const current = getValues("reasonForVisit") || "";
+      if (!current.trim()) {
+         setValue("reasonForVisit", suggestion, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      } else if (!current.includes(suggestion)) {
+         setValue("reasonForVisit", `${current.trim()}, ${suggestion}`, {
+            shouldValidate: true,
+            shouldDirty: true,
+         });
+      }
+   };
+
+   const handleSelectAppointmentInterval = (
+      months: number,
+      days: number = 0,
+   ) => {
+      const calculatedDate = calculateFutureDate(months, days);
+      setValue("nextAppointmentDate", calculatedDate, {
+         shouldValidate: true,
+         shouldDirty: true,
+      });
+   };
+
    const handleApplyVitalsFromAssessment = () => {
       const input = selectedRiskAssessment?.assessmentInput;
       if (!input) {
@@ -514,24 +572,41 @@ export function ExaminationForm({
       }
 
       try {
-         let result: TreatmentTarget | null = null;
+         let rawResult: unknown = null;
          try {
-            result = await fetchTreatmentTarget({ id: targetId }).unwrap();
+            rawResult = await fetchTreatmentTarget({ id: targetId }).unwrap();
          } catch (err: unknown) {
             if (fallbackId && fallbackId !== targetId) {
-               result = await fetchTreatmentTarget({ id: fallbackId }).unwrap();
+               rawResult = await fetchTreatmentTarget({
+                  id: fallbackId,
+               }).unwrap();
             } else {
                throw err;
             }
          }
 
+         const result = unwrapTargetResponse(rawResult);
          if (result) {
-            setTreatmentTarget(result);
-            setValue("treatmentTargetId", result.id, { shouldDirty: true });
-            toast.success("Lấy mục tiêu điều trị thành công!");
+            const isAlreadySavedOnThisExam =
+               Boolean(initialTargetId) && initialTargetId === result.id;
+            setTreatmentTarget({
+               ...result,
+               id: isAlreadySavedOnThisExam ? result.id : "",
+               status: isAlreadySavedOnThisExam ? result.status : "DRAFT",
+            });
+            setValue(
+               "treatmentTargetId",
+               isAlreadySavedOnThisExam ? result.id : "",
+               {
+                  shouldDirty: true,
+               },
+            );
+            toast.success("Lấy mục tiêu điều trị từ phân tầng thành công!");
             scrollToTarget();
          } else {
-            toast.info("Không tìm thấy mục tiêu điều trị cho phiếu này.");
+            toast.info(
+               "Không tìm thấy dữ liệu mục tiêu cho phiếu phân tầng này.",
+            );
          }
       } catch (error: unknown) {
          const err = error as { data?: { message?: string }; status?: number };
@@ -558,61 +633,108 @@ export function ExaminationForm({
       return obj;
    }, [customTargetList]);
 
-   const mutateTargetAndSync = async (isVerify = false) => {
-      if (!treatmentTarget?.id) {
+   const handleConfirmAndSaveTarget = async () => {
+      const currentTarget = unwrapTargetResponse(treatmentTarget);
+      if (!currentTarget) {
          toast.warning(
-            `Không có mục tiêu điều trị để ${isVerify ? "phê duyệt" : "lưu"}.`,
+            "Chưa có thông tin mục tiêu điều trị để xác nhận và lưu.",
          );
          return;
       }
 
+      const customTargetsMap = getCustomTargetsObject();
       const basePayload = {
-         bpTarget: treatmentTarget.bpTarget || "",
-         lipidTarget: treatmentTarget.lipidTarget || "",
-         bmiTarget: treatmentTarget.bmiTarget || "",
-         glycemicTarget: treatmentTarget.glycemicTarget || "",
-         renalTarget: treatmentTarget.renalTarget || "",
-         customTargets: getCustomTargetsObject(),
-         dietAdvice: treatmentTarget.dietAdvice || "",
-         exerciseAdvice: treatmentTarget.exerciseAdvice || "",
-         smokingAdvice: treatmentTarget.smokingAdvice || "",
-         doctorNotes: treatmentTarget.doctorNotes || "",
+         bpTarget: currentTarget.bpTarget || "",
+         lipidTarget: currentTarget.lipidTarget || "",
+         bmiTarget: currentTarget.bmiTarget || "",
+         glycemicTarget: currentTarget.glycemicTarget || "",
+         renalTarget: currentTarget.renalTarget || "",
+         customTargets: customTargetsMap,
+         dietAdvice: currentTarget.dietAdvice || "",
+         exerciseAdvice: currentTarget.exerciseAdvice || "",
+         smokingAdvice: currentTarget.smokingAdvice || "",
+         doctorNotes: currentTarget.doctorNotes || "",
       };
 
+      const existingTargetId = currentTarget.id;
+
       try {
-         const updated = isVerify
-            ? await verifyTreatmentTarget({
-                 id: treatmentTarget.id,
-                 data: {
-                    ...basePayload,
-                    expertNotes: treatmentTarget.expertNotes || "",
-                 },
-              }).unwrap()
-            : await updateTreatmentTarget({
-                 id: treatmentTarget.id,
-                 data: basePayload,
-              }).unwrap();
-
-         setTreatmentTarget(updated);
-         setValue("treatmentTargetId", updated.id, { shouldDirty: true });
-
-         if (isEditing && initialData?.id) {
-            await updateExamination({
-               id: initialData.id,
-               body: { treatmentTargetId: updated.id },
+         if (existingTargetId) {
+            // Trường hợp mục tiêu đã có ID trên DB -> Cập nhật
+            const rawUpdated = await updateTreatmentTarget({
+               id: existingTargetId,
+               data: basePayload,
             }).unwrap();
-         }
 
-         toast.success(
-            isVerify
-               ? "Đã phê duyệt mục tiêu điều trị và cập nhật vào phiếu khám!"
-               : "Đã lưu mục tiêu điều trị và cập nhật vào phiếu khám!",
-         );
+            const updated = unwrapTargetResponse(rawUpdated) || {
+               ...currentTarget,
+               ...basePayload,
+            };
+
+            setTreatmentTarget(updated);
+            setValue("treatmentTargetId", updated.id, { shouldDirty: true });
+
+            if (isEditing && initialData?.id) {
+               await updateExamination({
+                  id: initialData.id,
+                  body: { treatmentTargetId: updated.id },
+               }).unwrap();
+            }
+
+            toast.success("Cập nhật mục tiêu điều trị thành công!");
+         } else {
+            // Mục tiêu mới (lấy từ template, tự nhập hoặc lấy từ phân tầng) -> Tạo mới & xác nhận luôn qua POST /treatment-targets
+            const assessmentId =
+               selectedRiskAssessment?.id ||
+               selectedRiskAssessment?.assessmentInputId ||
+               selectedRiskAssessment?.assessmentInput?.id ||
+               (watchedAssessmentInputId && watchedAssessmentInputId !== "none"
+                  ? watchedAssessmentInputId
+                  : undefined);
+
+            const assessmentInputId =
+               selectedRiskAssessment?.assessmentInputId ||
+               selectedRiskAssessment?.assessmentInput?.id ||
+               undefined;
+
+            const assessmentResultId = selectedRiskAssessment?.id || undefined;
+
+            const rawCreated = await createTreatmentTarget({
+               data: {
+                  healthProfileId,
+                  assessmentId,
+                  assessmentInputId,
+                  assessmentResultId,
+                  examinationId: initialData?.id || undefined,
+                  dictionaryCode: currentTarget.dictionaryCode || undefined,
+                  ...basePayload,
+               },
+            }).unwrap();
+
+            const created = unwrapTargetResponse(rawCreated);
+            if (created) {
+               setTreatmentTarget(created);
+               setValue("treatmentTargetId", created.id, { shouldDirty: true });
+
+               if (isEditing && initialData?.id) {
+                  await updateExamination({
+                     id: initialData.id,
+                     body: { treatmentTargetId: created.id },
+                  }).unwrap();
+               }
+            } else {
+               setTreatmentTarget((prev) =>
+                  prev ? { ...prev, status: "DOCTOR_VERIFIED" } : null,
+               );
+            }
+
+            toast.success("Xác nhận và lưu mục tiêu điều trị thành công!");
+         }
       } catch (error: unknown) {
          const err = error as { data?: { message?: string } };
          toast.error(
             err?.data?.message ||
-               `${isVerify ? "Phê duyệt" : "Cập nhật"} mục tiêu điều trị thất bại.`,
+               "Xác nhận và lưu mục tiêu điều trị thất bại. Vui lòng thử lại.",
          );
       }
    };
@@ -634,6 +756,7 @@ export function ExaminationForm({
          nextAppointmentDate: initialData?.nextAppointmentDate || "",
          status: initialData?.status || "IN_PROGRESS",
       });
+      isInitialTargetLoadedRef.current = false;
    }, [initialData, reset]);
 
    const initialTargetId = initialData?.treatmentTargetId;
@@ -654,48 +777,57 @@ export function ExaminationForm({
       let isMounted = true;
 
       const autoLoadTarget = async () => {
-         if (initialTargetId) {
+         // Khi load lại phiếu khám: dùng api getDetailTreamentTarget để lấy chi tiết mục tiêu điều trị theo ID
+         if (initialTargetId && !isInitialTargetLoadedRef.current) {
+            isInitialTargetLoadedRef.current = true;
             try {
-               const res = await fetchTreatmentTargetById({
+               const rawRes = await fetchDetailTreatmentTarget({
                   id: initialTargetId,
                }).unwrap();
+               const res = unwrapTargetResponse(rawRes);
                if (isMounted && res) {
                   setTreatmentTarget(res);
                   setValue("treatmentTargetId", res.id, { shouldDirty: false });
                   return;
                }
             } catch {
-               // Fallback sang assessment target bên dưới
+               // Không tìm thấy target theo ID
             }
          }
 
-         if (!currentAssessmentTargetId) return;
-
-         try {
-            let res: TreatmentTarget | null = null;
+         // Khi tạo phiếu khám mới (chưa có initialTargetId) có chọn phân tầng: lấy từ api by-assessment để fill vào form
+         if (!initialTargetId && currentAssessmentTargetId) {
             try {
-               res = await fetchTreatmentTarget({
-                  id: currentAssessmentTargetId,
-               }).unwrap();
-            } catch (err: unknown) {
-               if (
-                  fallbackAssessmentId &&
-                  fallbackAssessmentId !== currentAssessmentTargetId
-               ) {
-                  res = await fetchTreatmentTarget({
-                     id: fallbackAssessmentId,
+               let rawRes: unknown = null;
+               try {
+                  rawRes = await fetchTreatmentTarget({
+                     id: currentAssessmentTargetId,
                   }).unwrap();
-               } else {
-                  throw err;
+               } catch (err: unknown) {
+                  if (
+                     fallbackAssessmentId &&
+                     fallbackAssessmentId !== currentAssessmentTargetId
+                  ) {
+                     rawRes = await fetchTreatmentTarget({
+                        id: fallbackAssessmentId,
+                     }).unwrap();
+                  } else {
+                     throw err;
+                  }
                }
-            }
 
-            if (isMounted && res) {
-               setTreatmentTarget(res);
-               setValue("treatmentTargetId", res.id, { shouldDirty: false });
+               const res = unwrapTargetResponse(rawRes);
+               if (isMounted && res) {
+                  setTreatmentTarget({
+                     ...res,
+                     id: "",
+                     status: "DRAFT",
+                  });
+                  setValue("treatmentTargetId", "", { shouldDirty: true });
+               }
+            } catch {
+               // Không có target liên kết theo phân tầng, bỏ qua
             }
-         } catch {
-            // Không có target liên kết, bỏ qua
          }
       };
 
@@ -708,7 +840,7 @@ export function ExaminationForm({
       currentAssessmentTargetId,
       fallbackAssessmentId,
       fetchTreatmentTarget,
-      fetchTreatmentTargetById,
+      fetchDetailTreatmentTarget,
       setValue,
    ]);
 
@@ -751,7 +883,54 @@ export function ExaminationForm({
          let targetId =
             values.treatmentTargetId || treatmentTarget?.id || undefined;
 
-         if (treatmentTarget?.id) {
+         if (treatmentTarget && !targetId) {
+            try {
+               const rawCreated = await createTreatmentTarget({
+                  data: {
+                     healthProfileId,
+                     assessmentId:
+                        selectedRiskAssessment?.id ||
+                        selectedRiskAssessment?.assessmentInputId ||
+                        selectedRiskAssessment?.assessmentInput?.id ||
+                        finalAssessmentInputId ||
+                        undefined,
+                     assessmentInputId:
+                        selectedRiskAssessment?.assessmentInputId ||
+                        selectedRiskAssessment?.assessmentInput?.id ||
+                        undefined,
+                     assessmentResultId:
+                        selectedRiskAssessment?.id || undefined,
+                     examinationId: initialData?.id || undefined,
+                     dictionaryCode:
+                        treatmentTarget.dictionaryCode || undefined,
+                     bpTarget: treatmentTarget.bpTarget || "",
+                     lipidTarget: treatmentTarget.lipidTarget || "",
+                     bmiTarget: treatmentTarget.bmiTarget || "",
+                     glycemicTarget: treatmentTarget.glycemicTarget || "",
+                     renalTarget: treatmentTarget.renalTarget || "",
+                     dietAdvice: treatmentTarget.dietAdvice || "",
+                     exerciseAdvice: treatmentTarget.exerciseAdvice || "",
+                     smokingAdvice: treatmentTarget.smokingAdvice || "",
+                     doctorNotes: treatmentTarget.doctorNotes || "",
+                     customTargets: customTargetsMap,
+                  },
+               }).unwrap();
+
+               const created = unwrapTargetResponse(rawCreated);
+               if (created?.id) {
+                  targetId = created.id;
+                  setTreatmentTarget(created);
+                  setValue("treatmentTargetId", created.id, {
+                     shouldDirty: false,
+                  });
+               }
+            } catch (createErr) {
+               console.error(
+                  "Auto create target in onSubmit error:",
+                  createErr,
+               );
+            }
+         } else if (treatmentTarget?.id) {
             try {
                const updatedTarget = await updateTreatmentTarget({
                   id: treatmentTarget.id,
@@ -769,9 +948,11 @@ export function ExaminationForm({
                      customTargets: customTargetsMap,
                   },
                }).unwrap();
-               setTreatmentTarget(updatedTarget);
-               targetId = updatedTarget.id;
-               setValue("treatmentTargetId", updatedTarget.id, {
+               const actualUpdated =
+                  unwrapTargetResponse(updatedTarget) || updatedTarget;
+               setTreatmentTarget(actualUpdated);
+               targetId = actualUpdated.id;
+               setValue("treatmentTargetId", actualUpdated.id, {
                   shouldDirty: false,
                });
             } catch (targetErr) {
@@ -944,13 +1125,35 @@ export function ExaminationForm({
                </h3>
 
                <div className="grid grid-cols-1 gap-4">
-                  <FormTextarea
-                     label="Lý do đến khám"
-                     required
-                     placeholder="Ví dụ: Đau đầu, mệt mỏi, ho sốt..."
-                     error={errors.reasonForVisit?.message}
-                     {...register("reasonForVisit")}
-                  />
+                  <div className="flex flex-col gap-1.5">
+                     <FormTextarea
+                        label="Lý do đến khám"
+                        required
+                        placeholder="Ví dụ: Đau đầu, mệt mỏi, ho sốt..."
+                        error={errors.reasonForVisit?.message}
+                        {...register("reasonForVisit")}
+                     />
+                     {canEdit && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                           <span className="text-xs text-slate-500 font-medium">
+                              Gợi ý nhanh:
+                           </span>
+                           {COMMON_REASONS_FOR_VISIT.map((item) => (
+                              <button
+                                 key={item}
+                                 type="button"
+                                 onClick={() =>
+                                    handleSelectReasonSuggestion(item)
+                                 }
+                                 className="px-2 py-0.5 shadow-sm text-xs rounded-sm border border-slate-200 bg-slate-50 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors cursor-pointer text-slate-700"
+                                 title={`Thêm "${item}" vào lý do đến khám`}
+                              >
+                                 {item}
+                              </button>
+                           ))}
+                        </div>
+                     )}
+                  </div>
 
                   <FormTextarea
                      label="Triệu chứng lâm sàng"
@@ -1117,6 +1320,7 @@ export function ExaminationForm({
                <div className="grid grid-cols-1 gap-4">
                   <FormTextarea
                      label="Chẩn đoán"
+                     required
                      placeholder="Ví dụ: Tăng huyết áp độ 1..."
                      error={errors.diagnosis?.message}
                      {...register("diagnosis")}
@@ -1197,38 +1401,19 @@ export function ExaminationForm({
                               <h4 className="font-semibold text-slate-800 text-sm">
                                  Mục tiêu điều trị
                               </h4>
-                              {treatmentTarget.status && (
-                                 <span
-                                    className={cn(
-                                       "px-2.5 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1",
-                                       treatmentTarget.status ===
-                                          "DOCTOR_VERIFIED"
-                                          ? "bg-emerald-100 text-emerald-800"
-                                          : "bg-amber-100 text-amber-800",
-                                    )}
-                                 >
-                                    {treatmentTarget.status ===
-                                    "DOCTOR_VERIFIED"
-                                       ? "Đã duyệt"
-                                       : "Chưa duyệt"}
-                                 </span>
-                              )}
-                           </div>
-
-                           {canEdit && (
-                              <CustomButton
-                                 type="button"
-                                 size="sm"
-                                 onClick={() => {
-                                    setTemplateModalMode("create");
-                                    setIsTemplateModalOpen(true);
-                                 }}
-                                 className="h-8"
-                                 title="Lưu các thông số mục tiêu điều trị hiện tại thành mẫu mới"
+                              <span
+                                 className={cn(
+                                    "px-2.5 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1",
+                                    treatmentTarget.id
+                                       ? "bg-emerald-100 text-emerald-800"
+                                       : "bg-amber-100 text-amber-800",
+                                 )}
                               >
-                                 Lưu thành mẫu
-                              </CustomButton>
-                           )}
+                                 {treatmentTarget.id
+                                    ? "Đã xác nhận & lưu"
+                                    : "Chưa lưu"}
+                              </span>
+                           </div>
                         </div>
 
                         {/* Gợi ý mẫu nhanh */}
@@ -1246,10 +1431,10 @@ export function ExaminationForm({
                                           onClick={() =>
                                              handleApplyTemplate(tpl)
                                           }
-                                          className="px-2.5 py-1 text-xs rounded border border-slate-200 bg-white hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-colors cursor-pointer text-slate-700 font-medium"
+                                          className="px-2.5 py-0.5 shadow-sm text-xs rounded-sm border border-slate-200 bg-white hover:bg-primary/5 hover:border-primary/40 hover:text-primary transition-colors cursor-pointer text-slate-700 font-medium"
                                           title={tpl.description || tpl.name}
                                        >
-                                          {tpl.name}
+                                          + {tpl.name}
                                        </button>
                                     ))
                                  ) : (
@@ -1464,30 +1649,37 @@ export function ExaminationForm({
                            )}
 
                            <div className="flex items-center justify-center gap-2 flex-wrap">
+                              {canEdit && (
+                                 <CustomButton
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                       setTemplateModalMode("create");
+                                       setIsTemplateModalOpen(true);
+                                    }}
+                                    className="h-9 underline text-primary"
+                                    title="Lưu các thông số mục tiêu điều trị hiện tại thành mẫu mới"
+                                 >
+                                    Lưu thành mẫu
+                                 </CustomButton>
+                              )}
                               <CustomButton
                                  type="button"
-                                 onClick={() => mutateTargetAndSync(false)}
-                                 isLoading={isUpdatingTarget}
+                                 onClick={handleConfirmAndSaveTarget}
+                                 isLoading={
+                                    isCreatingTarget || isUpdatingTarget
+                                 }
                                  disabled={!canEdit}
-                                 className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                 className="h-9 text-xs"
                               >
-                                 <Save className="w-3.5 h-3.5 mr-1" />
-                                 Lưu mục tiêu
+                                 {treatmentTarget.id
+                                    ? "Cập nhật và lưu"
+                                    : "Xác nhận và lưu"}
                               </CustomButton>
                               <CustomButton
                                  type="button"
-                                 onClick={() => mutateTargetAndSync(true)}
-                                 isLoading={isVerifyingTarget}
-                                 disabled={!canEdit}
-                                 className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
-                              >
-                                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                 {treatmentTarget.status === "VERIFIED"
-                                    ? "Phê duyệt lại"
-                                    : "Phê duyệt"}
-                              </CustomButton>
-                              <button
-                                 type="button"
+                                 variant="destructive"
                                  onClick={() => {
                                     setTreatmentTarget(null);
                                     setSelectedTemplateId(null);
@@ -1496,12 +1688,12 @@ export function ExaminationForm({
                                        shouldDirty: true,
                                     });
                                  }}
-                                 className="flex items-center gap-1 px-2 py-1 text-xs text-rose-600 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                                 className="h-9 text-xs"
                                  title="Gỡ bỏ mục tiêu điều trị khỏi phiếu khám"
                               >
                                  <X className="w-3.5 h-3.5" />
                                  <span>Gỡ bỏ</span>
-                              </button>
+                              </CustomButton>
                            </div>
                         </div>
 
@@ -1516,12 +1708,37 @@ export function ExaminationForm({
                      </div>
                   )}
 
-                  <FormInput
-                     type="date"
-                     label="Ngày hẹn tái khám"
-                     error={errors.nextAppointmentDate?.message}
-                     {...register("nextAppointmentDate")}
-                  />
+                  <div className="flex flex-col gap-1.5">
+                     <FormInput
+                        type="date"
+                        label="Ngày hẹn tái khám"
+                        error={errors.nextAppointmentDate?.message}
+                        {...register("nextAppointmentDate")}
+                     />
+                     {canEdit && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                           <span className="text-xs text-slate-500 font-medium">
+                              Gợi ý nhanh:
+                           </span>
+                           {APPOINTMENT_INTERVALS.map((item) => (
+                              <button
+                                 key={item.label}
+                                 type="button"
+                                 onClick={() =>
+                                    handleSelectAppointmentInterval(
+                                       item.months,
+                                       item.days,
+                                    )
+                                 }
+                                 className="px-2 py-0.5 shadow-sm text-xs rounded-sm border border-slate-200 bg-slate-50 hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition-colors cursor-pointer text-slate-700"
+                                 title={`Hẹn tái khám sau ${item.label}`}
+                              >
+                                 {item.label}
+                              </button>
+                           ))}
+                        </div>
+                     )}
+                  </div>
                </div>
             </div>
          </fieldset>

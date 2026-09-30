@@ -1,5 +1,6 @@
 import { baseApi } from "../base-api";
 import {
+   CreateTreatmentTargetInput,
    TreatmentTarget,
    UpdateTreatmentTargetInput,
    VerifyTreatmentTargetInput,
@@ -7,6 +8,23 @@ import {
 
 const TreatmentTargetApi = baseApi.injectEndpoints({
    endpoints: (build) => ({
+      createTreamentTarget: build.mutation<
+         TreatmentTarget,
+         { data: CreateTreatmentTargetInput }
+      >({
+         query: ({ data }) => ({
+            url: `/treatment-targets`,
+            method: "POST",
+            body: data,
+         }),
+         invalidatesTags: ["TreatmentTarget"],
+      }),
+      getDetailTreamentTarget: build.query<TreatmentTarget, { id: string }>({
+         query: ({ id }) => ({
+            url: `/treatment-targets/${id}`,
+         }),
+         providesTags: ["TreatmentTarget"],
+      }),
       getTreatmentTargetByAccessmentId: build.query<
          TreatmentTarget,
          { id: string }
@@ -27,10 +45,7 @@ const TreatmentTargetApi = baseApi.injectEndpoints({
          }),
          invalidatesTags: ["TreatmentTarget"],
       }),
-      getTreatmentTargetById: build.query<
-         TreatmentTarget,
-         { id: string }
-      >({
+      getTreatmentTargetById: build.query<TreatmentTarget, { id: string }>({
          query: ({ id }) => ({
             url: `/treatment-targets/${id}`,
          }),
@@ -50,6 +65,9 @@ const TreatmentTargetApi = baseApi.injectEndpoints({
    }),
 });
 export const {
+   useCreateTreamentTargetMutation,
+   useGetDetailTreamentTargetQuery,
+   useLazyGetDetailTreamentTargetQuery,
    useGetTreatmentTargetByAccessmentIdQuery,
    useLazyGetTreatmentTargetByAccessmentIdQuery,
    useGetTreatmentTargetByIdQuery,
@@ -57,3 +75,9 @@ export const {
    useUpdateTreatmentTargetMutation,
    useVerifyTreatmentTargetMutation,
 } = TreatmentTargetApi;
+export const useCreateTreatmentTargetMutation =
+   TreatmentTargetApi.useCreateTreamentTargetMutation;
+export const useGetDetailTreatmentTargetQuery =
+   TreatmentTargetApi.useGetDetailTreamentTargetQuery;
+export const useLazyGetDetailTreatmentTargetQuery =
+   TreatmentTargetApi.useLazyGetDetailTreamentTargetQuery;

@@ -39,7 +39,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
    },
    CANCELLED: {
       label: "Đã hủy",
-      className: "bg-slate-100 text-slate-600 border-slate-200",
+      className: "bg-rose-50 text-rose-600 border-rose-200",
    },
 };
 

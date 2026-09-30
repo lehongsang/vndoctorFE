@@ -5,10 +5,7 @@ import { Examination } from "@/store/api/examination/type";
 import { HealthProfile } from "@/store/api/health-profile/type";
 import { CustomButton } from "@/components/common/custom-button";
 import { useGetExaminationByIdQuery } from "@/store/api/examination/examination-api";
-import {
-   useGetTreatmentTargetByIdQuery,
-   useGetTreatmentTargetByAccessmentIdQuery,
-} from "@/store/api/treatment-target/treatment-target-api";
+import { useGetDetailTreamentTargetQuery } from "@/store/api/treatment-target/treatment-target-api";
 import { useGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { RiskAssessmentDetailModal } from "./risk-assessment-detail-modal";
 import { cn } from "@/lib/utils";
@@ -150,16 +147,10 @@ export function ExaminationDetail({
 
    // Tải mục tiêu điều trị
    const targetId = examination.treatmentTargetId;
-   const { data: targetById } = useGetTreatmentTargetByIdQuery(
+   const { data: treatmentTarget } = useGetDetailTreamentTargetQuery(
       { id: targetId! },
       { skip: !targetId },
    );
-   const { data: targetByAssessment } =
-      useGetTreatmentTargetByAccessmentIdQuery(
-         { id: examination.assessmentInputId || "" },
-         { skip: !examination.assessmentInputId || !!targetId },
-      );
-   const treatmentTarget = targetById || targetByAssessment;
 
    const customTargetEntries = useMemo(
       () => getCustomTargetEntries(treatmentTarget?.customTargets),
