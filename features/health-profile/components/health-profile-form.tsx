@@ -47,13 +47,10 @@ const BLOOD_TYPE_OPTIONS = [
 const DISEASE_ITEMS = [
    { name: "hasHypertension" as const, label: "Tăng huyết áp" },
    { name: "hasDiabetes" as const, label: "Đái tháo đường" },
+   { name: "hasDyslipidemia" as const, label: "Rối loạn chuyển hoá mỡ máu" },
    {
       name: "hasChronicKidneyDisease" as const,
       label: "Suy thận",
-   },
-   {
-      name: "hasFamilialHypercholesterolemia" as const,
-      label: "Tăng cholesterol máu gia đình",
    },
    { name: "hasCoronaryArteryDisease" as const, label: "Bệnh lý mạch vành" },
    { name: "hasMyocardialInfarction" as const, label: "Nhồi máu cơ tim" },
@@ -73,7 +70,10 @@ const DISEASE_ITEMS = [
 
 const RISK_FACTOR_ITEMS = [
    { name: "isSmoking" as const, label: "Hút thuốc lá" },
-   { name: "hasDyslipidemia" as const, label: "Rối loạn chuyển hoá mỡ máu" },
+   {
+      name: "hasFamilialHypercholesterolemia" as const,
+      label: "Tăng cholesterol máu gia đình",
+   },
 ];
 
 const profileSchema = z.object({

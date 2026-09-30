@@ -409,8 +409,8 @@ export function HealthProfileDetail({
                            value={
                               [
                                  profile.isSmoking ? "Hút thuốc lá" : null,
-                                 profile.hasDyslipidemia
-                                    ? "Rối loạn chuyển hoá mỡ máu"
+                                 profile.hasFamilialHypercholesterolemia
+                                    ? "Tăng cholesterol máu gia đình"
                                     : null,
                               ].filter(Boolean).length > 0 ? (
                                  <div className="flex flex-wrap gap-1.5 mt-1">
@@ -418,8 +418,8 @@ export function HealthProfileDetail({
                                        profile.isSmoking
                                           ? "Hút thuốc lá"
                                           : null,
-                                       profile.hasDyslipidemia
-                                          ? "Rối loạn chuyển hoá mỡ máu"
+                                       profile.hasFamilialHypercholesterolemia
+                                          ? "Tăng cholesterol máu gia đình"
                                           : null,
                                     ]
                                        .filter(Boolean)
@@ -446,8 +446,8 @@ export function HealthProfileDetail({
                                     ? "Tăng huyết áp"
                                     : null,
                                  profile.hasDiabetes ? "Đái tháo đường" : null,
-                                 profile.hasFamilialHypercholesterolemia
-                                    ? "Tăng cholesterol máu gia đình"
+                                 profile.hasDyslipidemia
+                                    ? "Rối loạn chuyển hoá mỡ máu"
                                     : null,
                                  profile.hasChronicKidneyDisease
                                     ? "Suy thận"
@@ -483,8 +483,8 @@ export function HealthProfileDetail({
                                        profile.hasDiabetes
                                           ? "Đái tháo đường"
                                           : null,
-                                       profile.hasFamilialHypercholesterolemia
-                                          ? "Tăng cholesterol máu gia đình"
+                                       profile.hasDyslipidemia
+                                          ? "Rối loạn chuyển hoá mỡ máu"
                                           : null,
                                        profile.hasChronicKidneyDisease
                                           ? "Suy thận"
