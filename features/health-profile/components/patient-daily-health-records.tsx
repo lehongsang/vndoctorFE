@@ -11,8 +11,6 @@ import {
    ResponsiveContainer,
    LineChart,
    Line,
-   AreaChart,
-   Area,
    XAxis,
    YAxis,
    CartesianGrid,
@@ -102,8 +100,6 @@ const METRIC_KEYS: HealthMetricType[] = [
    "WEIGHT",
 ];
 
-const WEEKDAYS = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
-
 const formatDateTime = (dateStr?: string) => {
    if (!dateStr) return "—";
    try {
@@ -120,137 +116,90 @@ const formatDateTime = (dateStr?: string) => {
    }
 };
 
-const getRecordDateKey = (dateStr?: string) => {
+// Định dạng hiển thị nhãn khung thời gian trên trục Ox (HH:mm DD/MM)
+const formatXAxisTime = (dateStr?: string) => {
    if (!dateStr) return "";
    try {
       const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return "";
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
+      if (isNaN(d.getTime())) return dateStr;
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      return `${hours}:${minutes} ${day}/${month}`;
    } catch {
-      return "";
+      return dateStr;
    }
 };
 
-interface DaySlot {
-   dateKey: string;
-   displayDate: string;
-   fullDate: string;
-   weekday: string;
-   isToday: boolean;
-}
-
-interface OverviewDayPoint {
-   dateKey: string;
-   displayDate: string;
-   fullDate: string;
-   weekday: string;
-   isToday: boolean;
-   BLOOD_PRESSURE?: number;
-   BLOOD_PRESSURE_DIA?: number;
-   HEART_RATE?: number;
-   BLOOD_GLUCOSE?: number;
-   SPO2?: number;
-   BODY_TEMPERATURE?: number;
-   WEIGHT?: number;
-   notes: string[];
-   hasData: boolean;
-}
-
-interface MetricDayPoint {
-   dateKey: string;
-   displayDate: string;
-   fullDate: string;
-   weekday: string;
-   isToday: boolean;
-   value?: number;
-   secondaryValue?: number | null;
-   measuredTime?: string;
+interface MetricPoint {
+   id: string;
+   isOrigin?: boolean;
+   displayTime: string;
+   fullTime: string;
+   value: number;
+   secondaryValue: number | null;
    note?: string | null;
-   hasData: boolean;
-   allDayMeasurements: HealthRecord[];
+   rawRecord: HealthRecord | null;
 }
 
-interface OverviewTooltipProps {
-   active?: boolean;
-   payload?: Array<{
-      dataKey?: string | number;
-      name?: string;
-      value?: number | string;
-      color?: string;
-      payload?: OverviewDayPoint;
-   }>;
-   label?: string;
-}
+// Bắt buộc trục Oy luôn có gốc tọa độ 0
+const getMetricYDomain = (
+   metricKey: HealthMetricType,
+   data: MetricPoint[],
+): [number, number] => {
+   const measured = data
+      .filter((d) => !d.isOrigin && typeof d.value === "number")
+      .map((d) => d.value);
 
-function OverviewTooltip({ active, payload, label }: OverviewTooltipProps) {
-   if (!active || !payload || payload.length === 0) return null;
-   const point = payload[0]?.payload;
-   const fullDate = point?.fullDate || label;
-   const weekday = point?.weekday ? `(${point.weekday})` : "";
+   if (measured.length === 0) {
+      switch (metricKey) {
+         case "BLOOD_PRESSURE":
+            return [0, 180];
+         case "HEART_RATE":
+            return [0, 140];
+         case "BLOOD_GLUCOSE":
+            return [0, 15];
+         case "SPO2":
+            return [0, 100];
+         case "BODY_TEMPERATURE":
+            return [0, 42];
+         case "WEIGHT":
+            return [0, 100];
+         default:
+            return [0, 100];
+      }
+   }
 
-   return (
-      <div className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs shadow-lg min-w-48 space-y-2">
-         <div className="flex items-center justify-between pb-1 border-b border-slate-100 text-slate-600 font-medium">
-            <span>
-               {weekday} {fullDate}
-            </span>
-            {point?.isToday && (
-               <span className="px-1.5 py-0.2 bg-blue-50 text-blue-600 rounded text-[10px] font-semibold border border-blue-200">
-                  Hôm nay
-               </span>
-            )}
-         </div>
+   const max = Math.max(...measured);
 
-         {!point?.hasData ? (
-            <div className="text-slate-400 italic text-[11px] py-0.5">
-               Chưa có chỉ số đo trong ngày này
-            </div>
-         ) : (
-            <div className="space-y-1.5">
-               {METRIC_KEYS.map((key) => {
-                  const cfg = METRIC_CONFIG[key];
-                  const val = point ? point[key] : undefined;
-                  if (val === undefined || val === null) return null;
-
-                  const isBP = key === "BLOOD_PRESSURE";
-                  const diaVal = point?.BLOOD_PRESSURE_DIA;
-
-                  return (
-                     <div
-                        key={key}
-                        className="flex items-center justify-between gap-3 text-xs"
-                     >
-                        <div className="flex items-center gap-1.5">
-                           <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: cfg.color }}
-                           />
-                           <span className="text-slate-600">{cfg.label}:</span>
-                        </div>
-                        <span className="font-bold text-slate-900 tabular-nums">
-                           {isBP && diaVal != null
-                              ? `${val}/${diaVal} ${cfg.unit}`
-                              : `${val} ${cfg.unit}`}
-                        </span>
-                     </div>
-                  );
-               })}
-            </div>
-         )}
-
-         {point?.notes && point.notes.length > 0 && (
-            <div className="pt-1.5 border-t border-slate-100 text-[11px] text-slate-500 italic space-y-0.5">
-               {point.notes.map((n, i) => (
-                  <div key={i}>• {n}</div>
-               ))}
-            </div>
-         )}
-      </div>
-   );
-}
+   switch (metricKey) {
+      case "BLOOD_PRESSURE": {
+         const dias = data
+            .filter(
+               (d) =>
+                  !d.isOrigin &&
+                  d.secondaryValue !== null &&
+                  typeof d.secondaryValue === "number",
+            )
+            .map((d) => d.secondaryValue as number);
+         const overallMax = dias.length > 0 ? Math.max(max, ...dias) : max;
+         return [0, Math.max(160, Math.ceil(overallMax * 1.15))];
+      }
+      case "HEART_RATE":
+         return [0, Math.max(120, Math.ceil(max * 1.15))];
+      case "BLOOD_GLUCOSE":
+         return [0, Math.max(10, Math.ceil(max * 1.2))];
+      case "SPO2":
+         return [0, 100];
+      case "BODY_TEMPERATURE":
+         return [0, Math.max(40, Math.ceil(max * 1.1))];
+      case "WEIGHT":
+         return [0, Math.max(80, Math.ceil(max * 1.15))];
+      default:
+         return [0, Math.ceil(max * 1.15)];
+   }
+};
 
 interface SingleMetricTooltipProps {
    active?: boolean;
@@ -259,7 +208,7 @@ interface SingleMetricTooltipProps {
       name?: string;
       value?: number | string;
       color?: string;
-      payload?: MetricDayPoint;
+      payload?: MetricPoint;
    }>;
    label?: string;
    unit: string;
@@ -269,34 +218,28 @@ interface SingleMetricTooltipProps {
 function SingleMetricTooltip({
    active,
    payload,
-   label,
    unit,
    metricType,
 }: SingleMetricTooltipProps) {
    if (!active || !payload || payload.length === 0) return null;
    const point = payload[0]?.payload;
-   const fullDate = point?.fullDate || label;
-   const weekday = point?.weekday ? `(${point.weekday})` : "";
    const cfg = METRIC_CONFIG[metricType];
+
+   if (point?.isOrigin) {
+      return (
+         <div className="rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-md">
+            <span className="font-semibold text-slate-700">Gốc tọa độ (0)</span>
+         </div>
+      );
+   }
 
    return (
       <div className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs shadow-lg min-w-44 space-y-1.5">
-         <div className="flex items-center justify-between pb-1 border-b border-slate-100 text-slate-600 font-medium">
-            <span>
-               {weekday} {fullDate}
-            </span>
-            {point?.isToday && (
-               <span className="px-1.5 py-0.2 bg-blue-50 text-blue-600 rounded text-[10px] font-semibold border border-blue-200">
-                  Hôm nay
-               </span>
-            )}
+         <div className="pb-1 border-b border-slate-100 text-slate-600 font-medium">
+            <span>Thời gian đo: {point?.fullTime}</span>
          </div>
 
-         {!point?.hasData ? (
-            <div className="text-slate-400 italic text-[11px] py-0.5">
-               Chưa có lượt đo trong ngày này
-            </div>
-         ) : metricType === "BLOOD_PRESSURE" ? (
+         {metricType === "BLOOD_PRESSURE" ? (
             <div className="space-y-1">
                <div className="flex items-center justify-between gap-3">
                   <span className="text-rose-600 font-medium">Tâm thu:</span>
@@ -306,15 +249,12 @@ function SingleMetricTooltip({
                </div>
                {point?.secondaryValue != null && (
                   <div className="flex items-center justify-between gap-3">
-                     <span className="text-blue-600 font-medium">Tâm trương:</span>
+                     <span className="text-blue-600 font-medium">
+                        Tâm trương:
+                     </span>
                      <span className="font-bold text-slate-900 tabular-nums">
                         {point.secondaryValue} {unit}
                      </span>
-                  </div>
-               )}
-               {point?.measuredTime && (
-                  <div className="text-[10px] text-slate-400 pt-0.5">
-                     Thời điểm đo: {point.measuredTime}
                   </div>
                )}
             </div>
@@ -326,20 +266,6 @@ function SingleMetricTooltip({
                      {point?.value} {unit}
                   </span>
                </div>
-               {point?.measuredTime && (
-                  <div className="text-[10px] text-slate-400">
-                     Thời điểm đo: {point.measuredTime}
-                  </div>
-               )}
-            </div>
-         )}
-
-         {/* Nếu trong ngày có nhiều hơn 1 lần đo */}
-         {point?.allDayMeasurements && point.allDayMeasurements.length > 1 && (
-            <div className="pt-1 border-t border-slate-100 text-[10px] text-slate-500">
-               <span className="font-medium text-slate-600">
-                  Tổng {point.allDayMeasurements.length} lần đo trong ngày
-               </span>
             </div>
          )}
 
@@ -365,18 +291,6 @@ export function PatientDailyHealthRecords({
       HealthMetricType | "ALL"
    >("ALL");
 
-   // Trạng thái bật/tắt hiển thị từng đường trong biểu đồ tổng quan
-   const [visibleOverviewLines, setVisibleOverviewLines] = useState<
-      Record<HealthMetricType, boolean>
-   >({
-      BLOOD_PRESSURE: true,
-      HEART_RATE: true,
-      BLOOD_GLUCOSE: true,
-      SPO2: true,
-      BODY_TEMPERATURE: true,
-      WEIGHT: true,
-   });
-
    // Tải tóm tắt các chỉ số gần nhất
    const { data: summaryData, isLoading: isLoadingSummary } =
       useGetHealthRecordsSummaryQuery(
@@ -401,118 +315,51 @@ export function PatientDailyHealthRecords({
       return listResponse.data || listResponse.items || [];
    }, [listResponse]);
 
-   // Xác định ngày mốc kết thúc cho 7 ngày gần nhất (hôm nay, hoặc ngày đo mới nhất nếu dùng dữ liệu test trong quá khứ)
-   const endDate = useMemo(() => {
+   // Lọc các bản ghi trong 7 ngày gần nhất tính từ ngày hiện tại
+   const recentRecords = useMemo(() => {
       const now = new Date();
-      const todayMidnight = new Date(
+      const sevenDaysAgoTime = new Date(
          now.getFullYear(),
          now.getMonth(),
-         now.getDate(),
-      );
+         now.getDate() - 6,
+         0,
+         0,
+         0,
+      ).getTime();
 
-      if (rawRecords.length === 0) return todayMidnight;
+      const filtered = rawRecords.filter((r) => {
+         const time = new Date(r.measuredAt).getTime();
+         return !isNaN(time) && time >= sevenDaysAgoTime;
+      });
 
-      const validTimes = rawRecords
-         .map((r) => new Date(r.measuredAt).getTime())
-         .filter((t) => !isNaN(t));
+      // Nếu trong 7 ngày hiện tại có dữ liệu, trả về danh sách đó
+      if (filtered.length > 0) return filtered;
 
-      if (validTimes.length === 0) return todayMidnight;
+      // Hỗ trợ trường hợp cơ sở dữ liệu mẫu/test nằm ở mốc thời gian cũ:
+      // lấy 7 ngày tính từ bản ghi mới nhất để người dùng luôn xem được biểu đồ
+      if (rawRecords.length > 0) {
+         const validTimes = rawRecords
+            .map((r) => new Date(r.measuredAt).getTime())
+            .filter((t) => !isNaN(t));
 
-      const maxRecordTime = Math.max(...validTimes);
-      const maxRecordDate = new Date(maxRecordTime);
-      const maxRecordMidnight = new Date(
-         maxRecordDate.getFullYear(),
-         maxRecordDate.getMonth(),
-         maxRecordDate.getDate(),
-      );
-
-      // Nếu dữ liệu bản ghi cách hôm nay quá xa (> 30 ngày), neo vào ngày bản ghi mới nhất để các biểu đồ không bị trống
-      const diffDays = Math.abs(
-         (todayMidnight.getTime() - maxRecordMidnight.getTime()) /
-            (1000 * 3600 * 24),
-      );
-      if (diffDays > 30) {
-         return maxRecordMidnight;
+         if (validTimes.length > 0) {
+            const maxTime = Math.max(...validTimes);
+            const cutoff = maxTime - 7 * 24 * 3600 * 1000;
+            return rawRecords.filter((r) => {
+               const time = new Date(r.measuredAt).getTime();
+               return !isNaN(time) && time >= cutoff;
+            });
+         }
       }
 
-      return todayMidnight;
+      return [];
    }, [rawRecords]);
 
-   // Khởi tạo cố định 7 ngày gần nhất hiển thị trên trục Ox
-   const last7Days: DaySlot[] = useMemo(() => {
-      const days: DaySlot[] = [];
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-
-      for (let i = 6; i >= 0; i--) {
-         const d = new Date(endDate);
-         d.setDate(d.getDate() - i);
-         const year = d.getFullYear();
-         const month = String(d.getMonth() + 1).padStart(2, "0");
-         const day = String(d.getDate()).padStart(2, "0");
-         const dateKey = `${year}-${month}-${day}`;
-         const displayDate = `${day}/${month}`;
-         const fullDate = `${day}/${month}/${year}`;
-         const weekday = WEEKDAYS[d.getDay()];
-         const isToday = dateKey === todayStr;
-
-         days.push({ dateKey, displayDate, fullDate, weekday, isToday });
-      }
-      return days;
-   }, [endDate]);
-
-   // Dữ liệu cho Biểu đồ tổng quan (chuẩn hóa theo 7 ngày gần nhất trên trục Ox)
-   const overviewChartData: OverviewDayPoint[] = useMemo(() => {
-      return last7Days.map((slot) => {
-         const dayRecords = rawRecords.filter(
-            (r) => getRecordDateKey(r.measuredAt) === slot.dateKey,
-         );
-
-         const point: OverviewDayPoint = {
-            dateKey: slot.dateKey,
-            displayDate: slot.displayDate,
-            fullDate: slot.fullDate,
-            weekday: slot.weekday,
-            isToday: slot.isToday,
-            notes: [],
-            hasData: dayRecords.length > 0,
-         };
-
-         METRIC_KEYS.forEach((metricKey) => {
-            const metricRecs = dayRecords.filter(
-               (r) => r.metricType === metricKey,
-            );
-            if (metricRecs.length > 0) {
-               // Sắp xếp lấy bản ghi đo mới nhất trong ngày
-               const sortedRecs = [...metricRecs].sort(
-                  (a, b) =>
-                     new Date(a.measuredAt).getTime() -
-                     new Date(b.measuredAt).getTime(),
-               );
-               const latestRec = sortedRecs[sortedRecs.length - 1];
-
-               point[metricKey] = latestRec.valueNumeric;
-               if (
-                  metricKey === "BLOOD_PRESSURE" &&
-                  latestRec.secondaryValue != null
-               ) {
-                  point.BLOOD_PRESSURE_DIA = latestRec.secondaryValue;
-               }
-               if (latestRec.note && !point.notes.includes(latestRec.note)) {
-                  point.notes.push(
-                     `${METRIC_CONFIG[metricKey].label}: ${latestRec.note}`,
-                  );
-               }
-            }
-         });
-
-         return point;
-      });
-   }, [last7Days, rawRecords]);
-
-   // Dữ liệu cho từng biểu đồ chỉ số (chuẩn hóa theo 7 ngày gần nhất trên trục Ox)
+   // Xây dựng dữ liệu cho từng biểu đồ chỉ số:
+   // Trục Ox chia theo CÁC KHUNG THỜI GIAN ĐÃ NHẬP thực tế của chỉ số đó
+   // Luôn có điểm gốc tọa độ 0 và đường line nối từ gốc 0 đến giá trị nhập đầu tiên
    const metricDataMap = useMemo(() => {
-      const map: Record<HealthMetricType, MetricDayPoint[]> = {
+      const map: Record<HealthMetricType, MetricPoint[]> = {
          BLOOD_PRESSURE: [],
          HEART_RATE: [],
          BLOOD_GLUCOSE: [],
@@ -522,57 +369,48 @@ export function PatientDailyHealthRecords({
       };
 
       METRIC_KEYS.forEach((metricKey) => {
-         map[metricKey] = last7Days.map((slot) => {
-            const dayRecs = rawRecords.filter(
-               (r) =>
-                  r.metricType === metricKey &&
-                  getRecordDateKey(r.measuredAt) === slot.dateKey,
-            );
-
-            if (dayRecs.length === 0) {
-               return {
-                  dateKey: slot.dateKey,
-                  displayDate: slot.displayDate,
-                  fullDate: slot.fullDate,
-                  weekday: slot.weekday,
-                  isToday: slot.isToday,
-                  hasData: false,
-                  value: undefined,
-                  secondaryValue: undefined,
-                  allDayMeasurements: [],
-               };
-            }
-
-            const sortedDayRecs = [...dayRecs].sort(
+         const metricRecs = recentRecords
+            .filter((r) => r.metricType === metricKey)
+            .sort(
                (a, b) =>
                   new Date(a.measuredAt).getTime() -
                   new Date(b.measuredAt).getTime(),
             );
-            const latestRec = sortedDayRecs[sortedDayRecs.length - 1];
 
-            return {
-               dateKey: slot.dateKey,
-               displayDate: slot.displayDate,
-               fullDate: slot.fullDate,
-               weekday: slot.weekday,
-               isToday: slot.isToday,
-               hasData: true,
-               value: latestRec.valueNumeric,
-               secondaryValue: latestRec.secondaryValue,
-               measuredTime: latestRec.measuredAt
-                  ? new Date(latestRec.measuredAt).toLocaleTimeString("vi-VN", {
-                       hour: "2-digit",
-                       minute: "2-digit",
-                    })
-                  : undefined,
-               note: latestRec.note,
-               allDayMeasurements: sortedDayRecs,
-            };
-         });
+         if (metricRecs.length === 0) {
+            map[metricKey] = [];
+            return;
+         }
+
+         // Điểm gốc tọa độ (0, 0)
+         const originPoint: MetricPoint = {
+            id: "origin",
+            isOrigin: true,
+            displayTime: "0",
+            fullTime: "Gốc tọa độ 0",
+            value: 0,
+            secondaryValue: 0,
+            rawRecord: null,
+         };
+
+         // Danh sách các khung thời gian đã nhập thực tế
+         const enteredPoints: MetricPoint[] = metricRecs.map((r) => ({
+            id: r.id,
+            isOrigin: false,
+            displayTime: formatXAxisTime(r.measuredAt),
+            fullTime: formatDateTime(r.measuredAt),
+            value: r.valueNumeric,
+            secondaryValue: r.secondaryValue ?? null,
+            note: r.note,
+            rawRecord: r,
+         }));
+
+         // Luôn bắt đầu từ gốc tọa độ 0 và nối đường line đến giá trị nhập đầu tiên
+         map[metricKey] = [originPoint, ...enteredPoints];
       });
 
       return map;
-   }, [last7Days, rawRecords]);
+   }, [recentRecords]);
 
    // Danh sách thẻ tóm tắt mới nhất
    const summaryCards: {
@@ -595,23 +433,6 @@ export function PatientDailyHealthRecords({
       });
    }, [summaryData]);
 
-   const toggleOverviewLine = (key: HealthMetricType) => {
-      setVisibleOverviewLines((prev) => ({
-         ...prev,
-         [key]: !prev[key],
-      }));
-   };
-
-   const toggleAllOverviewLines = () => {
-      const allActive = METRIC_KEYS.every((k) => visibleOverviewLines[k]);
-      const nextState = !allActive;
-      const updated = {} as Record<HealthMetricType, boolean>;
-      METRIC_KEYS.forEach((k) => {
-         updated[k] = nextState;
-      });
-      setVisibleOverviewLines(updated);
-   };
-
    if (!healthProfileId) {
       return (
          <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-dashed rounded-sm">
@@ -619,11 +440,6 @@ export function PatientDailyHealthRecords({
          </div>
       );
    }
-
-   const dateRangeLabel =
-      last7Days.length >= 7
-         ? `Từ ${last7Days[0].displayDate} đến ${last7Days[6].displayDate}/${endDate.getFullYear()}`
-         : "";
 
    return (
       <div className="flex flex-col gap-6 text-xs">
@@ -700,20 +516,17 @@ export function PatientDailyHealthRecords({
             </div>
          </div>
 
-         {/* Tiêu đề phần biểu đồ 7 ngày gần nhất */}
+         {/* Tiêu đề phần biểu đồ theo các khung thời gian đã nhập */}
          <div className="flex items-center justify-between flex-wrap gap-3 pb-1 border-b border-slate-200">
             <div>
                <span className="font-bold text-slate-800 text-xs uppercase tracking-wide">
-                  Diễn tiến sức khỏe 7 ngày gần nhất
+                  Biểu đồ diễn tiến chỉ số sức khỏe
                </span>
             </div>
 
             <div className="flex items-center gap-2 text-xs text-slate-500">
-               <span className="font-medium text-slate-700">
-                  {dateRangeLabel}
-               </span>
                <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
-                  7 ngày gần nhất
+                  7 ngày gần nhất tính từ ngày hiện tại
                </span>
             </div>
          </div>
@@ -726,330 +539,221 @@ export function PatientDailyHealthRecords({
                />
             </div>
          ) : (
-            <div className="space-y-7">
-               {/* 2. BIỂU ĐỒ TỔNG QUAN CÁC CHỈ SỐ (MỖI CHỈ SỐ 1 LINE - TRỤC OX 7 NGÀY GẦN NHẤT) */}
-               <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3.5 shadow-xs">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                     <div>
-                        <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                           <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-                           Biểu đồ tổng quan các chỉ số (7 ngày gần nhất)
-                        </h3>
-                        <p className="text-slate-500 text-[11px] mt-0.5">
-                           Trục hoành (Ox) hiển thị liên tục 7 ngày gần nhất • Mỗi
-                           chỉ số là 1 đường line
-                        </p>
-                     </div>
-
-                     {/* Bật / Tắt tất cả các line */}
-                     <button
-                        type="button"
-                        onClick={toggleAllOverviewLines}
-                        className="text-[11px] text-slate-600 hover:text-primary font-medium transition-colors cursor-pointer"
-                     >
-                        {METRIC_KEYS.every((k) => visibleOverviewLines[k])
-                           ? "Bỏ chọn tất cả"
-                           : "Hiện tất cả đường"}
-                     </button>
+            <div className="space-y-4">
+               {/* Thanh chọn tab xem nhanh từng chỉ số hoặc xem tất cả */}
+               <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-slate-600 text-xs">
+                     Trục Ox chia theo các khung thời gian đã nhập • Có gốc tọa
+                     độ 0 và đường line nối từ gốc 0 đến giá trị nhập đầu tiên
                   </div>
 
-                  {/* Nút bật/tắt từng đường chỉ số */}
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full">
+                     <button
+                        type="button"
+                        onClick={() => setSelectedMetricTab("ALL")}
+                        className={cn(
+                           "px-2.5 py-1 rounded text-xs font-medium transition-colors shrink-0 cursor-pointer",
+                           selectedMetricTab === "ALL"
+                              ? "bg-slate-900 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+                        )}
+                     >
+                        Tất cả chỉ số ({METRIC_KEYS.length})
+                     </button>
                      {METRIC_KEYS.map((key) => {
                         const cfg = METRIC_CONFIG[key];
-                        const isVisible = visibleOverviewLines[key];
                         return (
                            <button
                               key={key}
                               type="button"
-                              onClick={() => toggleOverviewLine(key)}
+                              onClick={() => setSelectedMetricTab(key)}
                               className={cn(
-                                 "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all cursor-pointer",
-                                 isVisible
-                                    ? "bg-slate-50 border-slate-300 text-slate-800 shadow-2xs font-semibold"
-                                    : "bg-slate-100/60 border-slate-200 text-slate-400 opacity-60 hover:opacity-100",
+                                 "px-2.5 py-1 rounded text-xs font-medium transition-colors shrink-0 cursor-pointer",
+                                 selectedMetricTab === key
+                                    ? "bg-slate-900 text-white"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                               )}
                            >
-                              <span
-                                 className="w-2 h-2 rounded-full shrink-0"
-                                 style={{ backgroundColor: cfg.color }}
-                              />
-                              <span>{cfg.label}</span>
-                              <span className="text-[10px] text-slate-400 font-normal">
-                                 ({cfg.unit})
-                              </span>
+                              {cfg.label}
                            </button>
                         );
                      })}
                   </div>
-
-                  {/* Khu vực vẽ biểu đồ tổng quan với trục Ox 7 ngày */}
-                  <div className="w-full h-80 pt-2">
-                     {isMounted ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                           <LineChart
-                              data={overviewChartData}
-                              margin={{
-                                 top: 10,
-                                 right: 15,
-                                 left: -10,
-                                 bottom: 5,
-                              }}
-                           >
-                              <CartesianGrid
-                                 strokeDasharray="3 3"
-                                 vertical={false}
-                                 stroke="#f1f5f9"
-                              />
-                              <XAxis
-                                 dataKey="displayDate"
-                                 interval={0}
-                                 tick={{
-                                    fontSize: 11,
-                                    fill: "#64748b",
-                                    fontWeight: 500,
-                                 }}
-                                 tickLine={false}
-                                 axisLine={{ stroke: "#e2e8f0" }}
-                              />
-                              <YAxis
-                                 tick={{ fontSize: 11, fill: "#64748b" }}
-                                 tickLine={false}
-                                 axisLine={{ stroke: "#e2e8f0" }}
-                              />
-                              <RechartsTooltip content={<OverviewTooltip />} />
-
-                              {/* Mỗi chỉ số 1 line kết nối qua 7 ngày */}
-                              {visibleOverviewLines.BLOOD_PRESSURE && (
-                                 <Line
-                                    type="monotone"
-                                    dataKey="BLOOD_PRESSURE"
-                                    name="Huyết áp (Tâm thu)"
-                                    stroke={METRIC_CONFIG.BLOOD_PRESSURE.color}
-                                    strokeWidth={2}
-                                    dot={{
-                                       r: 3,
-                                       fill: METRIC_CONFIG.BLOOD_PRESSURE.color,
-                                    }}
-                                    activeDot={{ r: 5 }}
-                                    connectNulls
-                                 />
-                              )}
-                              {visibleOverviewLines.HEART_RATE && (
-                                 <Line
-                                    type="monotone"
-                                    dataKey="HEART_RATE"
-                                    name="Nhịp tim"
-                                    stroke={METRIC_CONFIG.HEART_RATE.color}
-                                    strokeWidth={2}
-                                    dot={{
-                                       r: 3,
-                                       fill: METRIC_CONFIG.HEART_RATE.color,
-                                    }}
-                                    activeDot={{ r: 5 }}
-                                    connectNulls
-                                 />
-                              )}
-                              {visibleOverviewLines.BLOOD_GLUCOSE && (
-                                 <Line
-                                    type="monotone"
-                                    dataKey="BLOOD_GLUCOSE"
-                                    name="Đường huyết"
-                                    stroke={METRIC_CONFIG.BLOOD_GLUCOSE.color}
-                                    strokeWidth={2}
-                                    dot={{
-                                       r: 3,
-                                       fill: METRIC_CONFIG.BLOOD_GLUCOSE.color,
-                                    }}
-                                    activeDot={{ r: 5 }}
-                                    connectNulls
-                                 />
-                              )}
-                              {visibleOverviewLines.SPO2 && (
-                                 <Line
-                                    type="monotone"
-                                    dataKey="SPO2"
-                                    name="SpO2"
-                                    stroke={METRIC_CONFIG.SPO2.color}
-                                    strokeWidth={2}
-                                    dot={{
-                                       r: 3,
-                                       fill: METRIC_CONFIG.SPO2.color,
-                                    }}
-                                    activeDot={{ r: 5 }}
-                                    connectNulls
-                                 />
-                              )}
-                              {visibleOverviewLines.BODY_TEMPERATURE && (
-                                 <Line
-                                    type="monotone"
-                                    dataKey="BODY_TEMPERATURE"
-                                    name="Thân nhiệt"
-                                    stroke={
-                                       METRIC_CONFIG.BODY_TEMPERATURE.color
-                                    }
-                                    strokeWidth={2}
-                                    dot={{
-                                       r: 3,
-                                       fill: METRIC_CONFIG.BODY_TEMPERATURE
-                                          .color,
-                                    }}
-                                    activeDot={{ r: 5 }}
-                                    connectNulls
-                                 />
-                              )}
-                              {visibleOverviewLines.WEIGHT && (
-                                 <Line
-                                    type="monotone"
-                                    dataKey="WEIGHT"
-                                    name="Cân nặng"
-                                    stroke={METRIC_CONFIG.WEIGHT.color}
-                                    strokeWidth={2}
-                                    dot={{
-                                       r: 3,
-                                       fill: METRIC_CONFIG.WEIGHT.color,
-                                    }}
-                                    activeDot={{ r: 5 }}
-                                    connectNulls
-                                 />
-                              )}
-                           </LineChart>
-                        </ResponsiveContainer>
-                     ) : (
-                        <div className="w-full h-full bg-slate-50 animate-pulse rounded" />
-                     )}
-                  </div>
                </div>
 
-               {/* 3. TỪNG CHỈ SỐ - MỖI CHỈ SỐ 1 CHART (TRỤC OX 7 NGÀY GẦN NHẤT) */}
-               <div className="space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                     <div>
-                        <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wide">
-                           Biểu đồ chi tiết từng chỉ số (7 ngày gần nhất)
-                        </h3>
-                        <p className="text-slate-500 text-[11px] mt-0.5">
-                           Trục hoành hiển thị đầy đủ 7 ngày gần nhất với ngưỡng
-                           tham chiếu y tế
-                        </p>
-                     </div>
+               {/* Lưới các biểu đồ chỉ số độc lập */}
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {METRIC_KEYS.filter(
+                     (k) =>
+                        selectedMetricTab === "ALL" || selectedMetricTab === k,
+                  ).map((metricKey) => {
+                     const cfg = METRIC_CONFIG[metricKey];
+                     const data = metricDataMap[metricKey];
 
-                     {/* Tab chọn xem nhanh từng chỉ số hoặc tất cả */}
-                     <div className="flex items-center gap-1 overflow-x-auto pb-1 max-w-full">
-                        <button
-                           type="button"
-                           onClick={() => setSelectedMetricTab("ALL")}
-                           className={cn(
-                              "px-2.5 py-1 rounded text-xs font-medium transition-colors shrink-0 cursor-pointer",
-                              selectedMetricTab === "ALL"
-                                 ? "bg-slate-900 text-white"
-                                 : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                           )}
-                        >
-                           Tất cả chỉ số ({METRIC_KEYS.length})
-                        </button>
-                        {METRIC_KEYS.map((key) => {
-                           const cfg = METRIC_CONFIG[key];
-                           return (
-                              <button
-                                 key={key}
-                                 type="button"
-                                 onClick={() => setSelectedMetricTab(key)}
-                                 className={cn(
-                                    "px-2.5 py-1 rounded text-xs font-medium transition-colors shrink-0 cursor-pointer",
-                                    selectedMetricTab === key
-                                       ? "bg-slate-900 text-white"
-                                       : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-                                 )}
-                              >
-                                 {cfg.label}
-                              </button>
-                           );
-                        })}
-                     </div>
-                  </div>
+                     // Các điểm đo thực tế đã nhập (loại bỏ điểm gốc 0)
+                     const measuredPoints = data.filter((d) => !d.isOrigin);
+                     const hasData = measuredPoints.length > 0;
 
-                  {/* Lưới các biểu đồ chỉ số */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                     {METRIC_KEYS.filter(
-                        (k) =>
-                           selectedMetricTab === "ALL" ||
-                           selectedMetricTab === k,
-                     ).map((metricKey) => {
-                        const cfg = METRIC_CONFIG[metricKey];
-                        const data = metricDataMap[metricKey];
+                     // Thống kê nhanh từ các lần đo đã nhập (Tâm thu / giá trị chung)
+                     const latestPoint = hasData
+                        ? measuredPoints[measuredPoints.length - 1]
+                        : undefined;
+                     const values = measuredPoints.map((d) => d.value);
+                     const minVal = hasData ? Math.min(...values) : null;
+                     const maxVal = hasData ? Math.max(...values) : null;
+                     const avgVal = hasData
+                        ? Math.round(
+                             (values.reduce((s, v) => s + v, 0) /
+                                values.length) *
+                                10,
+                          ) / 10
+                        : null;
 
-                        // Lọc các điểm có dữ liệu trong 7 ngày
-                        const measuredPoints = data.filter(
-                           (d) => d.value !== undefined && d.value !== null,
-                        );
-                        const hasData = measuredPoints.length > 0;
-
-                        // Tính toán thống kê cơ bản trong 7 ngày
-                        const latestPoint = hasData
-                           ? measuredPoints[measuredPoints.length - 1]
-                           : undefined;
-                        const values = measuredPoints.map((d) => d.value as number);
-                        const minVal = hasData ? Math.min(...values) : null;
-                        const maxVal = hasData ? Math.max(...values) : null;
-                        const avgVal = hasData
+                     // Thống kê riêng cho tâm trương (secondaryValue) nếu là huyết áp
+                     const diaValues =
+                        metricKey === "BLOOD_PRESSURE"
+                           ? measuredPoints
+                                .map((d) => d.secondaryValue)
+                                .filter(
+                                   (v): v is number =>
+                                      v !== null && typeof v === "number",
+                                )
+                           : [];
+                     const minDia =
+                        diaValues.length > 0 ? Math.min(...diaValues) : null;
+                     const maxDia =
+                        diaValues.length > 0 ? Math.max(...diaValues) : null;
+                     const avgDia =
+                        diaValues.length > 0
                            ? Math.round(
-                                (values.reduce((s, v) => s + v, 0) /
-                                   values.length) *
+                                (diaValues.reduce((s, v) => s + v, 0) /
+                                   diaValues.length) *
                                    10,
                              ) / 10
                            : null;
 
-                        return (
-                           <div
-                              key={metricKey}
-                              className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs hover:border-slate-300 transition-colors"
-                           >
-                              {/* Header của biểu đồ chỉ số */}
-                              <div className="flex items-start justify-between gap-2">
-                                 <div className="flex items-center gap-2">
-                                    <span
-                                       className="w-2.5 h-2.5 rounded-full shrink-0"
-                                       style={{ backgroundColor: cfg.color }}
-                                    />
-                                    <div>
-                                       <div className="flex items-center gap-2">
-                                          <h4 className="font-bold text-slate-900 text-sm">
-                                             {cfg.label}
-                                          </h4>
-                                          <span className="text-[11px] text-slate-500 font-medium">
-                                             ({cfg.unit})
-                                          </span>
-                                       </div>
-                                       {cfg.normalText && (
-                                          <span className="text-[10px] text-slate-400">
-                                             {cfg.normalText}
-                                          </span>
-                                       )}
-                                    </div>
-                                 </div>
+                     const yDomain = getMetricYDomain(metricKey, data);
 
-                                 {/* Chỉ số mới nhất trong 7 ngày */}
-                                 {latestPoint && (
-                                    <div className="text-right">
-                                       <div className="text-[10px] text-slate-400">
-                                          Gần nhất ({latestPoint.displayDate})
-                                       </div>
-                                       <div className="font-bold text-sm text-slate-900 tabular-nums">
-                                          {metricKey === "BLOOD_PRESSURE" &&
-                                          latestPoint.secondaryValue != null
-                                             ? `${latestPoint.value}/${latestPoint.secondaryValue}`
-                                             : latestPoint.value}{" "}
-                                          <span className="text-[10px] text-slate-500 font-normal">
-                                             {cfg.unit}
-                                          </span>
-                                       </div>
+                     return (
+                        <div
+                           key={metricKey}
+                           className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs hover:border-slate-300 transition-colors"
+                        >
+                           {/* Header của biểu đồ chỉ số */}
+                           <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                 <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: cfg.color }}
+                                 />
+                                 <div>
+                                    <div className="flex items-center gap-2">
+                                       <h4 className="font-bold text-slate-900 text-sm">
+                                          {cfg.label}
+                                       </h4>
+                                       <span className="text-[11px] text-slate-500 font-medium">
+                                          ({cfg.unit})
+                                       </span>
                                     </div>
-                                 )}
+                                    {cfg.normalText && (
+                                       <span className="text-[10px] text-slate-400">
+                                          {cfg.normalText}
+                                       </span>
+                                    )}
+                                 </div>
                               </div>
 
-                              {/* Thống kê nhanh: Min, Max, Trung bình trong 7 ngày */}
-                              {hasData ? (
+                              {/* Chỉ số mới nhất trong các khung giờ đã nhập */}
+                              {latestPoint && (
+                                 <div className="text-right">
+                                    <div className="text-[10px] text-slate-400">
+                                       Gần nhất ({latestPoint.displayTime})
+                                    </div>
+                                    <div className="font-bold text-sm text-slate-900 tabular-nums">
+                                       {metricKey === "BLOOD_PRESSURE" &&
+                                       latestPoint.secondaryValue != null
+                                          ? `${latestPoint.value}/${latestPoint.secondaryValue}`
+                                          : latestPoint.value}{" "}
+                                       <span className="text-[10px] text-slate-500 font-normal">
+                                          {cfg.unit}
+                                       </span>
+                                    </div>
+                                 </div>
+                              )}
+                           </div>
+
+                           {/* Thống kê nhanh: Min, Max, Trung bình (Huyết áp tách riêng tâm thu & tâm trương) */}
+                           {hasData ? (
+                              metricKey === "BLOOD_PRESSURE" &&
+                              minDia !== null ? (
+                                 <div className="space-y-1.5">
+                                    {/* Thống kê Tâm thu */}
+                                    <div className="bg-rose-50/60 border border-rose-100/80 rounded px-2.5 py-1.5">
+                                       <div className="grid grid-cols-4 gap-2 text-center">
+                                          <span className="flex justify-center items-center text-[11px] font-semibold text-rose-700 ">
+                                             Tâm thu
+                                          </span>
+                                          <div>
+                                             <span className="text-slate-400 block text-[10px]">
+                                                Thấp nhất
+                                             </span>
+                                             <span className="font-bold text-slate-800 tabular-nums text-xs">
+                                                {minVal}
+                                             </span>
+                                          </div>
+                                          <div className="border-x border-rose-100">
+                                             <span className="text-slate-400 block text-[10px]">
+                                                Trung bình
+                                             </span>
+                                             <span className="font-bold text-slate-800 tabular-nums text-xs">
+                                                {avgVal}
+                                             </span>
+                                          </div>
+                                          <div>
+                                             <span className="text-slate-400 block text-[10px]">
+                                                Cao nhất
+                                             </span>
+                                             <span className="font-bold text-slate-800 tabular-nums text-xs">
+                                                {maxVal}
+                                             </span>
+                                          </div>
+                                       </div>
+                                    </div>
+
+                                    {/* Thống kê Tâm trương */}
+                                    <div className="bg-blue-50/60 border border-blue-100/80 rounded px-2.5 py-1.5">
+                                       <div className="grid grid-cols-4 gap-2 text-center">
+                                          <span className="flex justify-center items-center text-[11px] font-semibold text-blue-700">
+                                             Tâm trương
+                                          </span>
+                                          <div>
+                                             <span className="text-slate-400 block text-[10px]">
+                                                Thấp nhất
+                                             </span>
+                                             <span className="font-bold text-slate-800 tabular-nums text-xs">
+                                                {minDia}
+                                             </span>
+                                          </div>
+                                          <div className="border-x border-blue-100">
+                                             <span className="text-slate-400 block text-[10px]">
+                                                Trung bình
+                                             </span>
+                                             <span className="font-bold text-slate-800 tabular-nums text-xs">
+                                                {avgDia}
+                                             </span>
+                                          </div>
+                                          <div>
+                                             <span className="text-slate-400 block text-[10px]">
+                                                Cao nhất
+                                             </span>
+                                             <span className="font-bold text-slate-800 tabular-nums text-xs">
+                                                {maxDia}
+                                             </span>
+                                          </div>
+                                       </div>
+                                    </div>
+                                 </div>
+                              ) : (
                                  <div className="grid grid-cols-3 gap-2 py-1.5 px-2.5 bg-slate-50 rounded text-center text-[11px]">
                                     <div>
                                        <span className="text-slate-400 block text-[10px]">
@@ -1076,184 +780,92 @@ export function PatientDailyHealthRecords({
                                        </span>
                                     </div>
                                  </div>
-                              ) : (
-                                 <div className="py-1 px-2.5 bg-slate-50/70 rounded text-center text-[11px] text-slate-400 italic">
-                                    Chưa ghi nhận lượt đo nào trong 7 ngày gần nhất
-                                 </div>
-                              )}
+                              )
+                           ) : (
+                              <div className="py-1 px-2.5 bg-slate-50/70 rounded text-center text-[11px] text-slate-400 italic">
+                                 Chưa ghi nhận lượt đo nào trong 7 ngày gần nhất
+                              </div>
+                           )}
 
-                              {/* Vùng vẽ biểu đồ với trục Ox cố định 7 ngày */}
-                              <div className="w-full h-52 pt-1">
-                                 {!isMounted ? (
-                                    <div className="w-full h-full bg-slate-50 animate-pulse rounded" />
-                                 ) : metricKey === "BLOOD_PRESSURE" ? (
-                                    // Biểu đồ huyết áp (2 đường: Tâm thu và Tâm trương trên trục Ox 7 ngày)
-                                    <ResponsiveContainer
-                                       width="100%"
-                                       height="100%"
+                           {/* Vùng vẽ biểu đồ LineChart với trục Ox chia theo các khung thời gian đã nhập */}
+                           <div className="w-full h-56 pt-1">
+                              {!isMounted ? (
+                                 <div className="w-full h-full bg-slate-50 animate-pulse rounded" />
+                              ) : !hasData ? (
+                                 <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50/50 rounded border border-dashed border-slate-200 text-xs">
+                                    <p>Chưa có dữ liệu đo</p>
+                                    <span className="text-[10px] text-slate-400">
+                                       Chưa có khung thời gian nào được nhập
+                                       trong 7 ngày qua
+                                    </span>
+                                 </div>
+                              ) : (
+                                 <ResponsiveContainer
+                                    width="100%"
+                                    height="100%"
+                                 >
+                                    <LineChart
+                                       data={data}
+                                       margin={{
+                                          top: 10,
+                                          right: 15,
+                                          left: -15,
+                                          bottom: 0,
+                                       }}
                                     >
-                                       <LineChart
-                                          data={data}
-                                          margin={{
-                                             top: 10,
-                                             right: 15,
-                                             left: -15,
-                                             bottom: 0,
+                                       <CartesianGrid
+                                          strokeDasharray="3 3"
+                                          vertical={false}
+                                          stroke="#f1f5f9"
+                                       />
+                                       <XAxis
+                                          dataKey="displayTime"
+                                          interval={0}
+                                          tick={{
+                                             fontSize: 10,
+                                             fill: "#64748b",
+                                             fontWeight: 500,
                                           }}
-                                       >
-                                          <CartesianGrid
-                                             strokeDasharray="3 3"
-                                             vertical={false}
-                                             stroke="#f1f5f9"
-                                          />
-                                          <XAxis
-                                             dataKey="displayDate"
-                                             interval={0}
-                                             tick={{
-                                                fontSize: 10,
-                                                fill: "#64748b",
-                                                fontWeight: 500,
-                                             }}
-                                             tickLine={false}
-                                             axisLine={{ stroke: "#e2e8f0" }}
-                                          />
-                                          <YAxis
-                                             tick={{
-                                                fontSize: 10,
-                                                fill: "#64748b",
-                                             }}
-                                             tickLine={false}
-                                             axisLine={{ stroke: "#e2e8f0" }}
-                                             domain={
-                                                hasData
-                                                   ? [
-                                                        "dataMin - 10",
-                                                        "dataMax + 10",
-                                                     ]
-                                                   : [60, 160]
-                                             }
-                                          />
-                                          <RechartsTooltip
-                                             content={
-                                                <SingleMetricTooltip
-                                                   unit={cfg.unit}
-                                                   metricType={metricKey}
-                                                />
-                                             }
-                                          />
-                                          <ReferenceLine
-                                             y={120}
-                                             stroke="#f43f5e"
-                                             strokeDasharray="3 3"
-                                             strokeOpacity={0.6}
-                                          />
-                                          <ReferenceLine
-                                             y={80}
-                                             stroke="#60a5fa"
-                                             strokeDasharray="3 3"
-                                             strokeOpacity={0.6}
-                                          />
-                                          <Line
-                                             type="monotone"
-                                             dataKey="value"
-                                             name="Tâm thu"
-                                             stroke={cfg.color}
-                                             strokeWidth={2}
-                                             dot={{ r: 3, fill: cfg.color }}
-                                             activeDot={{ r: 5 }}
-                                             connectNulls
-                                          />
-                                          <Line
-                                             type="monotone"
-                                             dataKey="secondaryValue"
-                                             name="Tâm trương"
-                                             stroke={cfg.colorDia || "#3b82f6"}
-                                             strokeWidth={2}
-                                             dot={{
-                                                r: 3,
-                                                fill: cfg.colorDia || "#3b82f6",
-                                             }}
-                                             activeDot={{ r: 5 }}
-                                             connectNulls
-                                          />
-                                       </LineChart>
-                                    </ResponsiveContainer>
-                                 ) : (
-                                    // Biểu đồ cho các chỉ số đơn lẻ khác trên trục Ox 7 ngày
-                                    <ResponsiveContainer
-                                       width="100%"
-                                       height="100%"
-                                    >
-                                       <AreaChart
-                                          data={data}
-                                          margin={{
-                                             top: 10,
-                                             right: 15,
-                                             left: -15,
-                                             bottom: 0,
+                                          tickLine={false}
+                                          axisLine={{ stroke: "#cbd5e1" }}
+                                       />
+                                       <YAxis
+                                          tick={{
+                                             fontSize: 10,
+                                             fill: "#64748b",
                                           }}
-                                       >
-                                          <defs>
-                                             <linearGradient
-                                                id={`gradient-${metricKey}`}
-                                                x1="0"
-                                                y1="0"
-                                                x2="0"
-                                                y2="1"
-                                             >
-                                                <stop
-                                                   offset="5%"
-                                                   stopColor={cfg.color}
-                                                   stopOpacity={0.25}
-                                                />
-                                                <stop
-                                                   offset="95%"
-                                                   stopColor={cfg.color}
-                                                   stopOpacity={0.0}
-                                                />
-                                             </linearGradient>
-                                          </defs>
-                                          <CartesianGrid
-                                             strokeDasharray="3 3"
-                                             vertical={false}
-                                             stroke="#f1f5f9"
-                                          />
-                                          <XAxis
-                                             dataKey="displayDate"
-                                             interval={0}
-                                             tick={{
-                                                fontSize: 10,
-                                                fill: "#64748b",
-                                                fontWeight: 500,
-                                             }}
-                                             tickLine={false}
-                                             axisLine={{ stroke: "#e2e8f0" }}
-                                          />
-                                          <YAxis
-                                             tick={{
-                                                fontSize: 10,
-                                                fill: "#64748b",
-                                             }}
-                                             tickLine={false}
-                                             axisLine={{ stroke: "#e2e8f0" }}
-                                             domain={
-                                                hasData
-                                                   ? [
-                                                        "dataMin - 5",
-                                                        "dataMax + 5",
-                                                     ]
-                                                   : ["auto", "auto"]
-                                             }
-                                          />
-                                          <RechartsTooltip
-                                             content={
-                                                <SingleMetricTooltip
-                                                   unit={cfg.unit}
-                                                   metricType={metricKey}
-                                                />
-                                             }
-                                          />
-                                          {cfg.normalMin != null && (
+                                          tickLine={false}
+                                          axisLine={{ stroke: "#cbd5e1" }}
+                                          domain={yDomain}
+                                       />
+                                       <RechartsTooltip
+                                          content={
+                                             <SingleMetricTooltip
+                                                unit={cfg.unit}
+                                                metricType={metricKey}
+                                             />
+                                          }
+                                       />
+
+                                       {/* Đường tham chiếu y tế chuẩn */}
+                                       {metricKey === "BLOOD_PRESSURE" && (
+                                          <>
+                                             <ReferenceLine
+                                                y={120}
+                                                stroke="#f43f5e"
+                                                strokeDasharray="3 3"
+                                                strokeOpacity={0.6}
+                                             />
+                                             <ReferenceLine
+                                                y={80}
+                                                stroke="#60a5fa"
+                                                strokeDasharray="3 3"
+                                                strokeOpacity={0.6}
+                                             />
+                                          </>
+                                       )}
+                                       {metricKey !== "BLOOD_PRESSURE" &&
+                                          cfg.normalMin != null && (
                                              <ReferenceLine
                                                 y={cfg.normalMin}
                                                 stroke={cfg.color}
@@ -1261,7 +873,8 @@ export function PatientDailyHealthRecords({
                                                 strokeOpacity={0.5}
                                              />
                                           )}
-                                          {cfg.normalMax != null && (
+                                       {metricKey !== "BLOOD_PRESSURE" &&
+                                          cfg.normalMax != null && (
                                              <ReferenceLine
                                                 y={cfg.normalMax}
                                                 stroke={cfg.color}
@@ -1269,46 +882,113 @@ export function PatientDailyHealthRecords({
                                                 strokeOpacity={0.5}
                                              />
                                           )}
-                                          <Area
-                                             type="monotone"
-                                             dataKey="value"
-                                             name={cfg.label}
-                                             stroke={cfg.color}
-                                             strokeWidth={2}
-                                             fillOpacity={1}
-                                             fill={`url(#gradient-${metricKey})`}
-                                             dot={{ r: 3, fill: cfg.color }}
-                                             activeDot={{ r: 5 }}
-                                             connectNulls
-                                          />
-                                       </AreaChart>
-                                    </ResponsiveContainer>
-                                 )}
-                              </div>
 
-                              {/* Ghi chú footer của biểu đồ */}
-                              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100">
-                                 <span>
-                                    {measuredPoints.length}/7 ngày có ghi nhận
-                                    đo
-                                 </span>
-                                 {metricKey === "BLOOD_PRESSURE" && (
-                                    <div className="flex items-center gap-2">
-                                       <span className="flex items-center gap-1 text-rose-600">
-                                          <span className="w-2 h-0.5 bg-rose-600 inline-block" />
-                                          Tâm thu
-                                       </span>
-                                       <span className="flex items-center gap-1 text-blue-600">
-                                          <span className="w-2 h-0.5 bg-blue-600 inline-block" />
-                                          Tâm trương
-                                       </span>
-                                    </div>
-                                 )}
-                              </div>
+                                       {/* Đường chỉ số chính: Nối từ gốc tọa độ 0 đến giá trị nhập đầu tiên, rồi nối tiếp các khung giờ sau */}
+                                       <Line
+                                          type="linear"
+                                          dataKey="value"
+                                          name={
+                                             metricKey === "BLOOD_PRESSURE"
+                                                ? "Tâm thu"
+                                                : cfg.label
+                                          }
+                                          stroke={cfg.color}
+                                          strokeWidth={2}
+                                          dot={(props) => {
+                                             if (props.payload?.isOrigin) {
+                                                return (
+                                                   <circle
+                                                      key={props.key}
+                                                      cx={props.cx}
+                                                      cy={props.cy}
+                                                      r={3}
+                                                      fill={cfg.color}
+                                                   />
+                                                );
+                                             }
+                                             return (
+                                                <circle
+                                                   key={props.key}
+                                                   cx={props.cx}
+                                                   cy={props.cy}
+                                                   r={4}
+                                                   fill="#ffffff"
+                                                   stroke={cfg.color}
+                                                   strokeWidth={2}
+                                                />
+                                             );
+                                          }}
+                                          activeDot={{ r: 6 }}
+                                       />
+
+                                       {/* Đường huyết áp tâm trương: Nối từ gốc tọa độ 0 đến giá trị nhập đầu tiên */}
+                                       {metricKey === "BLOOD_PRESSURE" && (
+                                          <Line
+                                             type="linear"
+                                             dataKey="secondaryValue"
+                                             name="Tâm trương"
+                                             stroke={cfg.colorDia || "#3b82f6"}
+                                             strokeWidth={2}
+                                             dot={(props) => {
+                                                if (props.payload?.isOrigin) {
+                                                   return (
+                                                      <circle
+                                                         key={props.key}
+                                                         cx={props.cx}
+                                                         cy={props.cy}
+                                                         r={3}
+                                                         fill={
+                                                            cfg.colorDia ||
+                                                            "#3b82f6"
+                                                         }
+                                                      />
+                                                   );
+                                                }
+                                                return (
+                                                   <circle
+                                                      key={props.key}
+                                                      cx={props.cx}
+                                                      cy={props.cy}
+                                                      r={4}
+                                                      fill="#ffffff"
+                                                      stroke={
+                                                         cfg.colorDia ||
+                                                         "#3b82f6"
+                                                      }
+                                                      strokeWidth={2}
+                                                   />
+                                                );
+                                             }}
+                                             activeDot={{ r: 6 }}
+                                          />
+                                       )}
+                                    </LineChart>
+                                 </ResponsiveContainer>
+                              )}
                            </div>
-                        );
-                     })}
-                  </div>
+
+                           {/* Ghi chú footer của biểu đồ */}
+                           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100">
+                              <span>
+                                 {measuredPoints.length} lần đo trong 7 ngày gần
+                                 nhất
+                              </span>
+                              {metricKey === "BLOOD_PRESSURE" && (
+                                 <div className="flex items-center gap-2">
+                                    <span className="flex items-center gap-1 text-rose-600">
+                                       <span className="w-2 h-0.5 bg-rose-600 inline-block" />
+                                       Tâm thu
+                                    </span>
+                                    <span className="flex items-center gap-1 text-blue-600">
+                                       <span className="w-2 h-0.5 bg-blue-600 inline-block" />
+                                       Tâm trương
+                                    </span>
+                                 </div>
+                              )}
+                           </div>
+                        </div>
+                     );
+                  })}
                </div>
             </div>
          )}
