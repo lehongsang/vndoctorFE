@@ -25,16 +25,6 @@ export type CareRequestListItem = {
    mediaUrls?: string[];
    resolutionNote?: string;
    resolvedAt?: string;
-};
-
-export type CareRequest = CareRequestListItem;
-
-export type CareRequestDetail = CareRequestListItem & {
-   facility?: {
-      id: string;
-      facilityName?: string;
-      facilityCode?: string;
-   };
    subscription?: {
       id: string;
       status?: string;
@@ -51,6 +41,16 @@ export type CareRequestDetail = CareRequestListItem & {
          packageName: string;
          packageCode?: string;
       };
+   };
+};
+
+export type CareRequest = CareRequestListItem;
+
+export type CareRequestDetail = CareRequestListItem & {
+   facility?: {
+      id: string;
+      facilityName?: string;
+      facilityCode?: string;
    };
 };
 

@@ -115,17 +115,18 @@ export const FormSelect = ({
    };
 
    return (
-      <Field invalid={Boolean(error)} className={containerClassName}>
+      <Field
+         invalid={Boolean(error)}
+         className={`${containerClassName} gap-0.5`}
+      >
          {label && (
             <FieldLabel
                htmlFor={selectId}
-               className="text-xs font-medium text-slate-800 flex items-center flex-wrap gap-x-1"
+               className="text-xs font-medium text-slate-800 flex items-center gap-1"
             >
                {label}
                {required && (
-                  <span className="text-red-600 font-medium inline-block">
-                     *
-                  </span>
+                  <span className="text-red-600 font-medium block">*</span>
                )}
             </FieldLabel>
          )}
@@ -145,7 +146,7 @@ export const FormSelect = ({
                <SelectTrigger
                   id={selectId}
                   className={cn(
-                     "min-h-10 px-4 w-full rounded-sm text-sm font-normal border-slate-300",
+                     "min-h-10 px-4 w-full rounded-sm text-sm font-normal border-slate-300 bg-slate-100 hover:bg-slate-200/70",
                      error &&
                         "border-destructive focus-visible:ring-destructive/20",
                      triggerClassName,

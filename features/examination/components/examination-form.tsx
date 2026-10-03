@@ -10,7 +10,6 @@ import {
    useCreateExaminationMutation,
    useUpdateExaminationMutation,
 } from "@/store/api/examination/examination-api";
-// import { useGetDetailHealthProfileQuery } from "@/store/api/health-profile/health-profile-api";
 import { useGetStaffRiskAssessmentsQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { RiskAssessmentResult } from "@/store/api/risk-factor-assessment/type";
 import { useAuth } from "@/hooks/use-auth";
@@ -37,7 +36,21 @@ import { Icd10SuggestInput } from "./icd10-suggest-input";
 import {
    RiskLevelBadge,
    getRiskLevelLabel,
+   getRiskContainerClass,
+   RISK_EXPLANATION_TEXT,
+   formatRiskRate,
+   checkHasUnderlyingDisease,
 } from "@/components/common/risk-level-badge";
+import {
+   Dialog,
+   DialogContent,
+   DialogHeader,
+   DialogTitle,
+   DialogDescription,
+} from "@/components/ui/dialog";
+import { RiskFactorAssessmentForm } from "./risk-factor-assessment-form";
+import { useGetDetailHealthProfileQuery } from "@/store/api/health-profile/health-profile-api";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const COMMON_CUSTOM_TARGET_PRESETS = [
    { key: "uricAcid", label: "Acid Uric", defaultVal: "< 360 umol/L" },
@@ -251,13 +264,16 @@ export function ExaminationForm({
       { skip: !healthProfileId },
    );
 
-   // const { data: healthProfileData } = useGetDetailHealthProfileQuery(
-   //    healthProfileId,
-   //    { skip: !healthProfileId },
-   // );
+   const { data: healthProfileData } = useGetDetailHealthProfileQuery(
+      healthProfileId,
+      { skip: !healthProfileId },
+   );
 
    const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+   const [isCreateRiskModalOpen, setIsCreateRiskModalOpen] = useState(false);
+   const [editingRiskAssessment, setEditingRiskAssessment] =
+      useState<RiskAssessmentResult | null>(null);
    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
    const [templateModalMode, setTemplateModalMode] = useState<
       "list" | "create"
@@ -440,9 +456,10 @@ export function ExaminationForm({
                formattedDate = dateStr;
             }
          }
-         const scoreStr = item.riskScore
-            ? `(Nguy cơ biến cố trong 10 năm: ${item.riskScore}%)`
-            : "";
+         const hasUnderlying = checkHasUnderlyingDisease(item);
+         const rateFormatted = formatRiskRate(item.riskScore, hasUnderlying);
+         const scoreStr =
+            rateFormatted !== "—" ? `(Tỷ lệ biến cố: ${rateFormatted})` : "";
          opts.push({
             value: id,
             label: `${formattedDate ? `[${formattedDate}] ` : ""}${getRiskLevelLabel(item.riskLevel)} ${scoreStr}`,
@@ -459,8 +476,34 @@ export function ExaminationForm({
          });
       }
 
+      if (
+         updatedAssessment &&
+         !opts.some(
+            (o) =>
+               o.value === updatedAssessment.id ||
+               o.value === updatedAssessment.assessmentInputId ||
+               o.value === updatedAssessment.assessmentInput?.id,
+         )
+      ) {
+         const hasUnderlying = checkHasUnderlyingDisease(updatedAssessment);
+         const rateFormatted = formatRiskRate(
+            updatedAssessment.riskScore,
+            hasUnderlying,
+         );
+         const scoreStr =
+            rateFormatted !== "—" ? `(Tỷ lệ biến cố: ${rateFormatted})` : "";
+         const targetId =
+            updatedAssessment.assessmentInputId ||
+            updatedAssessment.assessmentInput?.id ||
+            updatedAssessment.id;
+         opts.push({
+            value: targetId,
+            label: `[Vừa đánh giá] ${getRiskLevelLabel(updatedAssessment.riskLevel)} ${scoreStr}`,
+         });
+      }
+
       return opts;
-   }, [riskAssessments, initialAssessmentInputId]);
+   }, [riskAssessments, initialAssessmentInputId, updatedAssessment]);
 
    const {
       register,
@@ -501,17 +544,18 @@ export function ExaminationForm({
          return null;
       if (
          updatedAssessment &&
-         (updatedAssessment.assessmentInputId ||
-            updatedAssessment.assessmentInput?.id ||
-            updatedAssessment.id) === watchedAssessmentInputId
+         (updatedAssessment.id === watchedAssessmentInputId ||
+            updatedAssessment.assessmentInputId === watchedAssessmentInputId ||
+            updatedAssessment.assessmentInput?.id === watchedAssessmentInputId)
       ) {
          return updatedAssessment;
       }
       return (
          riskAssessments.find(
             (a) =>
-               (a.assessmentInputId || a.assessmentInput?.id || a.id) ===
-               watchedAssessmentInputId,
+               a.id === watchedAssessmentInputId ||
+               a.assessmentInputId === watchedAssessmentInputId ||
+               a.assessmentInput?.id === watchedAssessmentInputId,
          ) || null
       );
    }, [watchedAssessmentInputId, riskAssessments, updatedAssessment]);
@@ -540,25 +584,6 @@ export function ExaminationForm({
          shouldValidate: true,
          shouldDirty: true,
       });
-   };
-
-   const handleApplyVitalsFromAssessment = () => {
-      const input = selectedRiskAssessment?.assessmentInput;
-      if (!input) {
-         toast.warning("Phiếu phân tầng này không có dữ liệu chỉ số sinh tồn.");
-         return;
-      }
-      const vitalsMap: (keyof typeof input)[] = [
-         "systolicBp",
-         "diastolicBp",
-         "heightCm",
-         "weightKg",
-         "bmi",
-      ];
-      vitalsMap.forEach((k) => {
-         if (input[k] != null) setValue(k as VitalFieldKey, Number(input[k]));
-      });
-      toast.info("Đã điền các chỉ số sinh tồn từ phiếu phân tầng nguy cơ!");
    };
 
    const handleFetchTreatmentTarget = async () => {
@@ -1164,16 +1189,32 @@ export function ExaminationForm({
                   />
 
                   <div className="flex flex-col gap-2">
+                     <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <label className="text-xs font-medium text-slate-800">
+                           Phân tầng yếu tố nguy cơ (nếu có)
+                        </label>
+                        {canEdit && (
+                           <CustomButton
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsCreateRiskModalOpen(true)}
+                              className="h-7 text-xs px-2.5 text-primary border-primary/30 hover:bg-primary/5 cursor-pointer"
+                           >
+                              + Thực hiện phân tầng nguy cơ
+                           </CustomButton>
+                        )}
+                     </div>
                      <Controller
                         control={control}
                         name="assessmentInputId"
                         render={({ field }) => (
                            <FormSelect
-                              label="Phân tầng yếu tố nguy cơ (nếu có)"
+                              label=""
                               placeholder={
                                  isLoadingRisk || isFetchingRisk
                                     ? "Đang tải danh sách phân tầng..."
-                                    : riskAssessments.length === 0
+                                    : riskAssessments.length === 0 && !updatedAssessment
                                       ? "Bệnh nhân chưa có phiếu phân tầng nguy cơ nào"
                                       : "Chọn phiếu phân tầng nguy cơ"
                               }
@@ -1192,33 +1233,56 @@ export function ExaminationForm({
                      />
 
                      {selectedRiskAssessment && (
-                        <div className="p-3 rounded-sm border border-blue-200 bg-blue-50/50 flex flex-col gap-2 text-xs">
-                           <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                 <span className="font-semibold text-slate-700">
-                                    Mức nguy cơ:
+                        <div
+                           className={cn(
+                              "p-4 rounded-sm border flex flex-col gap-2.5 text-xs",
+                              getRiskContainerClass(
+                                 selectedRiskAssessment.riskLevel,
+                              ),
+                           )}
+                        >
+                           <div className="flex items-center justify-between gap-3 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                 <span className="font-bold text-xs sm:text-sm">
+                                    Nguy cơ biến cố tim mạch trong 10 năm:
                                  </span>
                                  <RiskLevelBadge
                                     level={selectedRiskAssessment.riskLevel}
                                  />
-                                 {selectedRiskAssessment.riskScore && (
-                                    <span className="text-slate-600 font-medium">
-                                       (Nguy cơ biến cố trong 10 năm:{" "}
-                                       {selectedRiskAssessment.riskScore}%)
-                                    </span>
-                                 )}
                               </div>
-
-                              {selectedRiskAssessment.assessmentInput && (
-                                 <button
-                                    type="button"
-                                    onClick={handleApplyVitalsFromAssessment}
-                                    className="text-xs text-primary hover:underline font-medium cursor-pointer"
-                                 >
-                                    Điền chỉ số sinh tồn từ phiếu này
-                                 </button>
-                              )}
+                              {selectedRiskAssessment.riskScore !== null &&
+                                 selectedRiskAssessment.riskScore !==
+                                    undefined &&
+                                 selectedRiskAssessment.riskScore !== "" && (
+                                    <div className="text-xs flex items-center gap-1.5 flex-wrap">
+                                       <span className="text-slate-700 font-bold">
+                                          Tỷ lệ biến cố:
+                                       </span>
+                                       <span className="text-base font-extrabold text-primary">
+                                          {formatRiskRate(
+                                             selectedRiskAssessment.riskScore,
+                                             checkHasUnderlyingDisease(
+                                                selectedRiskAssessment,
+                                             ),
+                                          )}
+                                       </span>
+                                    </div>
+                                 )}
                            </div>
+
+                           {/* Giải thích tỷ lệ biến cố */}
+                           <div className="text-[11px] text-slate-900 bg-white/80 p-2.5 rounded border border-slate-200/70 leading-relaxed">
+                              <strong className="text-slate-900">
+                                 Giải thích:
+                              </strong>{" "}
+                              {RISK_EXPLANATION_TEXT}
+                           </div>
+
+                           <p className="text-[11px] text-slate-900 italic">
+                              * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
+                              Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
+                              mạch châu Âu ESC
+                           </p>
 
                            {selectedRiskAssessment.doctorId ? (
                               <div className="text-slate-600 flex flex-col gap-2">
@@ -1234,47 +1298,52 @@ export function ExaminationForm({
                                        {selectedRiskAssessment.doctorNote}
                                     </div>
                                  )}
-                                 <div className="flex items-center justify-center gap-2 flex-wrap">
-                                    <CustomButton
-                                       type="button"
-                                       onClick={() =>
-                                          setIsEvaluationModalOpen(true)
-                                       }
-                                       className="w-fit h-8"
-                                    >
-                                       Đánh giá lại
-                                    </CustomButton>
+                                 <div className="flex items-center justify-end gap-2 flex-wrap pt-1">
                                     <CustomButton
                                        type="button"
                                        variant="outline"
                                        onClick={() =>
                                           setIsDetailModalOpen(true)
                                        }
-                                       className="w-fit h-8"
+                                       className="h-8 w-fit text-xs cursor-pointer"
                                     >
                                        Xem chi tiết
+                                    </CustomButton>
+                                    <CustomButton
+                                       type="button"
+                                       onClick={() =>
+                                          setIsEvaluationModalOpen(true)
+                                       }
+                                       className="w-fit h-8 text-xs cursor-pointer"
+                                    >
+                                       Đánh giá lại
                                     </CustomButton>
                                  </div>
                               </div>
                            ) : (
-                              <div className="flex items-center justify-center gap-2 flex-wrap">
-                                 <CustomButton
-                                    type="button"
-                                    onClick={() =>
-                                       setIsEvaluationModalOpen(true)
-                                    }
-                                    className="h-8 w-fit"
-                                 >
-                                    Đánh giá
-                                 </CustomButton>
-                                 <CustomButton
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setIsDetailModalOpen(true)}
-                                    className="h-8 w-fit"
-                                 >
-                                    Xem chi tiết
-                                 </CustomButton>
+                              <div className="text-slate-600 flex flex-col gap-2">
+                                 <span className="font-medium text-amber-600">
+                                    Chưa được xác nhận
+                                 </span>
+                                 <div className="flex items-center justify-end gap-2 flex-wrap pt-1">
+                                    <CustomButton
+                                       type="button"
+                                       variant="outline"
+                                       onClick={() => setIsDetailModalOpen(true)}
+                                       className="h-8 w-fit text-xs cursor-pointer"
+                                    >
+                                       Xem chi tiết
+                                    </CustomButton>
+                                    <CustomButton
+                                       type="button"
+                                       onClick={() =>
+                                          setIsEvaluationModalOpen(true)
+                                       }
+                                       className="h-8 w-fit text-xs cursor-pointer"
+                                    >
+                                       Xác nhận
+                                    </CustomButton>
+                                 </div>
                               </div>
                            )}
                         </div>
@@ -1814,6 +1883,13 @@ export function ExaminationForm({
                   onSuccess={(updated) => {
                      refetchRiskAssessments?.();
                      setUpdatedAssessment(updated);
+                     const targetId =
+                        updated.assessmentInputId ||
+                        updated.assessmentInput?.id ||
+                        updated.id;
+                     setValue("assessmentInputId", targetId, {
+                        shouldDirty: true,
+                     });
                   }}
                />
 
@@ -1822,9 +1898,69 @@ export function ExaminationForm({
                   onClose={() => setIsDetailModalOpen(false)}
                   assessment={selectedRiskAssessment}
                   onEvaluate={() => setIsEvaluationModalOpen(true)}
+                  onEdit={(assessment) => {
+                     setIsDetailModalOpen(false);
+                     setEditingRiskAssessment(assessment);
+                  }}
                />
             </>
          )}
+
+         {/* Modal Tạo mới / Chỉnh sửa & Đánh giá lại phân tầng nguy cơ */}
+         <Dialog
+            open={Boolean(editingRiskAssessment) || isCreateRiskModalOpen}
+            onOpenChange={(open) => {
+               if (!open) {
+                  setEditingRiskAssessment(null);
+                  setIsCreateRiskModalOpen(false);
+               }
+            }}
+         >
+            <DialogContent className="sm:min-w-4xl max-h-[95vh] overflow-y-auto p-4 sm:p-6 rounded-sm">
+               <DialogHeader>
+                  <DialogTitle className="text-base font-bold text-slate-900">
+                     {editingRiskAssessment
+                        ? "Chỉnh sửa & Đánh giá lại phân tầng nguy cơ"
+                        : "Đánh giá phân tầng nguy cơ"}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500">
+                     {editingRiskAssessment
+                        ? "Bác sĩ được chỉnh sửa các dữ liệu người trước đã nhập. Sau khi sửa, hệ thống sẽ tính toán và phân tầng lại chính xác."
+                        : "Nhập các thông tin lâm sàng và xét nghiệm để đánh giá phân tầng nguy cơ tim mạch cho người bệnh."}
+                  </DialogDescription>
+               </DialogHeader>
+               <ScrollArea className="h-[65vh] -mr-3 pr-3">
+                  {(editingRiskAssessment || isCreateRiskModalOpen) && (
+                     <RiskFactorAssessmentForm
+                        selectedProfile={
+                           healthProfileData ||
+                           editingRiskAssessment?.healthProfile ||
+                           null
+                        }
+                        initialAssessment={editingRiskAssessment}
+                        isDoctorEditMode={Boolean(editingRiskAssessment)}
+                        onCancelEdit={() => {
+                           setEditingRiskAssessment(null);
+                           setIsCreateRiskModalOpen(false);
+                        }}
+                        onAssessmentSuccess={(updated) => {
+                           refetchRiskAssessments?.();
+                           setUpdatedAssessment(updated);
+                           const targetId =
+                              updated.assessmentInputId ||
+                              updated.assessmentInput?.id ||
+                              updated.id;
+                           setValue("assessmentInputId", targetId, {
+                              shouldDirty: true,
+                           });
+                           setEditingRiskAssessment(null);
+                           setIsCreateRiskModalOpen(false);
+                        }}
+                     />
+                  )}
+               </ScrollArea>
+            </DialogContent>
+         </Dialog>
          <TreatmentTargetTemplateModal
             isOpen={isTemplateModalOpen}
             initialMode={templateModalMode}

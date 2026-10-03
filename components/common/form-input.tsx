@@ -14,6 +14,7 @@ export interface FormInputProps extends React.ComponentProps<"input"> {
    containerClassName?: string;
    clearable?: boolean;
    onClear?: () => void;
+   allowNegative?: boolean;
 }
 
 export type IFormInput = FormInputProps;
@@ -29,6 +30,7 @@ export const FormInput = ({
    disabled,
    clearable = true,
    onClear,
+   allowNegative,
    value,
    defaultValue,
    onChange,
@@ -47,6 +49,11 @@ export const FormInput = ({
    const isPassword = type === "password";
    const inputType = isPassword ? (showPassword ? "text" : "password") : type;
 
+   const isDisallowingNegative =
+      type === "number" &&
+      (allowNegative === false ||
+         (props.min !== undefined && Number(props.min) >= 0));
+
    const currentVal =
       value !== undefined ? String(value ?? "") : uncontrolledValue;
    const isDefault =
@@ -60,7 +67,27 @@ export const FormInput = ({
       !isDefault &&
       currentVal.length > 0;
 
+   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (isDisallowingNegative && (e.key === "-" || e.key === "Minus")) {
+         e.preventDefault();
+      }
+      props.onKeyDown?.(e);
+   };
+
+   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+      if (isDisallowingNegative) {
+         const pasted = e.clipboardData.getData("text");
+         if (pasted.includes("-")) {
+            e.preventDefault();
+         }
+      }
+      props.onPaste?.(e);
+   };
+
    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (isDisallowingNegative && e.target.value.includes("-")) {
+         e.target.value = e.target.value.replace(/-/g, "");
+      }
       if (value === undefined) {
          setUncontrolledValue(e.target.value);
       }
@@ -108,15 +135,18 @@ export const FormInput = ({
    );
 
    return (
-      <Field invalid={Boolean(error)} className={containerClassName}>
+      <Field
+         invalid={Boolean(error)}
+         className={`${containerClassName} gap-0.5`}
+      >
          {label && (
             <FieldLabel
                htmlFor={inputId}
-               className="text-xs font-medium text-slate-800 flex items-center flex-wrap gap-x-1"
+               className="text-xs font-medium text-slate-800 flex items-center gap-1"
             >
                {label}
                {required && (
-                  <span className="text-red-600 font-medium inline-block">*</span>
+                  <span className="text-red-600 font-medium block">*</span>
                )}
             </FieldLabel>
          )}
@@ -131,7 +161,7 @@ export const FormInput = ({
                defaultValue={defaultValue}
                onChange={handleChange}
                className={cn(
-                  "h-10 px-4 rounded-sm border-slate-300",
+                  "h-10 px-4 rounded-sm border-slate-300 bg-slate-100",
                   isPassword && canClear
                      ? "pr-16"
                      : isPassword || canClear
@@ -140,6 +170,8 @@ export const FormInput = ({
                   className,
                )}
                {...props}
+               onKeyDown={handleKeyDown}
+               onPaste={handlePaste}
             />
             {canClear && (
                <button

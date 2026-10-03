@@ -72,7 +72,7 @@ const RISK_FACTOR_ITEMS = [
    { name: "isSmoking" as const, label: "Hút thuốc lá" },
    {
       name: "hasFamilialHypercholesterolemia" as const,
-      label: "Tăng cholesterol máu gia đình",
+      label: "Tăng mỡ máu gia đình",
    },
 ];
 
@@ -758,7 +758,7 @@ export function HealthProfileForm({
                </div>
 
                {/*Bệnh lý */}
-               <div className="col-span-full pt-2 flex flex-col gap-2">
+               <div className="col-span-full pt-2 flex flex-col gap-1">
                   <label className="text-xs font-medium text-slate-800 ">
                      Bệnh lý mạn tính
                   </label>
@@ -819,7 +819,7 @@ export function HealthProfileForm({
                   </div>
                </div>
 
-               <div className="col-span-full flex flex-col gap-2">
+               <div className="col-span-full flex flex-col gap-1">
                   <label className="text-xs font-medium text-slate-800">
                      Yếu tố nguy cơ
                   </label>

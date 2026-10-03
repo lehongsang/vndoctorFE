@@ -42,6 +42,22 @@ export const RiskFactorAssessmentApi = baseApi.injectEndpoints({
          ],
       }),
 
+      updateRiskAssessment: builder.mutation<
+         RiskAssessmentResult,
+         { id: string; data: CreateRiskAssessmentRequest }
+      >({
+         query: ({ id, data }) => ({
+            url: `/risk-assessments/${id}`,
+            method: "PATCH",
+            body: data,
+         }),
+         invalidatesTags: (_result, _error, arg) => [
+            { type: "RiskAssessment", id: "STAFF_LIST" },
+            { type: "RiskAssessment", id: "PATIENT_LIST" },
+            { type: "RiskAssessment", id: arg.id },
+         ],
+      }),
+
       // 3. Xem chi tiết phiếu đánh giá
       getRiskAssessmentDetail: builder.query<RiskAssessmentResult, string>({
          query: (id) => `/risk-assessments/${id}`,
@@ -119,6 +135,7 @@ export const {
    useGetRiskAssessmentFormSchemaQuery,
    useLazyGetRiskAssessmentFormSchemaQuery,
    useCreateRiskAssessmentMutation,
+   useUpdateRiskAssessmentMutation,
    useGetRiskAssessmentDetailQuery,
    useLazyGetRiskAssessmentDetailQuery,
    useGetStaffRiskAssessmentsQuery,

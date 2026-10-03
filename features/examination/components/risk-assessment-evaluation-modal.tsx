@@ -16,9 +16,14 @@ import {
 import { FormTextarea } from "@/components/common/form-textarea";
 import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
+import { cn } from "@/lib/utils";
 import {
    RiskLevelBadge,
+   getRiskContainerClass,
    RISK_LEVEL_OPTIONS,
+   RISK_EXPLANATION_TEXT,
+   formatRiskRate,
+   checkHasUnderlyingDisease,
 } from "@/components/common/risk-level-badge";
 
 export interface RiskAssessmentEvaluationModalProps {
@@ -37,6 +42,7 @@ function EvaluationFormContent({
    onClose: () => void;
    onSuccess?: (updated: RiskAssessmentResult) => void;
 }) {
+   const hasUnderlying = checkHasUnderlyingDisease(assessment);
    const [riskLevel, setRiskLevel] = useState<RiskLevel>(
       assessment.riskLevel || "LOW",
    );
@@ -99,22 +105,47 @@ function EvaluationFormContent({
          </DialogHeader>
 
          {/* Thông tin tham khảo từ kết quả phân tầng hiện tại */}
-         <div className="flex items-center justify-between p-3.5 rounded-sm bg-slate-50 border border-slate-200 text-xs mt-1">
-            <div className="flex items-center gap-2">
-               <span className="text-slate-500">Mức phân tầng ban đầu:</span>
-               <RiskLevelBadge level={assessment.riskLevel} />
+         <div
+            className={cn(
+               "p-4 rounded-sm border flex flex-col gap-2.5 text-xs mt-1",
+               getRiskContainerClass(assessment.riskLevel),
+            )}
+         >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+               <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-xs sm:text-sm">
+                     Nguy cơ biến cố tim mạch trong 10 năm:
+                  </span>
+                  <RiskLevelBadge level={assessment.riskLevel} />
+               </div>
+               {assessment.riskScore !== null &&
+                  assessment.riskScore !== undefined &&
+                  assessment.riskScore !== "" && (
+                     <div className="text-xs flex items-center gap-1.5 flex-wrap">
+                        <span className="text-slate-700 font-bold">
+                           Tỷ lệ biến cố:
+                        </span>
+                        <span className="text-base font-extrabold text-primary">
+                           {formatRiskRate(
+                              assessment.riskScore,
+                              hasUnderlying,
+                           )}
+                        </span>
+                     </div>
+                  )}
             </div>
-            {assessment.riskScore !== undefined &&
-               assessment.riskScore !== null && (
-                  <div className="flex items-center gap-1.5">
-                     <span className="text-slate-500">
-                        Nguy cơ biến cố trong 10 năm:
-                     </span>
-                     <span className="font-bold text-primary">
-                        {assessment.riskScore}%
-                     </span>
-                  </div>
-               )}
+
+            {/* Giải thích tỷ lệ biến cố */}
+            <div className="text-[11px] text-slate-900 bg-white/80 p-2.5 rounded border border-slate-200/70 leading-relaxed">
+               <strong className="text-slate-900">Giải thích:</strong>{" "}
+               {RISK_EXPLANATION_TEXT}
+            </div>
+
+            <p className="text-[11px] text-slate-900 italic">
+               * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
+               Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
+               mạch châu Âu ESC
+            </p>
          </div>
 
          <form onSubmit={handleSubmit} className="space-y-4 py-2 text-xs">

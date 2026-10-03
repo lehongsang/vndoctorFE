@@ -104,15 +104,18 @@ export const FormTextarea = ({
    );
 
    return (
-      <Field invalid={Boolean(error)} className={containerClassName}>
+      <Field
+         invalid={Boolean(error)}
+         className={`${containerClassName} gap-0.5`}
+      >
          {label && (
             <FieldLabel
                htmlFor={textareaId}
-               className="text-xs font-medium text-slate-800 flex items-center flex-wrap gap-x-1"
+               className="text-xs font-medium text-slate-800 flex items-center gap-1"
             >
                {label}
                {required && (
-                  <span className="text-red-600 font-bold inline-block">*</span>
+                  <span className="text-red-600 font-medium block">*</span>
                )}
             </FieldLabel>
          )}
@@ -127,7 +130,7 @@ export const FormTextarea = ({
                defaultValue={defaultValue}
                onChange={handleChange}
                className={cn(
-                  "min-h-24 p-4 rounded-sm border-slate-300 text-sm",
+                  "min-h-24 p-4 rounded-sm border-slate-300 bg-slate-100 text-sm",
                   canClear && "pr-10",
                   className,
                )}

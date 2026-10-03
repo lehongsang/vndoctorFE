@@ -9,7 +9,14 @@ import { useGetDetailTreamentTargetQuery } from "@/store/api/treatment-target/tr
 import { useGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { RiskAssessmentDetailModal } from "./risk-assessment-detail-modal";
 import { cn } from "@/lib/utils";
-import { RiskLevelBadge } from "@/components/common/risk-level-badge";
+import {
+   RiskLevelBadge,
+   getRiskContainerClass,
+   formatRiskRate,
+   checkHasUnderlyingDisease,
+   RISK_EXPLANATION_TEXT,
+} from "@/components/common/risk-level-badge";
+import { X } from "lucide-react";
 
 export interface ExaminationDetailProps {
    examination: Examination;
@@ -193,11 +200,7 @@ export function ExaminationDetail({
    const hasTemp = hasValue(examination.temperature);
    const hasRespiratoryRate = hasValue(examination.respiratoryRate);
    const hasVitalSigns =
-      hasBp ||
-      hasHeartRate ||
-      hasSpo2 ||
-      hasTemp ||
-      hasRespiratoryRate;
+      hasBp || hasHeartRate || hasSpo2 || hasTemp || hasRespiratoryRate;
 
    // Check diagnosis section
    const hasDiagnosis = hasValue(examination.diagnosis);
@@ -302,9 +305,9 @@ export function ExaminationDetail({
                      variant="destructive"
                      size="sm"
                      onClick={onClose}
-                     className="h-8 w-20 text-xs"
+                     className="h-8 w-8"
                   >
-                     Đóng
+                     <X />
                   </CustomButton>
                )}
             </div>
@@ -422,37 +425,74 @@ export function ExaminationDetail({
                   )}
 
                   {examination.assessmentInputId && (
-                     <div className="p-4 rounded-sm border flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                           <span className="font-semibold text-slate-700">
-                              Phân tầng nguy cơ:
-                           </span>
-                           {hasValue(riskAssessment?.riskLevel) ? (
-                              <RiskLevelBadge
-                                 level={riskAssessment?.riskLevel}
-                              />
-                           ) : (
-                              <span className="text-slate-600 font-medium">
-                                 Đã liên kết phiếu phân tầng
+                     <div
+                        className={cn(
+                           "p-4 rounded-sm border flex flex-col gap-2.5 text-xs",
+                           riskAssessment?.riskLevel
+                              ? getRiskContainerClass(riskAssessment.riskLevel)
+                              : "bg-slate-50/50 border-slate-200",
+                        )}
+                     >
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                           <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-xs sm:text-sm">
+                                 Nguy cơ biến cố tim mạch trong 10 năm:
                               </span>
-                           )}
-                           {hasValue(riskAssessment?.riskScore) && (
-                              <span className="text-slate-600 font-medium">
-                                 (Điểm nguy cơ: {riskAssessment?.riskScore}%)
-                              </span>
-                           )}
+                              {hasValue(riskAssessment?.riskLevel) ? (
+                                 <RiskLevelBadge
+                                    level={riskAssessment?.riskLevel}
+                                 />
+                              ) : (
+                                 <span className="text-slate-600 font-medium">
+                                    Đã liên kết phiếu phân tầng
+                                 </span>
+                              )}
+                           </div>
+
+                           <div className="flex items-center gap-3 flex-wrap">
+                              {riskAssessment &&
+                                 hasValue(riskAssessment.riskScore) && (
+                                    <div className="text-xs flex items-center gap-1.5 flex-wrap">
+                                       <span className="text-slate-700 font-bold">
+                                          Tỷ lệ biến cố:
+                                       </span>
+                                       <span className="text-base font-extrabold text-primary">
+                                          {formatRiskRate(
+                                             riskAssessment.riskScore,
+                                             checkHasUnderlyingDisease(
+                                                riskAssessment,
+                                             ),
+                                          )}
+                                       </span>
+                                    </div>
+                                 )}
+
+                              {riskAssessment && (
+                                 <CustomButton
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => setIsRiskModalOpen(true)}
+                                    className="h-8 px-3 text-xs"
+                                 >
+                                    Xem chi tiết phân tầng
+                                 </CustomButton>
+                              )}
+                           </div>
                         </div>
 
-                        {riskAssessment && (
-                           <CustomButton
-                              type="button"
-                              size="sm"
-                              onClick={() => setIsRiskModalOpen(true)}
-                              className="h-8 px-3 text-xs"
-                           >
-                              Xem chi tiết phân tầng
-                           </CustomButton>
-                        )}
+                        {/* Giải thích tỷ lệ biến cố */}
+                        <div className="text-[11px] text-slate-900 bg-white/80 p-2.5 rounded border border-slate-200/70 leading-relaxed">
+                           <strong className="text-slate-900">
+                              Giải thích:
+                           </strong>{" "}
+                           {RISK_EXPLANATION_TEXT}
+                        </div>
+
+                        <p className="text-[11px] text-slate-900 italic">
+                           * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
+                           Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
+                           mạch châu Âu ESC
+                        </p>
                      </div>
                   )}
                </div>

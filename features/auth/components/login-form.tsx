@@ -90,6 +90,7 @@ export const LoginForm = () => {
                {...register("username")}
                label="Tên đăng nhập"
                required
+               clearable={false}
                placeholder="Nhập tên đăng nhập"
                error={errors.username?.message}
             />
@@ -100,6 +101,7 @@ export const LoginForm = () => {
                   type="password"
                   label="Mật khẩu"
                   required
+                  clearable={false}
                   placeholder="Nhập mật khẩu"
                   error={errors.password?.message}
                />

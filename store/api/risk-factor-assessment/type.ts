@@ -61,12 +61,14 @@ export type CreateRiskAssessmentGeneral = {
    diastolicBp?: number;
    totalCholesterol?: number;
    hdlCholesterol?: number;
-   nonHdlCholesterol?: number;
+   nonHdlCholesterol?: number | null;
+   ldlCholesterol?: number | null;
+   triglycerides?: number | null;
    glucoseFasting?: number | null;
    heightCm?: number | null;
    weightKg?: number | null;
 };
- 
+
 // --- Request DTOs: Luồng 2 (Có bệnh nền / Biến chứng - Non-ASCVD) ---
 export type CreateRiskAssessmentWithDisease = {
    healthProfileId: string;

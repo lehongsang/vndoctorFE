@@ -106,4 +106,64 @@ export const RiskLevelBadge: React.FC<RiskLevelBadgeProps> = ({
    );
 };
 
+export const RISK_EXPLANATION_TEXT =
+   "Tỷ lệ biến cố là xác suất ước tính xảy ra ít nhất một biến cố tim mạch trong 10 năm tới. Biến cố được tính gồm: tử vong do bệnh tim mạch, nhồi máu cơ tim hoặc đột quỵ não không tử vong.";
+
+export function formatRiskRate(
+   riskScore?: number | string | null,
+   hasUnderlying?: boolean,
+): string {
+   if (riskScore === null || riskScore === undefined || riskScore === "")
+      return "—";
+   const str = String(riskScore).trim();
+   // Remove existing leading > and trailing %
+   const clean = str.replace(/^>\s*/, "").replace(/%$/, "").trim();
+   if (!clean || clean === "0") return "—";
+   return hasUnderlying ? `> ${clean}%` : `${clean}%`;
+}
+
+export function checkHasUnderlyingDisease(data?: {
+   assessmentInput?: {
+      hasUnderlyingDisease?: boolean;
+      diabetes?: boolean;
+      stroke?: boolean;
+      hasMyocardialInfarction?: boolean;
+      hasAcuteCoronarySyndrome?: boolean;
+      hasCoronaryArteryDisease?: boolean;
+      hasTia?: boolean;
+      hasAorticAneurysm?: boolean;
+      hasPeripheralArteryDisease?: boolean;
+      hasAtherosclerosis?: boolean;
+      hasFamilialHypercholesterolemia?: boolean;
+      hasLeftVentricularHypertrophy?: boolean;
+      hasAlbuminuria?: boolean;
+      hasRetinopathy?: boolean;
+      hasSilentBrainInfarct?: boolean;
+   };
+   hasUnderlyingDisease?: boolean;
+} | null): boolean {
+   if (!data) return false;
+   if (data.hasUnderlyingDisease) return true;
+   const inp = data.assessmentInput;
+   if (!inp) return false;
+   if (inp.hasUnderlyingDisease) return true;
+   return Boolean(
+      inp.diabetes ||
+         inp.stroke ||
+         inp.hasMyocardialInfarction ||
+         inp.hasAcuteCoronarySyndrome ||
+         inp.hasCoronaryArteryDisease ||
+         inp.hasTia ||
+         inp.hasAorticAneurysm ||
+         inp.hasPeripheralArteryDisease ||
+         inp.hasAtherosclerosis ||
+         inp.hasFamilialHypercholesterolemia ||
+         inp.hasLeftVentricularHypertrophy ||
+         inp.hasAlbuminuria ||
+         inp.hasRetinopathy ||
+         inp.hasSilentBrainInfarct,
+   );
+}
+
 export default RiskLevelBadge;
+

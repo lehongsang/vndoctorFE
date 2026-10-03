@@ -79,7 +79,11 @@ export default function CareRequestModule() {
                r.requestCode?.toLowerCase().includes(query) ||
                r.title?.toLowerCase().includes(query) ||
                r.description?.toLowerCase().includes(query) ||
-               r.assignedUser?.fullName?.toLowerCase().includes(query),
+               r.assignedUser?.fullName?.toLowerCase().includes(query) ||
+               r.subscription?.healthProfile?.fullName
+                  ?.toLowerCase()
+                  .includes(query) ||
+               r.subscription?.healthProfile?.phoneNumber?.includes(query),
          );
       }
 

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { RiskAssessmentResult } from "@/store/api/risk-factor-assessment/type";
 import { useGetStaffRiskAssessmentsQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
-import { CustomButton } from "@/components/common/custom-button";
 import { CustomPagination } from "@/components/common/custom-pagination";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -12,23 +11,24 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import RiskAssessmentEvaluationModal from "./risk-assessment-evaluation-modal";
 import RiskAssessmentDetailModal from "./risk-assessment-detail-modal";
-import { RotateCcw } from "lucide-react";
 import {
    RiskLevelBadge,
    getRiskLevelConfig,
+   formatRiskRate,
+   checkHasUnderlyingDisease,
 } from "@/components/common/risk-level-badge";
 
 export interface RiskAssessmentHistoryProps {
    healthProfileId?: string;
    selectedAssessmentId?: string;
    onSelectAssessment?: (assessment: RiskAssessmentResult) => void;
+   onEdit?: (assessment: RiskAssessmentResult) => void;
 }
 
 const RiskAssessmentCardItem = ({
    record,
    isSelected,
    onSelect,
-   onEvaluate,
    onViewDetails,
 }: {
    record: RiskAssessmentResult;
@@ -36,17 +36,14 @@ const RiskAssessmentCardItem = ({
    onSelect?: (record: RiskAssessmentResult) => void;
    onEvaluate: (record: RiskAssessmentResult) => void;
    onViewDetails: (record: RiskAssessmentResult) => void;
+   onEdit?: (record: RiskAssessmentResult) => void;
 }) => {
    const dateStr = record.createdAt;
    const formattedDate = dateStr
       ? format(new Date(dateStr), "dd/MM/yyyy HH:mm")
       : "—";
 
-   const hasDisease = record.assessmentInput?.hasUnderlyingDisease;
-   const bp =
-      record.assessmentInput?.systolicBp && record.assessmentInput?.diastolicBp
-         ? `${record.assessmentInput.systolicBp}/${record.assessmentInput.diastolicBp} mmHg`
-         : null;
+   const hasDisease = checkHasUnderlyingDisease(record);
 
    const riskInfo = getRiskLevelConfig(record.riskLevel);
 
@@ -68,93 +65,55 @@ const RiskAssessmentCardItem = ({
             <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                {formattedDate}
             </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-               {hasDisease ? "Non-ASCVD" : "SCORE2"}
-            </span>
-         </div>
-
-         {/* Row 2: Mức nguy cơ & Điểm 10 năm */}
-         <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
                <RiskLevelBadge level={record.riskLevel} />
             </div>
-            <div className="flex items-baseline gap-1">
-               <span className="text-[11px] text-slate-500">
-                  Nguy cơ biến cố trong 10 năm:
-               </span>
-               <span className="text-xs font-extrabold text-slate-900">
-                  {record.riskScore}%
-               </span>
-            </div>
          </div>
 
-         {/* Row 3: Chỉ số tóm tắt nếu có */}
-         {bp && (
-            <div className="text-[11px] text-slate-600 flex items-center gap-1 flex-wrap">
-               <span className="text-slate-400">HA:</span>
-               <span className="font-semibold text-slate-700">{bp}</span>
-               {record.assessmentInput?.totalCholesterol && (
-                  <>
-                     <span className="text-slate-300">•</span>
-                     <span className="text-slate-400">Cholesterol TP:</span>
-                     <span className="font-semibold text-slate-700">
-                        {record.assessmentInput.totalCholesterol} mmol/L
+         {/* Row 2: Mức nguy cơ & Tỷ lệ biến cố */}
+         <div className="flex items-baseline gap-1">
+            <span className="text-[11px] text-slate-500">
+               Nguy cơ biến cố tim mạch trong 10 năm:
+            </span>
+            <span className="text-xs font-extrabold text-slate-900">
+               {formatRiskRate(record.riskScore, hasDisease)}
+            </span>
+         </div>
+         <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+            {record.doctor?.fullName ? (
+               <div className="flex items-center gap-2 min-w-0">
+                  <Avatar className="w-6 h-6 bg-slate-100 border border-slate-200 shrink-0">
+                     <AvatarFallback className="text-[10px] font-semibold text-slate-600">
+                        {record.doctor?.fullName
+                           ? record.doctor.fullName.slice(0, 2).toUpperCase()
+                           : "HT"}
+                     </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col min-w-0">
+                     <span className="text-[10px] text-slate-400 leading-tight">
+                        Người thực hiện
                      </span>
-                  </>
-               )}
-            </div>
-         )}
-
-         {/* Row 4: Người thực hiện & Thao tác */}
-         <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2 min-w-0">
-               <Avatar className="w-6 h-6 bg-slate-100 border border-slate-200 shrink-0">
-                  <AvatarFallback className="text-[10px] font-semibold text-slate-600">
-                     {record.doctor?.fullName
-                        ? record.doctor.fullName.slice(0, 2).toUpperCase()
-                        : "HT"}
-                  </AvatarFallback>
-               </Avatar>
-               <div className="flex flex-col min-w-0">
-                  <span className="text-[10px] text-slate-400 leading-tight">
-                     Người thực hiện
-                  </span>
-                  <span className="text-xs font-medium text-slate-800 truncate">
-                     {record.doctor?.fullName || (
-                        <span className="text-amber-600 font-normal">
-                           Chờ thẩm định
-                        </span>
-                     )}
-                  </span>
+                     <span className="text-xs font-medium text-slate-800 truncate">
+                        {record.doctor?.fullName}
+                     </span>
+                  </div>
                </div>
-            </div>
+            ) : (
+               <span className="text-xs text-amber-600">
+                  Chưa được xác nhận
+               </span>
+            )}
 
-            <div className="flex items-center gap-1 shrink-0">
-               <CustomButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs px-2 font-medium border-emerald-300 text-emerald-700 hover:bg-emerald-50 cursor-pointer"
-                  endIcon={record.doctor ? <RotateCcw /> : null}
-                  onClick={(e) => {
-                     e.stopPropagation();
-                     onEvaluate(record);
-                  }}
-               >
-                  {record.doctor ? "Thẩm định lại" : "Thẩm định"}
-               </CustomButton>
-               <CustomButton
-                  type="button"
-                  size="sm"
-                  className="h-7 text-xs px-2 font-medium cursor-pointer"
-                  onClick={(e) => {
-                     e.stopPropagation();
-                     onViewDetails(record);
-                  }}
-               >
-                  Chi tiết
-               </CustomButton>
-            </div>
+            <button
+               type="button"
+               className="text-xs text-primary font-semibold hover:underline cursor-pointer shrink-0"
+               onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetails(record);
+               }}
+            >
+               Chi tiết
+            </button>
          </div>
       </div>
    );
@@ -164,6 +123,7 @@ export function RiskAssessmentHistory({
    healthProfileId,
    selectedAssessmentId,
    onSelectAssessment,
+   onEdit,
 }: RiskAssessmentHistoryProps) {
    const [page, setPage] = useState<number>(1);
    const [selectedItem, setSelectedItem] =
@@ -225,6 +185,7 @@ export function RiskAssessmentHistory({
                         onSelect={onSelectAssessment}
                         onEvaluate={(item) => setEvaluatingItem(item)}
                         onViewDetails={(item) => setSelectedItem(item)}
+                        onEdit={onEdit}
                      />
                   ))}
                </div>
@@ -247,6 +208,18 @@ export function RiskAssessmentHistory({
             assessment={selectedItem}
             isOpen={Boolean(selectedItem)}
             onClose={() => setSelectedItem(null)}
+            onEdit={
+               onEdit
+                  ? (item) => {
+                       setSelectedItem(null);
+                       onEdit(item);
+                    }
+                  : undefined
+            }
+            onEvaluate={(item) => {
+               setSelectedItem(null);
+               setEvaluatingItem(item);
+            }}
          />
 
          {/* Modal Thẩm định & Xác nhận phân tầng */}

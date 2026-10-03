@@ -13,6 +13,7 @@ import RiskFactorAssessmentForm from "./components/risk-factor-assessment-form";
 import { HealthProfile } from "@/store/api/health-profile/type";
 import { ExaminationService } from "./components/service";
 import { RiskAssessmentHistory } from "./components/risk-assessment-history";
+import { RiskAssessmentResult } from "@/store/api/risk-factor-assessment/type";
 import { useGetRiskAssessmentDetailQuery } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { useLazyGetExaminationByIdQuery } from "@/store/api/examination/examination-api";
 import { ArrowLeft, AlertTriangle, Lock } from "lucide-react";
@@ -44,6 +45,8 @@ export const ExaminationPage = () => {
       useState<boolean>(false);
    const [editingExamination, setEditingExamination] =
       useState<Examination | null>(null);
+   const [editingAssessment, setEditingAssessment] =
+      useState<RiskAssessmentResult | null>(null);
 
    const { data, isLoading } = useGetDetailHealthProfileQuery(id || "");
    const HealthProfile = data as HealthProfile;
@@ -126,6 +129,7 @@ export const ExaminationPage = () => {
          );
          return;
       }
+      setSelectedOption("history");
       setIsCreateExamination(true);
       setEditingExamination(
          initialVitals ? (initialVitals as Examination) : null,
@@ -155,9 +159,12 @@ export const ExaminationPage = () => {
             {HealthProfile && <ExaminationInfo profile={HealthProfile} />}
             <div className="flex gap-2">
                <CustomButton
-                  onClick={() => setSelectedOption("history")}
+                  onClick={() => {
+                     setSelectedOption("history");
+                     setEditingAssessment(null);
+                  }}
                   variant={selectedOption === "history" ? "default" : "outline"}
-                  className="h-9"
+                  className="h-9 flex-1"
                >
                   Đợt khám
                </CustomButton>
@@ -166,7 +173,7 @@ export const ExaminationPage = () => {
                   variant={
                      selectedOption === "assessment" ? "default" : "outline"
                   }
-                  className="h-9"
+                  className="h-9 flex-1"
                >
                   Phân tầng
                </CustomButton>
@@ -189,7 +196,14 @@ export const ExaminationPage = () => {
                   }}
                />
             ) : (
-               <RiskAssessmentHistory healthProfileId={id || ""} />
+               <RiskAssessmentHistory
+                  healthProfileId={id || ""}
+                  selectedAssessmentId={editingAssessment?.id}
+                  onEdit={(item) => {
+                     setSelectedOption("assessment");
+                     setEditingAssessment(item);
+                  }}
+               />
             )}
          </div>
          <ScrollArea className="col-span-9 overflow-auto h-[calc(100vh-4rem)] p-4 pb-0">
@@ -204,7 +218,14 @@ export const ExaminationPage = () => {
                <>
                   {selectedOption === "assessment" && (
                      <RiskFactorAssessmentForm
+                        key={editingAssessment?.id || "new-assessment"}
                         selectedProfile={HealthProfile}
+                        initialAssessment={editingAssessment}
+                        isDoctorEditMode={Boolean(editingAssessment)}
+                        onCancelEdit={() => setEditingAssessment(null)}
+                        onAssessmentSuccess={(newAssessment) => {
+                           setEditingAssessment(newAssessment);
+                        }}
                         onStartExaminationWithAssessment={(
                            _assessment,
                            initialVitals,

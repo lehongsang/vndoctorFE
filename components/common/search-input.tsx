@@ -128,7 +128,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
                disabled={disabled}
                placeholder={placeholder}
                className={cn(
-                  "h-10 pl-9 text-sm border-slate-300 rounded-sm placeholder:text-slate-400",
+                  "h-10 pl-9 text-sm border-slate-300 bg-slate-100 rounded-sm placeholder:text-slate-400",
                   canClear ? "pr-9" : "pr-3",
                   className,
                )}

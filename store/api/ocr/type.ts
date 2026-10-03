@@ -114,6 +114,8 @@ export type OcrChiSoSinhLyCoBan = {
    cholesterol_toan_phan?: number | null;
    hdl_cholesterol?: number | null;
    non_hdl_cholesterol?: number | null;
+   ldl_cholesterol?: number | null;
+   triglycerides?: number | null;
 };
 
 export type OcrTonThuongCoQuanDich = {

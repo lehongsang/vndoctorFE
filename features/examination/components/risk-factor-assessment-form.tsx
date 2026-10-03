@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useForm, Controller, useWatch, Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,6 +13,7 @@ import {
 } from "@/store/api/risk-factor-assessment/type";
 import {
    useCreateRiskAssessmentMutation,
+   useUpdateRiskAssessmentMutation,
    useGetRiskAssessmentFormSchemaQuery,
 } from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
 import { FormInput } from "@/components/common/form-input";
@@ -39,6 +40,9 @@ import { cn } from "@/lib/utils";
 import {
    RiskLevelBadge,
    getRiskContainerClass,
+   RISK_EXPLANATION_TEXT,
+   formatRiskRate,
+   checkHasUnderlyingDisease,
 } from "@/components/common/risk-level-badge";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -48,6 +52,10 @@ export interface RiskFactorAssessmentFormProps {
       assessment: RiskAssessmentResult,
       initialVitals?: Partial<Examination>,
    ) => void;
+   initialAssessment?: RiskAssessmentResult | null;
+   isDoctorEditMode?: boolean;
+   onAssessmentSuccess?: (assessment: RiskAssessmentResult) => void;
+   onCancelEdit?: () => void;
 }
 
 const assessmentSchema = z
@@ -55,12 +63,14 @@ const assessmentSchema = z
       hasUnderlyingDisease: z.boolean(),
       age: z.number().nullable().optional(),
       gender: z.string().optional(),
-      isSmoking: z.boolean(),
+      isSmoking: z.boolean().nullable().optional(),
       systolicBp: z.number().nullable().optional(),
       diastolicBp: z.number().nullable().optional(),
       totalCholesterol: z.number().nullable().optional(),
       hdlCholesterol: z.number().nullable().optional(),
       nonHdlCholesterol: z.number().nullable().optional(),
+      ldlCholesterol: z.number().nullable().optional(),
+      triglycerides: z.number().nullable().optional(),
       glucoseFasting: z.number().nullable().optional(),
       heightCm: z.number().nullable().optional(),
       weightKg: z.number().nullable().optional(),
@@ -90,29 +100,37 @@ const assessmentSchema = z
       hasFamilialHypercholesterolemia: z.boolean(),
    })
    .superRefine((data, ctx) => {
-      // 1. Tuổi: Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên
-      if (data.age === null || data.age === undefined) {
-         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Vui lòng nhập tuổi của người bệnh",
-            path: ["age"],
-         });
-      } else if (data.age < 40) {
-         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message:
-               "Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên",
-            path: ["age"],
-         });
-      } else if (data.age > 100) {
-         ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Tuổi đánh giá tối đa là 100 tuổi",
-            path: ["age"],
-         });
-      }
-
       if (!data.hasUnderlyingDisease) {
+         // 1. Tuổi: Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên
+         if (data.age === null || data.age === undefined) {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message: "Vui lòng nhập tuổi của người bệnh",
+               path: ["age"],
+            });
+         } else if (data.age < 40) {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message:
+                  "Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên",
+               path: ["age"],
+            });
+         } else if (data.age > 100) {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message: "Tuổi đánh giá tối đa là 100 tuổi",
+               path: ["age"],
+            });
+         }
+         // Thói quen hút thuốc: Bắt buộc chọn khi không có bệnh nền (SCORE2)
+         if (data.isSmoking === null || data.isSmoking === undefined) {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message: "Vui lòng chọn thói quen hút thuốc của người bệnh",
+               path: ["isSmoking"],
+            });
+         }
+
          // 2. Giới tính: Bắt buộc chọn
          if (!data.gender || data.gender.trim() === "") {
             ctx.addIssue({
@@ -171,11 +189,13 @@ const assessmentSchema = z
          // 5. Cholesterol toàn phần: 2.0 - 15.0 mmol/L (theo thang BYT / SCORE2)
          if (
             data.totalCholesterol === null ||
-            data.totalCholesterol === undefined
+            data.totalCholesterol === undefined ||
+            data.totalCholesterol === 0
          ) {
             ctx.addIssue({
                code: z.ZodIssueCode.custom,
-               message: "Vui lòng nhập Cholesterol toàn phần",
+               message:
+                  "Vui lòng nhập Cholesterol toàn phần (chưa tính được Non-HDL-Cholesterol)",
                path: ["totalCholesterol"],
             });
          } else if (
@@ -190,56 +210,110 @@ const assessmentSchema = z
             });
          }
 
-         // 6. HDL-Cholesterol (nếu nhập): 0.5 - 4.5 mmol/L
+         // 6. HDL-Cholesterol: 0.5 - 4.5 mmol/L (bắt buộc để tính Non-HDL)
          if (
-            data.hdlCholesterol !== null &&
-            data.hdlCholesterol !== undefined
+            data.hdlCholesterol === null ||
+            data.hdlCholesterol === undefined
          ) {
-            if (data.hdlCholesterol < 0.5 || data.hdlCholesterol > 4.5) {
-               ctx.addIssue({
-                  code: z.ZodIssueCode.custom,
-                  message: "HDL-Cholesterol hợp lệ từ 0.5 - 4.5 mmol/L",
-                  path: ["hdlCholesterol"],
-               });
-            } else if (
-               data.totalCholesterol !== null &&
-               data.totalCholesterol !== undefined &&
-               data.hdlCholesterol >= data.totalCholesterol
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message:
+                  "Vui lòng nhập HDL-Cholesterol (chưa tính được Non-HDL-Cholesterol)",
+               path: ["hdlCholesterol"],
+            });
+         } else if (data.hdlCholesterol < 0.5 || data.hdlCholesterol > 4.5) {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message: "HDL-Cholesterol hợp lệ từ 0.5 - 4.5 mmol/L",
+               path: ["hdlCholesterol"],
+            });
+         } else if (
+            data.totalCholesterol &&
+            data.hdlCholesterol >= data.totalCholesterol
+         ) {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message: "HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần",
+               path: ["hdlCholesterol"],
+            });
+         }
+
+         // 7. Non-HDL-Cholesterol: Tự động tính từ Cholesterol toàn phần - HDL-Cholesterol
+         if (
+            data.totalCholesterol !== null &&
+            data.totalCholesterol !== undefined &&
+            data.hdlCholesterol !== null &&
+            data.hdlCholesterol !== undefined &&
+            data.hdlCholesterol < data.totalCholesterol
+         ) {
+            if (
+               data.nonHdlCholesterol === null ||
+               data.nonHdlCholesterol === undefined
             ) {
                ctx.addIssue({
                   code: z.ZodIssueCode.custom,
-                  message: "HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần",
+                  message: "Chưa tính được Non-HDL-Cholesterol",
+                  path: ["hdlCholesterol"],
+               });
+            } else if (
+               data.nonHdlCholesterol < 1.0 ||
+               data.nonHdlCholesterol > 15.0
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Non-HDL-Cholesterol hợp lệ từ 1.0 - 15.0 mmol/L",
                   path: ["hdlCholesterol"],
                });
             }
          }
 
-         // 7. Non-HDL-Cholesterol (nếu nhập): 1.0 - 15.0 mmol/L
+         // 8. LDL-Cholesterol (nếu nhập): 0.5 - 15.0 mmol/L
          if (
-            data.nonHdlCholesterol !== null &&
-            data.nonHdlCholesterol !== undefined
+            data.ldlCholesterol !== null &&
+            data.ldlCholesterol !== undefined
          ) {
-            if (data.nonHdlCholesterol < 1.0 || data.nonHdlCholesterol > 15.0) {
+            if (data.ldlCholesterol < 0.5 || data.ldlCholesterol > 15.0) {
                ctx.addIssue({
                   code: z.ZodIssueCode.custom,
-                  message: "Non-HDL-Cholesterol hợp lệ từ 1.0 - 15.0 mmol/L",
-                  path: ["nonHdlCholesterol"],
+                  message: "LDL-Cholesterol hợp lệ từ 0.5 - 15.0 mmol/L",
+                  path: ["ldlCholesterol"],
                });
             } else if (
                data.totalCholesterol !== null &&
                data.totalCholesterol !== undefined &&
-               data.nonHdlCholesterol >= data.totalCholesterol
+               data.ldlCholesterol >= data.totalCholesterol
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "LDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần",
+                  path: ["ldlCholesterol"],
+               });
+            } else if (
+               data.nonHdlCholesterol !== null &&
+               data.nonHdlCholesterol !== undefined &&
+               data.ldlCholesterol > data.nonHdlCholesterol
             ) {
                ctx.addIssue({
                   code: z.ZodIssueCode.custom,
                   message:
-                     "Non-HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần",
-                  path: ["nonHdlCholesterol"],
+                     "LDL-Cholesterol không được lớn hơn Non-HDL-Cholesterol",
+                  path: ["ldlCholesterol"],
                });
             }
          }
 
-         // 8. Đường huyết lúc đói (nếu nhập): 2.0 - 35.0 mmol/L
+         // 9. Triglycerides (nếu nhập): 0.2 - 30.0 mmol/L
+         if (data.triglycerides !== null && data.triglycerides !== undefined) {
+            if (data.triglycerides < 0.2 || data.triglycerides > 30.0) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Triglycerides hợp lệ từ 0.2 - 30.0 mmol/L",
+                  path: ["triglycerides"],
+               });
+            }
+         }
+
+         // 10. Đường huyết lúc đói (nếu nhập): 2.0 - 35.0 mmol/L
          if (
             data.glucoseFasting !== null &&
             data.glucoseFasting !== undefined
@@ -366,17 +440,17 @@ const CARDIOVASCULAR_EVENT_ITEMS: {
    name: keyof AssessmentFormValues;
    label: string;
 }[] = [
-   { name: "stroke", label: "Đột quỵ" },
+   { name: "stroke", label: "Đột quỵ não" },
    { name: "hasMyocardialInfarction", label: "Nhồi máu cơ tim" },
    { name: "hasAcuteCoronarySyndrome", label: "Hội chứng vành cấp" },
    { name: "hasCoronaryArteryDisease", label: "Bệnh lý mạch vành" },
-   { name: "hasTia", label: "Thiếu máu não thoáng qua (TIA)" },
+   { name: "hasTia", label: "Cơn thiếu máu não cục bộ thoáng qua (TIA)" },
    { name: "hasAorticAneurysm", label: "Phình động mạch chủ" },
    { name: "hasPeripheralArteryDisease", label: "Bệnh mạch máu ngoại vi" },
    { name: "hasAtherosclerosis", label: "Xơ vữa mạch máu" },
    {
       name: "hasFamilialHypercholesterolemia",
-      label: "Tăng Cholesterol máu gia đình",
+      label: "Tăng mỡ máu gia đình",
    },
 ];
 
@@ -552,19 +626,21 @@ const getPositiveFactors = (input?: AssessmentInput | null) => {
       });
    }
    if (input.hasLeftVentricularHypertrophy) {
-      factors.push({ label: "Phì đại thất trái (ECG/Siêu âm tim)" });
+      factors.push({
+         label: "Phì đại thất trái trên siêu âm tim hoặc điện tim",
+      });
    }
    if (input.hasAlbuminuria) {
       factors.push({ label: "Có Albumin niệu / Microalbumin niệu" });
    }
    if (input.hasRetinopathy) {
-      factors.push({ label: "Tổn thương võng mạc do THA / mạch cảnh" });
+      factors.push({ label: "Tổn thương đáy mắt" });
    }
    if (input.hasSilentBrainInfarct) {
-      factors.push({ label: "Nhồi máu não thầm lặng" });
+      factors.push({ label: "Tổn thương thầm lặng trên não (slient infact)" });
    }
    if (input.stroke) {
-      factors.push({ label: "Đột quỵ" });
+      factors.push({ label: "Đột quỵ não" });
    }
    if (input.hasMyocardialInfarction) {
       factors.push({ label: "Nhồi máu cơ tim" });
@@ -576,7 +652,7 @@ const getPositiveFactors = (input?: AssessmentInput | null) => {
       factors.push({ label: "Bệnh lý mạch vành" });
    }
    if (input.hasTia) {
-      factors.push({ label: "Cơn thiếu máu não thoáng qua (TIA)" });
+      factors.push({ label: "Cơn thiếu máu não cục bộ thoáng qua (TIA)" });
    }
    if (input.hasAorticAneurysm) {
       factors.push({ label: "Phình động mạch chủ" });
@@ -588,7 +664,7 @@ const getPositiveFactors = (input?: AssessmentInput | null) => {
       factors.push({ label: "Vữa xơ mạch máu" });
    }
    if (input.hasFamilialHypercholesterolemia) {
-      factors.push({ label: "Tăng Cholesterol máu gia đình" });
+      factors.push({ label: "Tăng mỡ máu gia đình" });
    }
 
    return factors;
@@ -655,10 +731,32 @@ function CheckboxCardItem({
 export function RiskFactorAssessmentForm({
    selectedProfile,
    onStartExaminationWithAssessment,
+   initialAssessment,
+   isDoctorEditMode = false,
+   onAssessmentSuccess,
+   onCancelEdit,
 }: RiskFactorAssessmentFormProps) {
    const router = useRouter();
-   const [assessmentResult, setAssessmentResult] =
+   const isEditMode = Boolean(initialAssessment) || Boolean(isDoctorEditMode);
+   const [createdAssessment, setCreatedAssessment] =
       useState<RiskAssessmentResult | null>(null);
+   const [prevInitialAssessment, setPrevInitialAssessment] =
+      useState<RiskAssessmentResult | null | undefined>(initialAssessment);
+
+   if (prevInitialAssessment !== initialAssessment) {
+      setPrevInitialAssessment(initialAssessment);
+      setCreatedAssessment(null);
+   }
+
+   const assessmentResult = createdAssessment || initialAssessment || null;
+   const setAssessmentResult = setCreatedAssessment;
+   const resultRef = useRef<HTMLDivElement | null>(null);
+
+   useEffect(() => {
+      if (createdAssessment && resultRef.current) {
+         resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+   }, [createdAssessment]);
    const [isEvaluationModalOpen, setIsEvaluationModalOpen] =
       useState<boolean>(false);
    const [isOcrModalOpen, setIsOcrModalOpen] = useState<boolean>(false);
@@ -666,35 +764,40 @@ export function RiskFactorAssessmentForm({
       Partial<Record<keyof AssessmentFormValues, FieldDataSource>>
    >({});
 
-   const [createAssessment, { isLoading: isSubmitting }] =
+   const [createAssessment, { isLoading: isCreating }] =
       useCreateRiskAssessmentMutation();
+   const [updateRiskAssessment, { isLoading: isUpdating }] =
+      useUpdateRiskAssessmentMutation();
+   const isSubmitting = isCreating || isUpdating;
+
+   const activeProfile =
+      selectedProfile || initialAssessment?.healthProfile || null;
 
    // Lấy dữ liệu schema & bệnh nền đã ghi nhận của bệnh nhân
    const { data: schemaData } = useGetRiskAssessmentFormSchemaQuery(
-      { healthProfileId: selectedProfile?.id || "" },
-      { skip: !selectedProfile?.id },
+      { healthProfileId: activeProfile?.id || "" },
+      { skip: !activeProfile?.id },
    );
 
    // Tuổi tính từ ngày sinh hồ sơ
-   const profileAge = selectedProfile?.dob
+   const profileAge = activeProfile?.dob
       ? Math.max(
            0,
-           new Date().getFullYear() -
-              new Date(selectedProfile.dob).getFullYear(),
+           new Date().getFullYear() - new Date(activeProfile.dob).getFullYear(),
         )
       : null;
 
    const profileGender =
-      selectedProfile?.gender === "MALE"
+      activeProfile?.gender === "MALE"
          ? "Nam"
-         : selectedProfile?.gender === "FEMALE"
+         : activeProfile?.gender === "FEMALE"
            ? "Nữ"
            : "";
 
-   // Danh sách các bệnh nền đã ghi nhận trong hồ sơ (cần khóa và auto check)
+   // Danh sách các bệnh nền đã ghi nhận trong hồ sơ (khóa không cho phép sửa)
    const lockedDiseaseKeys = useMemo(() => {
       const keys = new Set<keyof AssessmentFormValues>();
-      if (!selectedProfile) return keys;
+      if (!activeProfile) return keys;
 
       // 1. Từ Schema trả về
       if (schemaData?.patientProfile?.recordedDiseaseCodes) {
@@ -715,55 +818,56 @@ export function RiskFactorAssessmentForm({
       }
 
       // 2. Từ các trường yếu tố nguy cơ và bệnh lý trong hồ sơ sức khỏe
-      if (selectedProfile.hasDiabetes) {
+      if (activeProfile.hasDiabetes) {
          keys.add("diabetes");
       }
-      if (selectedProfile.hasStroke) {
+      if (activeProfile.hasStroke) {
          keys.add("stroke");
       }
-      if (selectedProfile.hasMyocardialInfarction) {
+      if (activeProfile.hasMyocardialInfarction) {
          keys.add("hasMyocardialInfarction");
       }
-      if (selectedProfile.hasAcuteCoronarySyndrome) {
+      if (activeProfile.hasAcuteCoronarySyndrome) {
          keys.add("hasAcuteCoronarySyndrome");
       }
-      if (selectedProfile.hasCoronaryArteryDisease) {
+      if (activeProfile.hasCoronaryArteryDisease) {
          keys.add("hasCoronaryArteryDisease");
       }
-      if (selectedProfile.hasTia) {
+      if (activeProfile.hasTia) {
          keys.add("hasTia");
       }
-      if (selectedProfile.hasAorticAneurysm) {
+      if (activeProfile.hasAorticAneurysm) {
          keys.add("hasAorticAneurysm");
       }
-      if (selectedProfile.hasPeripheralArteryDisease) {
+      if (activeProfile.hasPeripheralArteryDisease) {
          keys.add("hasPeripheralArteryDisease");
       }
-      if (selectedProfile.hasAtherosclerosis) {
+      if (activeProfile.hasAtherosclerosis) {
          keys.add("hasAtherosclerosis");
       }
-      if (selectedProfile.hasFamilialHypercholesterolemia) {
+      if (activeProfile.hasFamilialHypercholesterolemia) {
          keys.add("hasFamilialHypercholesterolemia");
       }
 
       return keys;
-   }, [selectedProfile, schemaData]);
+   }, [activeProfile, schemaData]);
 
    const hasRecordedUnderlying =
       Boolean(schemaData?.patientProfile?.hasRecordedUnderlyingDiseases) ||
       lockedDiseaseKeys.size > 0 ||
-      Boolean(selectedProfile?.hasDiabetes) ||
-      Boolean(selectedProfile?.hasStroke) ||
-      Boolean(selectedProfile?.hasMyocardialInfarction) ||
-      Boolean(selectedProfile?.hasAcuteCoronarySyndrome) ||
-      Boolean(selectedProfile?.hasCoronaryArteryDisease) ||
-      Boolean(selectedProfile?.hasTia) ||
-      Boolean(selectedProfile?.hasAorticAneurysm) ||
-      Boolean(selectedProfile?.hasPeripheralArteryDisease) ||
-      Boolean(selectedProfile?.hasAtherosclerosis) ||
-      Boolean(selectedProfile?.hasFamilialHypercholesterolemia) ||
-      Boolean(selectedProfile?.hasChronicKidneyDisease);
+      Boolean(activeProfile?.hasDiabetes) ||
+      Boolean(activeProfile?.hasStroke) ||
+      Boolean(activeProfile?.hasMyocardialInfarction) ||
+      Boolean(activeProfile?.hasAcuteCoronarySyndrome) ||
+      Boolean(activeProfile?.hasCoronaryArteryDisease) ||
+      Boolean(activeProfile?.hasTia) ||
+      Boolean(activeProfile?.hasAorticAneurysm) ||
+      Boolean(activeProfile?.hasPeripheralArteryDisease) ||
+      Boolean(activeProfile?.hasAtherosclerosis) ||
+      Boolean(activeProfile?.hasFamilialHypercholesterolemia) ||
+      Boolean(activeProfile?.hasChronicKidneyDisease);
 
+   // Các chỉ số từ hồ sơ sức khỏe không cho phép sửa:
    const isAgeLocked = Boolean(
       profileAge !== null || schemaData?.patientProfile?.calculatedAge,
    );
@@ -771,29 +875,29 @@ export function RiskFactorAssessmentForm({
       profileGender || schemaData?.patientProfile?.gender,
    );
    const isSmokingLocked =
-      selectedProfile?.isSmoking !== undefined &&
-      selectedProfile?.isSmoking !== null;
+      activeProfile?.isSmoking !== undefined &&
+      activeProfile?.isSmoking !== null;
 
    // Trích xuất chiều cao & cân nặng từ hồ sơ sức khỏe
    const profileHeight = useMemo(() => {
-      if (!selectedProfile) return null;
-      const raw = selectedProfile.height;
+      if (!activeProfile) return null;
+      const raw = activeProfile.height;
       if (raw !== null && raw !== undefined) {
          const num = Number(raw);
          if (!isNaN(num) && num > 0) return num;
       }
       return null;
-   }, [selectedProfile]);
+   }, [activeProfile]);
 
    const profileWeight = useMemo(() => {
-      if (!selectedProfile) return null;
-      const raw = selectedProfile.weight;
+      if (!activeProfile) return null;
+      const raw = activeProfile.weight;
       if (raw !== null && raw !== undefined) {
          const num = Number(raw);
          if (!isNaN(num) && num > 0) return num;
       }
       return null;
-   }, [selectedProfile]);
+   }, [activeProfile]);
 
    // Trích xuất bổ sung từ schema nếu có
    const schemaHeight = useMemo(() => {
@@ -872,18 +976,10 @@ export function RiskFactorAssessmentForm({
    const renderFieldLabel = (
       title: string,
       fieldName: keyof AssessmentFormValues,
-      customSubtext?: string,
    ) => {
       return (
-         <span className="flex items-center justify-between gap-1.5 w-full flex-wrap">
-            <span className="flex items-center gap-1.5">
-               <span>{title}</span>
-               {customSubtext && (
-                  <span className="text-[11px] font-normal text-slate-500">
-                     {customSubtext}
-                  </span>
-               )}
-            </span>
+         <span className="flex items-center gap-1.5 flex-wrap">
+            <span>{title}</span>
             {renderSourceBadge(fieldName)}
          </span>
       );
@@ -897,17 +993,28 @@ export function RiskFactorAssessmentForm({
       getValues,
       formState: { errors },
    } = useForm<AssessmentFormValues>({
+      mode: "onSubmit",
+      reValidateMode: "onChange",
       resolver: zodResolver(assessmentSchema),
       defaultValues: {
          hasUnderlyingDisease: false,
          age: profileAge,
          gender: profileGender,
-         isSmoking: Boolean(selectedProfile?.isSmoking),
+         isSmoking:
+            initialAssessment?.assessmentInput?.isSmoking !== undefined &&
+            initialAssessment?.assessmentInput?.isSmoking !== null
+               ? Boolean(initialAssessment.assessmentInput.isSmoking)
+               : activeProfile?.isSmoking !== undefined &&
+                   activeProfile?.isSmoking !== null
+                 ? Boolean(activeProfile.isSmoking)
+                 : null,
          systolicBp: null,
          diastolicBp: null,
          totalCholesterol: null,
          hdlCholesterol: null,
          nonHdlCholesterol: null,
+         ldlCholesterol: null,
+         triglycerides: null,
          glucoseFasting: null,
          heightCm: effectiveHeight,
          weightKg: effectiveWeight,
@@ -949,14 +1056,15 @@ export function RiskFactorAssessmentForm({
       return getPositiveFactors(getValues() as unknown as AssessmentInput);
    }, [assessmentResult, getValues]);
 
-   // Tự động điền thông tin và khóa dữ liệu từ hồ sơ bệnh nhân
+   // Tự động điền thông tin và khóa dữ liệu từ hồ sơ bệnh nhân (chỉ khi tạo mới)
    useEffect(() => {
+      if (initialAssessment) return;
       if (!selectedProfile) return;
 
       const effectiveAge =
          schemaData?.patientProfile?.calculatedAge ?? profileAge;
       if (effectiveAge !== null && effectiveAge !== undefined) {
-         setValue("age", effectiveAge, { shouldValidate: true });
+         setValue("age", effectiveAge, { shouldValidate: false });
       }
 
       const effectiveGender =
@@ -966,39 +1074,256 @@ export function RiskFactorAssessmentForm({
               ? "Nữ"
               : profileGender;
       if (effectiveGender) {
-         setValue("gender", effectiveGender);
+         setValue("gender", effectiveGender, { shouldValidate: false });
       }
 
-      if (selectedProfile.isSmoking !== undefined) {
-         setValue("isSmoking", Boolean(selectedProfile.isSmoking));
+      if (
+         selectedProfile.isSmoking !== undefined &&
+         selectedProfile.isSmoking !== null
+      ) {
+         setValue("isSmoking", Boolean(selectedProfile.isSmoking), {
+            shouldValidate: false,
+         });
       }
 
       // Tự động điền chiều cao và cân nặng từ hồ sơ (nếu có)
       if (effectiveHeight !== null && effectiveHeight !== undefined) {
-         setValue("heightCm", effectiveHeight, {
-            shouldValidate: true,
-         });
+         setValue("heightCm", effectiveHeight, { shouldValidate: false });
       }
       if (effectiveWeight !== null && effectiveWeight !== undefined) {
-         setValue("weightKg", effectiveWeight, {
-            shouldValidate: true,
-         });
+         setValue("weightKg", effectiveWeight, { shouldValidate: false });
       }
 
       if (hasRecordedUnderlying) {
-         setValue("hasUnderlyingDisease", true);
+         setValue("hasUnderlyingDisease", true, { shouldValidate: false });
          lockedDiseaseKeys.forEach((key) => {
-            setValue(key, true);
+            setValue(key, true, { shouldValidate: false });
          });
       }
    }, [
       selectedProfile,
+      initialAssessment,
       schemaData,
       profileAge,
       profileGender,
       effectiveHeight,
       effectiveWeight,
       hasRecordedUnderlying,
+      lockedDiseaseKeys,
+      setValue,
+   ]);
+
+   // Tự động điền dữ liệu từ phiếu đánh giá cũ khi bác sĩ thực hiện chỉnh sửa
+   useEffect(() => {
+      if (!initialAssessment?.assessmentInput) return;
+      const inp = initialAssessment.assessmentInput;
+
+      setValue(
+         "hasUnderlyingDisease",
+         hasRecordedUnderlying ? true : Boolean(inp.hasUnderlyingDisease),
+         { shouldValidate: false },
+      );
+
+      // Các trường từ hồ sơ giữ nguyên từ hồ sơ (không cho sửa), nếu không từ hồ sơ thì điền từ inp
+      if (!isAgeLocked && inp.age !== undefined && inp.age !== null) {
+         setValue("age", Number(inp.age), { shouldValidate: false });
+      }
+      if (!isGenderLocked && inp.gender) {
+         setValue("gender", inp.gender, { shouldValidate: false });
+      }
+      if (
+         !isSmokingLocked &&
+         inp.isSmoking !== undefined &&
+         inp.isSmoking !== null
+      ) {
+         setValue("isSmoking", Boolean(inp.isSmoking), {
+            shouldValidate: false,
+         });
+      }
+      if (
+         !isHeightFromProfile &&
+         inp.heightCm !== undefined &&
+         inp.heightCm !== null
+      ) {
+         setValue("heightCm", Number(inp.heightCm), { shouldValidate: false });
+      }
+      if (
+         !isWeightFromProfile &&
+         inp.weightKg !== undefined &&
+         inp.weightKg !== null
+      ) {
+         setValue("weightKg", Number(inp.weightKg), { shouldValidate: false });
+      }
+
+      // Các chỉ số khám/xét nghiệm (bác sĩ được phép sửa)
+      if (inp.systolicBp !== undefined && inp.systolicBp !== null) {
+         setValue("systolicBp", Number(inp.systolicBp), {
+            shouldValidate: false,
+         });
+      }
+      if (inp.diastolicBp !== undefined && inp.diastolicBp !== null) {
+         setValue("diastolicBp", Number(inp.diastolicBp), {
+            shouldValidate: false,
+         });
+      }
+      if (inp.totalCholesterol !== undefined && inp.totalCholesterol !== null) {
+         setValue("totalCholesterol", Number(inp.totalCholesterol), {
+            shouldValidate: false,
+         });
+      }
+      if (inp.hdlCholesterol !== undefined && inp.hdlCholesterol !== null) {
+         setValue("hdlCholesterol", Number(inp.hdlCholesterol), {
+            shouldValidate: false,
+         });
+      }
+      if (
+         inp.nonHdlCholesterol !== undefined &&
+         inp.nonHdlCholesterol !== null
+      ) {
+         setValue("nonHdlCholesterol", Number(inp.nonHdlCholesterol), {
+            shouldValidate: false,
+         });
+      }
+      if (inp.ldlCholesterol !== undefined && inp.ldlCholesterol !== null) {
+         setValue("ldlCholesterol", Number(inp.ldlCholesterol), {
+            shouldValidate: false,
+         });
+      }
+      if (inp.triglycerides !== undefined && inp.triglycerides !== null) {
+         setValue("triglycerides", Number(inp.triglycerides), {
+            shouldValidate: false,
+         });
+      }
+      if (inp.glucoseFasting !== undefined && inp.glucoseFasting !== null) {
+         setValue("glucoseFasting", Number(inp.glucoseFasting), {
+            shouldValidate: false,
+         });
+      }
+
+      // 1. Dấu hiệu tổn thương cơ quan đích (nếu trong hồ sơ thì khóa true, không thì từ inp)
+      setValue(
+         "hasLeftVentricularHypertrophy",
+         lockedDiseaseKeys.has("hasLeftVentricularHypertrophy")
+            ? true
+            : Boolean(inp.hasLeftVentricularHypertrophy),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasAlbuminuria",
+         lockedDiseaseKeys.has("hasAlbuminuria")
+            ? true
+            : Boolean(inp.hasAlbuminuria),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasRetinopathy",
+         lockedDiseaseKeys.has("hasRetinopathy")
+            ? true
+            : Boolean(inp.hasRetinopathy),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasSilentBrainInfarct",
+         lockedDiseaseKeys.has("hasSilentBrainInfarct")
+            ? true
+            : Boolean(inp.hasSilentBrainInfarct),
+         { shouldValidate: false },
+      );
+
+      // 2. Đái tháo đường & Thận
+      setValue(
+         "diabetes",
+         lockedDiseaseKeys.has("diabetes") ? true : Boolean(inp.diabetes),
+         { shouldValidate: false },
+      );
+      if (
+         inp.diabetesDurationYears !== undefined &&
+         inp.diabetesDurationYears !== null
+      ) {
+         setValue("diabetesDurationYears", Number(inp.diabetesDurationYears), {
+            shouldValidate: false,
+         });
+      }
+      if (inp.glycemicControl) {
+         setValue("glycemicControl", inp.glycemicControl, {
+            shouldValidate: false,
+         });
+      }
+      if (inp.egfr !== undefined && inp.egfr !== null) {
+         setValue("egfr", Number(inp.egfr), { shouldValidate: false });
+      }
+      if (inp.acr !== undefined && inp.acr !== null) {
+         setValue("acr", Number(inp.acr), { shouldValidate: false });
+      }
+
+      // 3. Tiền sử biến cố tim mạch nặng
+      setValue(
+         "stroke",
+         lockedDiseaseKeys.has("stroke") ? true : Boolean(inp.stroke),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasMyocardialInfarction",
+         lockedDiseaseKeys.has("hasMyocardialInfarction")
+            ? true
+            : Boolean(inp.hasMyocardialInfarction),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasAcuteCoronarySyndrome",
+         lockedDiseaseKeys.has("hasAcuteCoronarySyndrome")
+            ? true
+            : Boolean(inp.hasAcuteCoronarySyndrome),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasCoronaryArteryDisease",
+         lockedDiseaseKeys.has("hasCoronaryArteryDisease")
+            ? true
+            : Boolean(inp.hasCoronaryArteryDisease),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasTia",
+         lockedDiseaseKeys.has("hasTia") ? true : Boolean(inp.hasTia),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasAorticAneurysm",
+         lockedDiseaseKeys.has("hasAorticAneurysm")
+            ? true
+            : Boolean(inp.hasAorticAneurysm),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasPeripheralArteryDisease",
+         lockedDiseaseKeys.has("hasPeripheralArteryDisease")
+            ? true
+            : Boolean(inp.hasPeripheralArteryDisease),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasAtherosclerosis",
+         lockedDiseaseKeys.has("hasAtherosclerosis")
+            ? true
+            : Boolean(inp.hasAtherosclerosis),
+         { shouldValidate: false },
+      );
+      setValue(
+         "hasFamilialHypercholesterolemia",
+         lockedDiseaseKeys.has("hasFamilialHypercholesterolemia")
+            ? true
+            : Boolean(inp.hasFamilialHypercholesterolemia),
+         { shouldValidate: false },
+      );
+   }, [
+      initialAssessment,
+      hasRecordedUnderlying,
+      isAgeLocked,
+      isGenderLocked,
+      isSmokingLocked,
+      isHeightFromProfile,
+      isWeightFromProfile,
       lockedDiseaseKeys,
       setValue,
    ]);
@@ -1011,27 +1336,102 @@ export function RiskFactorAssessmentForm({
    const currentAge =
       (isAgeLocked ? effectiveAge : watchedAge) ?? effectiveAge ?? watchedAge;
    const isUnder40 =
-      typeof currentAge === "number" && !isNaN(currentAge) && currentAge < 40;
+      !hasUnderlyingDisease &&
+      typeof currentAge === "number" &&
+      !isNaN(currentAge) &&
+      currentAge < 40;
    const diabetes = Boolean(useWatch({ control, name: "diabetes" }));
    const watchedTotalChol = useWatch({ control, name: "totalCholesterol" });
    const watchedHdlChol = useWatch({ control, name: "hdlCholesterol" });
+   const watchedNonHdlChol = useWatch({ control, name: "nonHdlCholesterol" });
+   const watchedLdlChol = useWatch({ control, name: "ldlCholesterol" });
+   const watchedTriglycerides = useWatch({ control, name: "triglycerides" });
+
+   const parseNumeric = (val: unknown): number | null => {
+      if (
+         val === null ||
+         val === undefined ||
+         val === "" ||
+         (typeof val === "string" && val.trim() === "")
+      ) {
+         return null;
+      }
+      const num = Number(val);
+      if (isNaN(num) || num <= 0) return null;
+      return num;
+   };
+
+   const numTotalChol = parseNumeric(watchedTotalChol);
+   const numHdlChol = parseNumeric(watchedHdlChol);
+   const numLdlChol = parseNumeric(watchedLdlChol);
+   const numTriglycerides = parseNumeric(watchedTriglycerides);
 
    // Tự động tính Non-HDL-Cholesterol khi có cả Cholesterol toàn phần và HDL-Cholesterol
    useEffect(() => {
+      if (hasUnderlyingDisease) return;
+
       if (
-         typeof watchedTotalChol === "number" &&
-         !isNaN(watchedTotalChol) &&
-         typeof watchedHdlChol === "number" &&
-         !isNaN(watchedHdlChol) &&
-         watchedTotalChol > watchedHdlChol
+         numTotalChol !== null &&
+         numHdlChol !== null &&
+         numTotalChol > numHdlChol
       ) {
-         const diff =
-            Math.round((watchedTotalChol - watchedHdlChol) * 100) / 100;
+         const diff = Math.round((numTotalChol - numHdlChol) * 100) / 100;
          setValue("nonHdlCholesterol", diff, {
-            shouldValidate: true,
+            shouldDirty: true,
+         });
+      } else {
+         setValue("nonHdlCholesterol", null, {
+            shouldValidate: false,
          });
       }
-   }, [watchedTotalChol, watchedHdlChol, setValue]);
+   }, [hasUnderlyingDisease, numTotalChol, numHdlChol, setValue]);
+
+   // Cảnh báo nếu không nhập 1 trong 2 trường để tính Non-HDL
+   const nonHdlWarning = useMemo(() => {
+      if (hasUnderlyingDisease) return undefined;
+
+      const hasTotal = numTotalChol !== null;
+      const hasHdl = numHdlChol !== null;
+
+      if (!hasTotal && !hasHdl) {
+         return undefined;
+      }
+      if (hasTotal && !hasHdl) {
+         return "Chưa tính được Non-HDL-Cholesterol do chưa nhập HDL-Cholesterol";
+      }
+      if (!hasTotal && hasHdl) {
+         return "Chưa tính được Non-HDL-Cholesterol do chưa nhập Cholesterol toàn phần";
+      }
+      if (hasTotal && hasHdl && numTotalChol <= numHdlChol) {
+         return "Chưa tính được Non-HDL-Cholesterol: HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần";
+      }
+      return undefined;
+   }, [hasUnderlyingDisease, numTotalChol, numHdlChol]);
+
+   // Kiểm tra lỗi thời gian thực cho LDL-Cholesterol
+   const ldlError = useMemo(() => {
+      if (numLdlChol === null) return undefined;
+      if (numLdlChol < 0.5 || numLdlChol > 15.0) {
+         return "LDL-Cholesterol hợp lệ từ 0.5 - 15.0 mmol/L";
+      }
+      if (numTotalChol !== null && numLdlChol >= numTotalChol) {
+         return "LDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần";
+      }
+      const numNonHdl = parseNumeric(watchedNonHdlChol);
+      if (numNonHdl !== null && numLdlChol > numNonHdl) {
+         return "LDL-Cholesterol không được lớn hơn Non-HDL-Cholesterol";
+      }
+      return undefined;
+   }, [numLdlChol, numTotalChol, watchedNonHdlChol]);
+
+   // Kiểm tra lỗi thời gian thực cho Triglycerides
+   const triglyceridesError = useMemo(() => {
+      if (numTriglycerides === null) return undefined;
+      if (numTriglycerides < 0.2 || numTriglycerides > 30.0) {
+         return "Triglycerides hợp lệ từ 0.2 - 30.0 mmol/L";
+      }
+      return undefined;
+   }, [numTriglycerides]);
 
    const handleApplyOcr = (values: OcrExtractedFormValues) => {
       const newSources: Partial<
@@ -1062,7 +1462,6 @@ export function RiskFactorAssessmentForm({
       if (shouldHaveUnderlying) {
          setValue("hasUnderlyingDisease", true, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          if (!hasRecordedUnderlying) {
             newSources.hasUnderlyingDisease = "OCR";
@@ -1073,7 +1472,6 @@ export function RiskFactorAssessmentForm({
       if (!isAgeLocked && values.age !== undefined && values.age !== null) {
          setValue("age", values.age, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.age = "OCR";
       }
@@ -1082,7 +1480,6 @@ export function RiskFactorAssessmentForm({
       if (!isGenderLocked && values.gender) {
          setValue("gender", values.gender, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.gender = "OCR";
       }
@@ -1095,21 +1492,18 @@ export function RiskFactorAssessmentForm({
       ) {
          setValue("isSmoking", values.isSmoking, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.isSmoking = "OCR";
       }
       if (values.systolicBp !== undefined && values.systolicBp !== null) {
          setValue("systolicBp", values.systolicBp, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.systolicBp = "OCR";
       }
       if (values.diastolicBp !== undefined && values.diastolicBp !== null) {
          setValue("diastolicBp", values.diastolicBp, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.diastolicBp = "OCR";
       }
@@ -1119,7 +1513,6 @@ export function RiskFactorAssessmentForm({
       ) {
          setValue("totalCholesterol", values.totalCholesterol, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.totalCholesterol = "OCR";
       }
@@ -1129,7 +1522,6 @@ export function RiskFactorAssessmentForm({
       ) {
          setValue("hdlCholesterol", values.hdlCholesterol, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.hdlCholesterol = "OCR";
       }
@@ -1139,9 +1531,23 @@ export function RiskFactorAssessmentForm({
       ) {
          setValue("nonHdlCholesterol", values.nonHdlCholesterol, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.nonHdlCholesterol = "OCR";
+      }
+      if (
+         values.ldlCholesterol !== undefined &&
+         values.ldlCholesterol !== null
+      ) {
+         setValue("ldlCholesterol", values.ldlCholesterol, {
+            shouldDirty: true,
+         });
+         newSources.ldlCholesterol = "OCR";
+      }
+      if (values.triglycerides !== undefined && values.triglycerides !== null) {
+         setValue("triglycerides", values.triglycerides, {
+            shouldDirty: true,
+         });
+         newSources.triglycerides = "OCR";
       }
       if (
          values.glucoseFasting !== undefined &&
@@ -1149,35 +1555,30 @@ export function RiskFactorAssessmentForm({
       ) {
          setValue("glucoseFasting", values.glucoseFasting, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.glucoseFasting = "OCR";
       }
       if (values.egfr !== undefined && values.egfr !== null) {
          setValue("egfr", values.egfr, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.egfr = "OCR";
       }
       if (values.acr !== undefined && values.acr !== null) {
          setValue("acr", values.acr, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.acr = "OCR";
       }
       if (values.heightCm !== undefined && values.heightCm !== null) {
          setValue("heightCm", values.heightCm, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.heightCm = "OCR";
       }
       if (values.weightKg !== undefined && values.weightKg !== null) {
          setValue("weightKg", values.weightKg, {
             shouldDirty: true,
-            shouldValidate: true,
          });
          newSources.weightKg = "OCR";
       }
@@ -1250,112 +1651,156 @@ export function RiskFactorAssessmentForm({
    };
 
    const onSubmit = async (data: AssessmentFormValues) => {
-      if (!selectedProfile?.id) {
+      const targetProfileId =
+         activeProfile?.id ||
+         initialAssessment?.healthProfileId ||
+         initialAssessment?.assessmentInput?.healthProfileId;
+
+      if (!targetProfileId) {
          toast.warning("Vui lòng chọn hồ sơ bệnh nhân trước khi đánh giá");
          return;
       }
 
       try {
-         // Đảm bảo các trường bị khóa luôn có dữ liệu chính xác từ hồ sơ
+         // Đảm bảo các chỉ số từ hồ sơ sức khỏe luôn được giữ nguyên (không cho phép sửa)
          const finalAge = isAgeLocked
             ? (schemaData?.patientProfile?.calculatedAge ?? profileAge)
             : data.age;
          const finalGender = isGenderLocked
             ? profileGender || data.gender
             : data.gender;
-
-         if (finalAge === null || finalAge === undefined) {
-            toast.warning("Vui lòng cung cấp thông tin tuổi của người bệnh");
-            return;
-         }
-
-         if (finalAge < 40) {
-            toast.warning(
-               `Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên (Hiện tại: ${finalAge} tuổi)`,
-            );
-            return;
-         }
+         const finalSmoking = isSmokingLocked
+            ? Boolean(activeProfile?.isSmoking)
+            : data.isSmoking;
+         const finalHeight = isHeightFromProfile
+            ? effectiveHeight
+            : data.heightCm;
+         const finalWeight = isWeightFromProfile
+            ? effectiveWeight
+            : data.weightKg;
 
          let payload: CreateRiskAssessmentRequest;
 
-         if (!data.hasUnderlyingDisease) {
+         if (!data.hasUnderlyingDisease && !hasRecordedUnderlying) {
+            if (finalAge === null || finalAge === undefined) {
+               toast.warning("Vui lòng cung cấp thông tin tuổi của người bệnh");
+               return;
+            }
+
+            if (finalAge < 40) {
+               toast.warning(
+                  `Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên (Hiện tại: ${finalAge} tuổi)`,
+               );
+               return;
+            }
+
+            if (finalSmoking === null || finalSmoking === undefined) {
+               toast.warning(
+                  "Vui lòng chọn thói quen hút thuốc của người bệnh",
+               );
+               return;
+            }
+
             payload = {
-               healthProfileId: String(selectedProfile.id),
+               healthProfileId: String(targetProfileId),
                hasUnderlyingDisease: false,
                age: finalAge ?? undefined,
                gender: finalGender || undefined,
-               isSmoking: data.isSmoking,
+               isSmoking: finalSmoking,
                systolicBp: data.systolicBp ?? undefined,
                diastolicBp: data.diastolicBp ?? undefined,
                totalCholesterol: data.totalCholesterol ?? undefined,
                hdlCholesterol: data.hdlCholesterol ?? undefined,
                nonHdlCholesterol: data.nonHdlCholesterol ?? undefined,
+               ldlCholesterol: data.ldlCholesterol ?? null,
+               triglycerides: data.triglycerides ?? null,
                glucoseFasting: data.glucoseFasting ?? null,
-               heightCm: data.heightCm ?? null,
-               weightKg: data.weightKg ?? null,
+               heightCm: finalHeight ?? null,
+               weightKg: finalWeight ?? null,
             };
          } else {
             payload = {
-               healthProfileId: String(selectedProfile.id),
+               healthProfileId: String(targetProfileId),
                hasUnderlyingDisease: true,
                hasLeftVentricularHypertrophy:
                   lockedDiseaseKeys.has("hasLeftVentricularHypertrophy") ||
-                  data.hasLeftVentricularHypertrophy,
+                  Boolean(data.hasLeftVentricularHypertrophy),
                hasAlbuminuria:
                   lockedDiseaseKeys.has("hasAlbuminuria") ||
-                  data.hasAlbuminuria,
+                  Boolean(data.hasAlbuminuria),
                hasRetinopathy:
                   lockedDiseaseKeys.has("hasRetinopathy") ||
-                  data.hasRetinopathy,
+                  Boolean(data.hasRetinopathy),
                hasSilentBrainInfarct:
                   lockedDiseaseKeys.has("hasSilentBrainInfarct") ||
-                  data.hasSilentBrainInfarct,
-               diabetes: lockedDiseaseKeys.has("diabetes") || data.diabetes,
+                  Boolean(data.hasSilentBrainInfarct),
+               diabetes:
+                  lockedDiseaseKeys.has("diabetes") || Boolean(data.diabetes),
                diabetesDurationYears: data.diabetesDurationYears ?? undefined,
                glycemicControl: data.glycemicControl || null,
                egfr: data.egfr ?? null,
                acr: data.acr ?? null,
-               stroke: lockedDiseaseKeys.has("stroke") || data.stroke,
+               stroke: lockedDiseaseKeys.has("stroke") || Boolean(data.stroke),
                hasMyocardialInfarction:
                   lockedDiseaseKeys.has("hasMyocardialInfarction") ||
-                  data.hasMyocardialInfarction,
+                  Boolean(data.hasMyocardialInfarction),
                hasAcuteCoronarySyndrome:
                   lockedDiseaseKeys.has("hasAcuteCoronarySyndrome") ||
-                  data.hasAcuteCoronarySyndrome,
+                  Boolean(data.hasAcuteCoronarySyndrome),
                hasCoronaryArteryDisease:
                   lockedDiseaseKeys.has("hasCoronaryArteryDisease") ||
-                  data.hasCoronaryArteryDisease,
-               hasTia: lockedDiseaseKeys.has("hasTia") || data.hasTia,
+                  Boolean(data.hasCoronaryArteryDisease),
+               hasTia: lockedDiseaseKeys.has("hasTia") || Boolean(data.hasTia),
                hasAorticAneurysm:
                   lockedDiseaseKeys.has("hasAorticAneurysm") ||
-                  data.hasAorticAneurysm,
+                  Boolean(data.hasAorticAneurysm),
                hasPeripheralArteryDisease:
                   lockedDiseaseKeys.has("hasPeripheralArteryDisease") ||
-                  data.hasPeripheralArteryDisease,
+                  Boolean(data.hasPeripheralArteryDisease),
                hasAtherosclerosis:
                   lockedDiseaseKeys.has("hasAtherosclerosis") ||
-                  data.hasAtherosclerosis,
+                  Boolean(data.hasAtherosclerosis),
                hasFamilialHypercholesterolemia:
                   lockedDiseaseKeys.has("hasFamilialHypercholesterolemia") ||
-                  data.hasFamilialHypercholesterolemia,
+                  Boolean(data.hasFamilialHypercholesterolemia),
                systolicBp: data.systolicBp ?? undefined,
                diastolicBp: data.diastolicBp ?? undefined,
                totalCholesterol: data.totalCholesterol ?? undefined,
                hdlCholesterol: data.hdlCholesterol ?? null,
                glucoseFasting: data.glucoseFasting ?? null,
-               heightCm: data.heightCm ?? null,
-               weightKg: data.weightKg ?? null,
+               heightCm: finalHeight ?? null,
+               weightKg: finalWeight ?? null,
                age: finalAge ?? undefined,
                gender: finalGender || undefined,
-               isSmoking: data.isSmoking,
+               isSmoking: finalSmoking ?? undefined,
             };
          }
 
-         const res = await createAssessment(payload).unwrap();
+         // Khi đánh giá lại: chính là update phân tầng yếu tố đó (nếu có id cũ)
+         const assessmentIdToUpdate =
+            initialAssessment?.id ||
+            initialAssessment?.assessmentInputId ||
+            initialAssessment?.assessmentInput?.id;
+
+         let res: RiskAssessmentResult;
+         if (assessmentIdToUpdate) {
+            res = await updateRiskAssessment({
+               id: assessmentIdToUpdate,
+               data: payload,
+            }).unwrap();
+         } else {
+            res = await createAssessment(payload).unwrap();
+         }
+
          setAssessmentResult(res);
-         toast.success("Đánh giá phân tầng nguy cơ thành công!");
+         onAssessmentSuccess?.(res);
+         toast.success(
+            assessmentIdToUpdate
+               ? "Đã cập nhật và phân tầng lại nguy cơ thành công! Bác sĩ vui lòng bấm 'Xác nhận' để hoàn tất thẩm định."
+               : "Đánh giá phân tầng nguy cơ thành công!",
+         );
       } catch (error: unknown) {
-         console.error("Failed to create risk assessment:", error);
+         console.error("Failed to submit risk assessment:", error);
          const apiError = error as { data?: { message?: string } };
          toast.error(
             apiError?.data?.message || "Có lỗi xảy ra khi thực hiện đánh giá",
@@ -1391,36 +1836,72 @@ export function RiskFactorAssessmentForm({
          {/* Hiển thị kết quả đánh giá */}
          {assessmentResult && (
             <div
+               ref={resultRef}
                className={cn(
-                  "p-5 rounded-sm flex flex-col gap-4 border transition-all text-sm",
+                  "p-4 rounded-sm border flex flex-col gap-2.5",
                   getRiskContainerClass(assessmentResult.riskLevel),
                )}
             >
-               <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1.5 flex-1">
-                     <div className="flex items-center gap-2.5 flex-wrap">
-                        <span className="font-bold text-sm sm:text-base">
-                           Kết quả phân tầng nguy cơ:
-                        </span>
-                        <RiskLevelBadge
-                           level={assessmentResult.riskLevel}
-                           variant="solid"
-                           size="md"
-                        />
-                     </div>
-
-                     <span className="text-xs sm:text-sm font-semibold text-slate-700 ml-1">
-                        Nguy cơ biến cố trong 10 năm:{" "}
-                        <span className="font-extrabold text-sm sm:text-base text-slate-900">
-                           {assessmentResult.riskScore}%
-                        </span>
+               <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                     <span className="font-bold text-xs sm:text-sm">
+                        Nguy cơ biến cố tim mạch trong 10 năm:
                      </span>
+                     <RiskLevelBadge level={assessmentResult.riskLevel} />
+                  </div>
+                  {assessmentResult.riskScore !== null &&
+                     assessmentResult.riskScore !== undefined &&
+                     assessmentResult.riskScore !== "" && (
+                        <div className="text-xs flex items-center gap-1.5 flex-wrap">
+                           <span className="text-slate-700 font-bold">
+                              Tỷ lệ biến cố:
+                           </span>
+                           <span className="text-base font-extrabold text-primary">
+                              {formatRiskRate(
+                                 assessmentResult.riskScore,
+                                 checkHasUnderlyingDisease(
+                                    assessmentResult,
+                                 ),
+                              )}
+                           </span>
+                        </div>
+                     )}
+               </div>
 
-                     <p className="text-xs text-slate-500 italic mt-2">
-                        * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
-                        Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
-                        mạch châu Âu ESC
-                     </p>
+               {/* Giải thích tỷ lệ biến cố */}
+               <div className="text-[11px] text-slate-900 bg-white/80 p-2.5 rounded border border-slate-200/70 leading-relaxed">
+                  <strong className="text-slate-900">Giải thích:</strong>{" "}
+                  {RISK_EXPLANATION_TEXT}
+               </div>
+
+               <p className="text-[11px] text-slate-900 italic">
+                  * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
+                  Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
+                  mạch châu Âu ESC
+               </p>
+
+               {/* Thông tin bác sĩ thẩm định & nút thao tác */}
+               <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-200/80 flex-wrap">
+                  <div>
+                     {assessmentResult.doctorId ? (
+                        <div className="text-slate-600 flex flex-col gap-1 text-xs">
+                           <span className="font-medium text-slate-700">
+                              Xác nhận bởi: {assessmentResult.doctor?.fullName}
+                           </span>
+                           {assessmentResult.doctorNote && (
+                              <div className="text-slate-600">
+                                 <span className="font-medium text-slate-700">
+                                    Kết luận:{" "}
+                                 </span>
+                                 {assessmentResult.doctorNote}
+                              </div>
+                           )}
+                        </div>
+                     ) : (
+                        <span className="text-xs text-amber-600 font-medium">
+                           Chưa được xác nhận
+                        </span>
+                     )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -1428,10 +1909,14 @@ export function RiskFactorAssessmentForm({
                         <CustomButton
                            type="button"
                            size="sm"
-                           className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+                           className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs text-xs"
                            onClick={() => {
-                              if (!assessmentResult || !selectedProfile?.id)
-                                 return;
+                              const pId =
+                                 selectedProfile?.id ||
+                                 assessmentResult.healthProfileId ||
+                                 assessmentResult.assessmentInput
+                                    ?.healthProfileId;
+                              if (!assessmentResult || !pId) return;
                               const input = assessmentResult.assessmentInput;
                               const initialData: Partial<Examination> = {
                                  assessmentInputId:
@@ -1455,9 +1940,7 @@ export function RiskFactorAssessmentForm({
                                     initialData,
                                  );
                               } else {
-                                 router.push(
-                                    `/work?profileId=${selectedProfile.id}`,
-                                 );
+                                 router.push(`/work?profileId=${pId}`);
                               }
                            }}
                         >
@@ -1468,29 +1951,20 @@ export function RiskFactorAssessmentForm({
                         <CustomButton
                            type="button"
                            size="sm"
-                           variant="outline"
-                           className="h-9"
+                           className="h-8 font-semibold px-3 cursor-pointer text-xs"
                            onClick={() => setIsEvaluationModalOpen(true)}
                         >
                            {assessmentResult.doctor
                               ? "Thẩm định lại"
-                              : "Thẩm định"}
+                              : "Xác nhận"}
                         </CustomButton>
                      )}
-                     <CustomButton
-                        type="button"
-                        variant="destructive"
-                        className="h-9"
-                        onClick={() => setAssessmentResult(null)}
-                     >
-                        Đóng
-                     </CustomButton>
                   </div>
                </div>
 
                {positiveFactors.length > 0 && (
-                  <div className="flex flex-col gap-2">
-                     <div className="font-bold text-slate-800 text-sm">
+                  <div className="flex flex-col gap-2 pt-2 border-t border-slate-200/80">
+                     <div className="font-bold text-slate-800 text-xs">
                         Yếu tố nguy cơ & Bệnh nền ghi nhận
                      </div>
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1513,7 +1987,7 @@ export function RiskFactorAssessmentForm({
 
                {assessmentResult.redFlags &&
                   assessmentResult.redFlags.length > 0 && (
-                     <div className="flex flex-col gap-2 pt-1">
+                     <div className="flex flex-col gap-2 pt-2 border-t border-slate-200/80">
                         <div className="font-bold text-rose-700 uppercase tracking-wide text-[11px]">
                            Cảnh báo nguy cơ cao
                         </div>
@@ -1556,202 +2030,210 @@ export function RiskFactorAssessmentForm({
                </div>
             </div>
 
-            {/* Thông tin cơ bản: Tuổi, Giới tính, Thói quen hút thuốc */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-               <FormInput
-                  label={renderFieldLabel(
-                     "Tuổi",
-                     "age",
-                     isAgeLocked ? "(Theo ngày sinh)" : undefined,
-                  )}
-                  type="number"
-                  placeholder="Nhập tuổi (≥ 40)"
-                  disabled={isAgeLocked}
-                  error={errors.age?.message}
-                  {...register("age", {
-                     setValueAs: (v) =>
-                        v === "" || isNaN(v) ? null : Number(v),
-                  })}
-               />
-
-               <Controller
-                  name="gender"
-                  control={control}
-                  render={({ field }) => (
-                     <FormSelect
-                        label={renderFieldLabel(
-                           "Giới tính",
-                           "gender",
-                           isGenderLocked ? "(Theo hồ sơ)" : undefined,
-                        )}
-                        options={GENDER_OPTIONS}
-                        value={field.value || undefined}
-                        onValueChange={field.onChange}
-                        placeholder="Chọn giới tính"
-                        disabled={isGenderLocked}
-                        error={errors.gender?.message}
-                     />
-                  )}
-               />
-
-               <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between gap-1.5">
-                     <label className="text-xs font-medium text-slate-800">
-                        Thói quen hút thuốc{" "}
-                        {isSmokingLocked && (
-                           <span className="text-[11px] font-normal text-slate-400">
-                              (Theo hồ sơ)
-                           </span>
-                        )}
-                     </label>
-                     {renderSourceBadge("isSmoking")}
-                  </div>
-                  <Controller
-                     name="isSmoking"
-                     control={control}
-                     render={({ field }) => {
-                        return (
-                           <div className="grid grid-cols-2 h-10 rounded-sm border border-input overflow-hidden">
-                              <div
-                                 onClick={() => {
-                                    if (!isSmokingLocked) field.onChange(true);
-                                 }}
-                                 className={cn(
-                                    "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
-                                    isSmokingLocked
-                                       ? "cursor-not-allowed opacity-70 bg-slate-50"
-                                       : "cursor-pointer hover:bg-slate-50",
-                                    field.value === true
-                                       ? "bg-primary/5 text-primary font-semibold"
-                                       : "bg-background text-slate-700",
-                                 )}
-                              >
-                                 <Checkbox
-                                    id="smoking-yes"
-                                    checked={field.value === true}
-                                    disabled={isSmokingLocked}
-                                    onCheckedChange={() => {
-                                       if (!isSmokingLocked)
-                                          field.onChange(true);
-                                    }}
-                                 />
-                                 <Label
-                                    htmlFor="smoking-yes"
-                                    className={cn(
-                                       "text-xs font-medium",
-                                       isSmokingLocked
-                                          ? "cursor-not-allowed text-slate-500"
-                                          : "cursor-pointer",
-                                    )}
-                                 >
-                                    Có
-                                 </Label>
-                              </div>
-
-                              <div
-                                 onClick={() => {
-                                    if (!isSmokingLocked) field.onChange(false);
-                                 }}
-                                 className={cn(
-                                    "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
-                                    isSmokingLocked
-                                       ? "cursor-not-allowed opacity-70 bg-slate-50"
-                                       : "cursor-pointer hover:bg-slate-50",
-                                    field.value === false
-                                       ? "bg-primary/5 text-primary font-semibold"
-                                       : "bg-background text-slate-700",
-                                 )}
-                              >
-                                 <Checkbox
-                                    id="smoking-no"
-                                    checked={field.value === false}
-                                    disabled={isSmokingLocked}
-                                    onCheckedChange={() => {
-                                       if (!isSmokingLocked)
-                                          field.onChange(false);
-                                    }}
-                                 />
-                                 <Label
-                                    htmlFor="smoking-no"
-                                    className={cn(
-                                       "text-xs font-medium",
-                                       isSmokingLocked
-                                          ? "cursor-not-allowed text-slate-500"
-                                          : "cursor-pointer",
-                                    )}
-                                 >
-                                    Không
-                                 </Label>
-                              </div>
-                           </div>
-                        );
-                     }}
+            <RadioGroup
+               value={hasUnderlyingDisease ? "true" : "false"}
+               onValueChange={(val) => {
+                  if (hasRecordedUnderlying && val === "false") {
+                     toast.info(
+                        "Bệnh nhân có bệnh nền đã ghi nhận trong hồ sơ, tự động áp dụng luồng đánh giá có bệnh nền",
+                     );
+                     return;
+                  }
+                  setValue("hasUnderlyingDisease", val === "true");
+               }}
+               className="flex items-center gap-6"
+            >
+               <div className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem
+                     value="false"
+                     id="underlying-false"
+                     disabled={hasRecordedUnderlying}
+                     className="border-slate-700"
                   />
+                  <Label
+                     htmlFor="underlying-false"
+                     className={cn(
+                        "text-sm font-medium",
+                        hasRecordedUnderlying
+                           ? "text-slate-400 cursor-not-allowed"
+                           : "text-slate-700 cursor-pointer",
+                     )}
+                  >
+                     Không có bệnh nền
+                  </Label>
                </div>
-            </div>
+               <div className="flex items-center gap-2 cursor-pointer">
+                  <RadioGroupItem
+                     value="true"
+                     id="underlying-true"
+                     className="border-slate-700"
+                  />
+                  <Label
+                     htmlFor="underlying-true"
+                     className="cursor-pointer text-sm font-medium text-slate-700 flex items-center gap-1.5"
+                  >
+                     Có bệnh nền
+                     {hasRecordedUnderlying && (
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100  px-2 py-0.5 rounded-full">
+                           Theo hồ sơ
+                        </span>
+                     )}
+                  </Label>
+               </div>
+            </RadioGroup>
 
-            <div>
-               <RadioGroup
-                  value={hasUnderlyingDisease ? "true" : "false"}
-                  onValueChange={(val) => {
-                     if (hasRecordedUnderlying && val === "false") {
-                        toast.info(
-                           "Bệnh nhân có bệnh nền đã ghi nhận trong hồ sơ, tự động áp dụng luồng đánh giá có bệnh nền",
-                        );
-                        return;
-                     }
-                     setValue("hasUnderlyingDisease", val === "true");
-                  }}
-                  className="flex items-center gap-6"
-               >
-                  <div className="flex items-center gap-2 cursor-pointer">
-                     <RadioGroupItem
-                        value="false"
-                        id="underlying-false"
-                        disabled={hasRecordedUnderlying}
-                        className="border-slate-700"
-                     />
-                     <Label
-                        htmlFor="underlying-false"
-                        className={cn(
-                           "text-sm font-medium",
-                           hasRecordedUnderlying
-                              ? "text-slate-400 cursor-not-allowed"
-                              : "text-slate-700 cursor-pointer",
-                        )}
-                     >
-                        Không có bệnh nền
-                     </Label>
-                  </div>
-                  <div className="flex items-center gap-2 cursor-pointer">
-                     <RadioGroupItem
-                        value="true"
-                        id="underlying-true"
-                        className="border-slate-700"
-                     />
-                     <Label
-                        htmlFor="underlying-true"
-                        className="cursor-pointer text-sm font-medium text-slate-700 flex items-center gap-1.5"
-                     >
-                        Có bệnh nền
-                        {hasRecordedUnderlying && (
-                           <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100  px-2 py-0.5 rounded-full">
-                              Theo hồ sơ
-                           </span>
-                        )}
-                     </Label>
-                  </div>
-               </RadioGroup>
-            </div>
             {!hasUnderlyingDisease && (
                <div className="space-y-3">
+                  {/* Thông tin cơ bản: Tuổi, Giới tính, Thói quen hút thuốc */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                     <FormInput
+                        label={renderFieldLabel("Tuổi", "age")}
+                        type="number"
+                        min={0}
+                        required
+                        placeholder="Nhập tuổi (≥ 40)"
+                        disabled={isAgeLocked}
+                        error={errors.age?.message}
+                        {...register("age", {
+                           setValueAs: (v) =>
+                              v === "" || isNaN(v) ? null : Number(v),
+                        })}
+                     />
+
+                     <Controller
+                        name="gender"
+                        control={control}
+                        render={({ field }) => (
+                           <FormSelect
+                              label={renderFieldLabel("Giới tính", "gender")}
+                              options={GENDER_OPTIONS}
+                              required
+                              value={field.value || undefined}
+                              onValueChange={field.onChange}
+                              placeholder="Chọn giới tính"
+                              disabled={isGenderLocked}
+                              error={errors.gender?.message}
+                           />
+                        )}
+                     />
+
+                     <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                           <label className="text-xs font-medium text-slate-800">
+                              Thói quen hút thuốc{" "}
+                           </label>
+                           {renderSourceBadge("isSmoking")}
+                           <span className="text-red-600 text-xs">*</span>
+                        </div>
+                        <Controller
+                           name="isSmoking"
+                           control={control}
+                           render={({ field }) => {
+                              const hasError = Boolean(errors.isSmoking);
+                              return (
+                                 <div className="flex flex-col">
+                                    <div
+                                       className={cn(
+                                          "grid grid-cols-2 h-10 rounded-sm border overflow-hidden transition-colors",
+                                          hasError
+                                             ? "border-destructive ring-1 ring-destructive/20"
+                                             : "border-input",
+                                       )}
+                                    >
+                                       <div
+                                          onClick={() => {
+                                             if (!isSmokingLocked)
+                                                field.onChange(true);
+                                          }}
+                                          className={cn(
+                                             "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
+                                             isSmokingLocked
+                                                ? "cursor-not-allowed opacity-70 bg-slate-50"
+                                                : "cursor-pointer hover:bg-slate-50",
+                                             field.value === true
+                                                ? "bg-primary/5 text-primary font-semibold"
+                                                : "bg-background text-slate-700",
+                                          )}
+                                       >
+                                          <Checkbox
+                                             id="smoking-yes"
+                                             checked={field.value === true}
+                                             disabled={isSmokingLocked}
+                                             onCheckedChange={() => {
+                                                if (!isSmokingLocked)
+                                                   field.onChange(true);
+                                             }}
+                                          />
+                                          <Label
+                                             htmlFor="smoking-yes"
+                                             className={cn(
+                                                "text-xs font-medium",
+                                                isSmokingLocked
+                                                   ? "cursor-not-allowed text-slate-500"
+                                                   : "cursor-pointer",
+                                             )}
+                                          >
+                                             Có
+                                          </Label>
+                                       </div>
+
+                                       <div
+                                          onClick={() => {
+                                             if (!isSmokingLocked)
+                                                field.onChange(false);
+                                          }}
+                                          className={cn(
+                                             "flex items-center gap-2 px-3 text-xs font-medium transition-colors select-none",
+                                             isSmokingLocked
+                                                ? "cursor-not-allowed opacity-70 bg-slate-50"
+                                                : "cursor-pointer hover:bg-slate-50",
+                                             field.value === false
+                                                ? "bg-primary/5 text-primary font-semibold"
+                                                : "bg-background text-slate-700",
+                                          )}
+                                       >
+                                          <Checkbox
+                                             id="smoking-no"
+                                             checked={field.value === false}
+                                             disabled={isSmokingLocked}
+                                             onCheckedChange={() => {
+                                                if (!isSmokingLocked)
+                                                   field.onChange(false);
+                                             }}
+                                          />
+                                          <Label
+                                             htmlFor="smoking-no"
+                                             className={cn(
+                                                "text-xs font-medium",
+                                                isSmokingLocked
+                                                   ? "cursor-not-allowed text-slate-500"
+                                                   : "cursor-pointer",
+                                             )}
+                                          >
+                                             Không
+                                          </Label>
+                                       </div>
+                                    </div>
+                                    {errors.isSmoking?.message && (
+                                       <span className="text-[11px] font-medium text-destructive mt-0.5">
+                                          {errors.isSmoking.message}
+                                       </span>
+                                    )}
+                                 </div>
+                              );
+                           }}
+                        />
+                     </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                      <FormInput
                         label={renderFieldLabel(
                            "Huyết áp tâm thu (mmHg)",
                            "systolicBp",
                         )}
+                        required
                         type="number"
+                        min={0}
                         placeholder="Ví dụ: 120"
                         error={errors.systolicBp?.message}
                         {...register("systolicBp", {
@@ -1766,6 +2248,7 @@ export function RiskFactorAssessmentForm({
                            "diastolicBp",
                         )}
                         type="number"
+                        min={0}
                         placeholder="Ví dụ: 80"
                         error={errors.diastolicBp?.message}
                         {...register("diastolicBp", {
@@ -1779,7 +2262,9 @@ export function RiskFactorAssessmentForm({
                            "Cholesterol toàn phần (mmol/L)",
                            "totalCholesterol",
                         )}
+                        required
                         type="number"
+                        min={0}
                         step="any"
                         placeholder="Ví dụ: 5.0"
                         error={errors.totalCholesterol?.message}
@@ -1795,10 +2280,55 @@ export function RiskFactorAssessmentForm({
                            "hdlCholesterol",
                         )}
                         type="number"
+                        min={0}
                         step="any"
                         placeholder="Ví dụ: 1.2"
-                        error={errors.hdlCholesterol?.message}
+                        error={
+                           errors.hdlCholesterol?.message ||
+                           (numTotalChol !== null &&
+                           numHdlChol !== null &&
+                           numHdlChol >= numTotalChol
+                              ? "HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần"
+                              : undefined)
+                        }
                         {...register("hdlCholesterol", {
+                           setValueAs: (v) =>
+                              v === "" || isNaN(v) ? null : Number(v),
+                        })}
+                     />
+
+                     {nonHdlWarning && (
+                        <div className="col-span-full flex items-center gap-2 p-2.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                           <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                           <span className="font-medium">{nonHdlWarning}</span>
+                        </div>
+                     )}
+
+                     {!nonHdlWarning &&
+                        watchedNonHdlChol !== null &&
+                        watchedNonHdlChol !== undefined && (
+                           <div className="col-span-full flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+                              <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                              <span>
+                                 Non-HDL-Cholesterol:{" "}
+                                 <strong className="text-emerald-950 font-bold text-sm">
+                                    {watchedNonHdlChol} mmol/L
+                                 </strong>
+                              </span>
+                           </div>
+                        )}
+
+                     <FormInput
+                        label={renderFieldLabel(
+                           "LDL-Cholesterol (mmol/L)",
+                           "ldlCholesterol",
+                        )}
+                        type="number"
+                        min={0}
+                        step="any"
+                        placeholder="Ví dụ: 2.6"
+                        error={errors.ldlCholesterol?.message || ldlError}
+                        {...register("ldlCholesterol", {
                            setValueAs: (v) =>
                               v === "" || isNaN(v) ? null : Number(v),
                         })}
@@ -1806,19 +2336,17 @@ export function RiskFactorAssessmentForm({
 
                      <FormInput
                         label={renderFieldLabel(
-                           "Non-HDL-Cholesterol (mmol/L)",
-                           "nonHdlCholesterol",
-                           typeof watchedTotalChol === "number" &&
-                              typeof watchedHdlChol === "number" &&
-                              watchedTotalChol > watchedHdlChol
-                              ? "(Tự tính: TC - HDL)"
-                              : undefined,
+                           "Triglycerides (mmol/L)",
+                           "triglycerides",
                         )}
                         type="number"
+                        min={0}
                         step="any"
-                        placeholder="Ví dụ: 3.8"
-                        error={errors.nonHdlCholesterol?.message}
-                        {...register("nonHdlCholesterol", {
+                        placeholder="Ví dụ: 1.7"
+                        error={
+                           errors.triglycerides?.message || triglyceridesError
+                        }
+                        {...register("triglycerides", {
                            setValueAs: (v) =>
                               v === "" || isNaN(v) ? null : Number(v),
                         })}
@@ -1830,6 +2358,7 @@ export function RiskFactorAssessmentForm({
                            "glucoseFasting",
                         )}
                         type="number"
+                        min={0}
                         step="any"
                         placeholder="Ví dụ: 5.5"
                         error={errors.glucoseFasting?.message}
@@ -1844,9 +2373,10 @@ export function RiskFactorAssessmentForm({
                            label={renderFieldLabel(
                               "Chiều cao (cm)",
                               "heightCm",
-                              isHeightFromProfile ? "(Theo hồ sơ)" : undefined,
                            )}
                            type="number"
+                           min={0}
+                           disabled={isHeightFromProfile}
                            placeholder="Ví dụ: 165"
                            error={errors.heightCm?.message}
                            {...register("heightCm", {
@@ -1855,12 +2385,10 @@ export function RiskFactorAssessmentForm({
                            })}
                         />
                         <FormInput
-                           label={renderFieldLabel(
-                              "Cân nặng (kg)",
-                              "weightKg",
-                              isWeightFromProfile ? "(Theo hồ sơ)" : undefined,
-                           )}
+                           label={renderFieldLabel("Cân nặng (kg)", "weightKg")}
                            type="number"
+                           min={0}
+                           disabled={isWeightFromProfile}
                            placeholder="Ví dụ: 65"
                            error={errors.weightKg?.message}
                            {...register("weightKg", {
@@ -1911,7 +2439,7 @@ export function RiskFactorAssessmentForm({
                                     className="border border-primary"
                                  />
                                  <span className="flex items-center gap-1.5 flex-wrap">
-                                    Mắc đái tháo đường
+                                    Đái tháo đường
                                     {lockedDiseaseKeys.has("diabetes") ? (
                                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full inline-flex items-center gap-1">
                                           Hồ sơ
@@ -1933,6 +2461,7 @@ export function RiskFactorAssessmentForm({
                            <FormInput
                               label="Số năm mắc ĐTĐ"
                               type="number"
+                              min={0}
                               placeholder="Ví dụ: 5"
                               error={errors.diabetesDurationYears?.message}
                               {...register("diabetesDurationYears", {
@@ -1964,6 +2493,7 @@ export function RiskFactorAssessmentForm({
                            "egfr",
                         )}
                         type="number"
+                        min={0}
                         step="any"
                         placeholder="Ví dụ: 55.67"
                         error={errors.egfr?.message}
@@ -1987,6 +2517,7 @@ export function RiskFactorAssessmentForm({
                            "acr",
                         )}
                         type="number"
+                        min={0}
                         step="any"
                         placeholder="Ví dụ: 33.56"
                         error={errors.acr?.message}
@@ -2022,6 +2553,17 @@ export function RiskFactorAssessmentForm({
 
             {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-2">
+               {isEditMode && onCancelEdit && (
+                  <CustomButton
+                     type="button"
+                     variant="destructive"
+                     onClick={onCancelEdit}
+                     disabled={isSubmitting}
+                     className="px-5 h-10 text-xs font-semibold"
+                  >
+                     Hủy chỉnh sửa
+                  </CustomButton>
+               )}
                <CustomButton
                   type="button"
                   onClick={() => setIsOcrModalOpen(true)}
@@ -2035,10 +2577,12 @@ export function RiskFactorAssessmentForm({
                   type="submit"
                   disabled={isSubmitting || isUnder40}
                   isLoading={isSubmitting}
-                  loadingText="Đang đánh giá..."
+                  loadingText={
+                     isEditMode ? "Đang đánh giá lại..." : "Đang đánh giá..."
+                  }
                   className="px-6 h-10 text-xs font-semibold"
                >
-                  Đánh giá phân tầng nguy cơ
+                  {isEditMode ? "Đánh giá lại" : "Đánh giá phân tầng nguy cơ"}
                </CustomButton>
             </div>
          </form>
@@ -2050,6 +2594,7 @@ export function RiskFactorAssessmentForm({
             assessment={assessmentResult}
             onSuccess={(updated) => {
                setAssessmentResult(updated);
+               onAssessmentSuccess?.(updated);
             }}
          />
 

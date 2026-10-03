@@ -37,6 +37,8 @@ export interface OcrExtractedFormValues {
    totalCholesterol?: number | null;
    hdlCholesterol?: number | null;
    nonHdlCholesterol?: number | null;
+   ldlCholesterol?: number | null;
+   triglycerides?: number | null;
    glucoseFasting?: number | null;
    heightCm?: number | null;
    weightKg?: number | null;
@@ -199,6 +201,19 @@ export function OcrMedicalRecordModal({
             Math.round(
                (values.totalCholesterol - values.hdlCholesterol) * 100,
             ) / 100;
+      }
+
+      if (
+         sinhLy?.ldl_cholesterol !== undefined &&
+         sinhLy?.ldl_cholesterol !== null
+      ) {
+         values.ldlCholesterol = sinhLy.ldl_cholesterol;
+      }
+      if (
+         sinhLy?.triglycerides !== undefined &&
+         sinhLy?.triglycerides !== null
+      ) {
+         values.triglycerides = sinhLy.triglycerides;
       }
 
       if (sucKhoe?.chieu_cao !== undefined && sucKhoe?.chieu_cao !== null) {
@@ -663,6 +678,30 @@ export function OcrMedicalRecordModal({
                                           {formatVal(
                                              sinhLy?.non_hdl_cholesterol ??
                                                 applicableValues.nonHdlCholesterol,
+                                             "mmol/L",
+                                          )}
+                                       </span>
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
+                                       <span className="text-slate-500 block text-[11px]">
+                                          LDL-Cholesterol
+                                       </span>
+                                       <span className="font-bold text-slate-900 text-sm">
+                                          {formatVal(
+                                             sinhLy?.ldl_cholesterol ??
+                                                applicableValues.ldlCholesterol,
+                                             "mmol/L",
+                                          )}
+                                       </span>
+                                    </div>
+                                    <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
+                                       <span className="text-slate-500 block text-[11px]">
+                                          Triglycerides
+                                       </span>
+                                       <span className="font-bold text-slate-900 text-sm">
+                                          {formatVal(
+                                             sinhLy?.triglycerides ??
+                                                applicableValues.triglycerides,
                                              "mmol/L",
                                           )}
                                        </span>

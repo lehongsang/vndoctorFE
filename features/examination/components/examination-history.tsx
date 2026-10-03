@@ -264,40 +264,34 @@ export function ExaminationHistory({
             </div>
 
             <div className="flex flex-col gap-2">
-               <div className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-slate-500">
-                     Trạng thái
-                  </span>
-                  <div className="flex items-center gap-2 flex-wrap">
-                     {STATUS_BUTTONS.map((item) => {
-                        const isActive = status === item.value;
-                        return (
-                           <CustomButton
-                              key={item.value}
-                              type="button"
-                              size="sm"
-                              variant={isActive ? "default" : "outline"}
-                              onClick={() => {
-                                 setStatus(item.value);
-                                 setPage(1);
-                              }}
-                              className={cn(
-                                 "h-7 text-xs font-medium px-2 justify-center cursor-pointer",
-                                 isActive
-                                    ? "font-semibold shadow-2xs"
-                                    : "text-slate-600 hover:text-slate-900 border-slate-200 bg-white",
-                              )}
-                           >
-                              {item.label}
-                           </CustomButton>
-                        );
-                     })}
-                  </div>
+               <div className="flex items-center gap-2 flex-wrap">
+                  {STATUS_BUTTONS.map((item) => {
+                     const isActive = status === item.value;
+                     return (
+                        <CustomButton
+                           key={item.value}
+                           type="button"
+                           size="sm"
+                           variant={isActive ? "default" : "outline"}
+                           onClick={() => {
+                              setStatus(item.value);
+                              setPage(1);
+                           }}
+                           className={cn(
+                              "h-7 text-xs font-medium px-2 justify-center cursor-pointer",
+                              isActive
+                                 ? "font-semibold shadow-2xs"
+                                 : "text-slate-600 hover:text-slate-900 border-slate-200 bg-white",
+                           )}
+                        >
+                           {item.label}
+                        </CustomButton>
+                     );
+                  })}
                </div>
 
-               <div className="grid grid-cols-2 gap-2">
+               <div className="flex flex-col md:flex-row items-center gap-2">
                   <CustomCalendar
-                     label="Từ ngày"
                      value={fromDate}
                      onChange={(dateStr) => {
                         setFromDate(dateStr);
@@ -306,8 +300,8 @@ export function ExaminationHistory({
                      placeholder="Chọn ngày"
                      size="sm"
                   />
+                  <span className="text-xs font-medium text-slate-500">-</span>
                   <CustomCalendar
-                     label="Đến ngày"
                      value={toDate}
                      onChange={(dateStr) => {
                         setToDate(dateStr);

@@ -47,8 +47,8 @@ export const STATUS_CONFIG: Record<
    },
    CANCELLED: {
       label: "Đã hủy",
-      bg: "bg-slate-100",
-      text: "text-slate-600",
+      bg: "bg-rose-100",
+      text: "text-rose-700",
    },
 };
 
@@ -82,18 +82,34 @@ export function CareRequestTable({
          cell: (_item, index) => (page - 1) * limit + index + 1,
       },
       {
-         id: "requestCode",
-         header: "Mã yêu cầu",
-         headerClassName: "text-xs font-semibold text-slate-600 min-w-36",
+         id: "patient",
+         header: "Bệnh nhân",
+         headerClassName: "text-xs font-semibold text-slate-600 min-w-44",
          cellClassName: "py-2.5",
-         cell: (item) => (
-            <span
-               className="font-medium text-sm text-blue-800 underline cursor-pointer"
-               onClick={() => onViewDetail(item)}
-            >
-               {item.requestCode || "—"}
-            </span>
-         ),
+         cell: (item) => {
+            const patient =
+               item.subscription?.healthProfile ||
+               (item as unknown as { patient?: { fullName?: string; phoneNumber?: string } }).patient ||
+               (item as unknown as { healthProfile?: { fullName?: string; phoneNumber?: string } }).healthProfile;
+            const patientName = patient?.fullName || item.requestCode || "—";
+            const phoneNumber = patient?.phoneNumber;
+
+            return (
+               <div className="flex flex-col gap-0.5">
+                  <span
+                     className="font-medium text-sm text-blue-800 hover:text-blue-900 underline cursor-pointer"
+                     onClick={() => onViewDetail(item)}
+                  >
+                     {patientName}
+                  </span>
+                  {phoneNumber && (
+                     <span className="text-xs text-slate-500 font-normal">
+                        {phoneNumber}
+                     </span>
+                  )}
+               </div>
+            );
+         },
       },
       {
          id: "title",

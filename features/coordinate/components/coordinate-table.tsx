@@ -112,13 +112,17 @@ export default function CoordinateTable({
       {
          id: "package",
          header: "Gói",
-         headerClassName: "pl-4 text-xs font-semibold text-slate-600",
-         cellClassName: "pl-4 py-2 text-xs text-slate-600 font-medium",
+         headerClassName:
+            "pl-4 text-xs font-semibold text-slate-600 min-w-44 max-w-xs",
+         cellClassName:
+            "pl-4 py-2 text-xs text-slate-600 font-medium whitespace-normal break-words max-w-xs",
          cell: (data: CareSubscriptions) => (
-            <div className="flex items-center gap-1">
-               <div>{data.carePackage?.name}</div>
+            <div className="flex items-center gap-1.5 flex-wrap whitespace-normal wrap-break-word">
+               <span className="whitespace-normal wrap-break-word">
+                  {data.carePackage?.name}
+               </span>
                <span
-                  className={`text-xs py-1 px-2 rounded-sm inline-block w-fit ${
+                  className={`text-xs py-1 px-2 rounded-sm inline-block shrink-0 w-fit ${
                      data.carePackage?.type === "STANDARD"
                         ? "text-blue-600 bg-blue-100 font-medium"
                         : "text-amber-600 bg-amber-100 font-medium"
