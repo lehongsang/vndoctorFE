@@ -19,10 +19,11 @@ import { FormTextarea } from "@/components/common/form-textarea";
 import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
 import { cn } from "@/lib/utils";
-import { AlertCircle, Info, Trash2, X } from "lucide-react";
+import { AlertCircle, Monitor, X } from "lucide-react";
 import { RiskAssessmentEvaluationModal } from "./risk-assessment-evaluation-modal";
 import { RiskAssessmentDetailModal } from "./risk-assessment-detail-modal";
 import { TreatmentTargetTemplateModal } from "./treatment-target-template-modal";
+import { CreateConsultationModal } from "./create-consultation-modal";
 import { TreatmentTargetTemplate } from "@/store/api/treatment-target-template/type";
 import { useGetTreatmentTargetTemplatesQuery } from "@/store/api/treatment-target-template/treatment-target-template-api";
 import {
@@ -84,23 +85,42 @@ const parseCustomTargets = (
         }));
 };
 
-const examinationSchema = z.object({
-   assessmentInputId: z.string().optional(),
-   treatmentTargetId: z.string().optional(),
-   treatmentPlanId: z.string().optional(),
-   reasonForVisit: z.string().trim().min(1, "Vui lòng nhập lý do đến khám"),
-   clinicalSymptoms: z.string().trim().optional(),
-   heartRate: z.number().nullable().optional(),
-   systolicBp: z.number().nullable().optional(),
-   diastolicBp: z.number().nullable().optional(),
-   temperature: z.number().nullable().optional(),
-   spo2: z.number().nullable().optional(),
-   respiratoryRate: z.number().nullable().optional(),
-   diagnosis: z.string().trim().min(1, "Vui lòng nhập chẩn đoán"),
-   icd10Code: z.string().trim().optional(),
-   nextAppointmentDate: z.string().optional(),
-   status: z.enum(["IN_PROGRESS", "COMPLETED", "CANCELLED"]),
-});
+const examinationSchema = z
+   .object({
+      assessmentInputId: z.string().optional(),
+      treatmentTargetId: z.string().optional(),
+      treatmentPlanId: z.string().optional(),
+      reasonForVisit: z.string().trim().optional(),
+      clinicalSymptoms: z.string().trim().optional(),
+      heartRate: z.number().nullable().optional(),
+      systolicBp: z.number().nullable().optional(),
+      diastolicBp: z.number().nullable().optional(),
+      temperature: z.number().nullable().optional(),
+      spo2: z.number().nullable().optional(),
+      respiratoryRate: z.number().nullable().optional(),
+      diagnosis: z.string().trim().optional(),
+      icd10Code: z.string().trim().optional(),
+      nextAppointmentDate: z.string().optional(),
+      status: z.enum(["IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+   })
+   .superRefine((data, ctx) => {
+      if (data.status === "COMPLETED") {
+         if (!data.reasonForVisit || data.reasonForVisit.trim() === "") {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message: "Vui lòng nhập lý do đến khám khi hoàn thành lượt khám",
+               path: ["reasonForVisit"],
+            });
+         }
+         if (!data.diagnosis || data.diagnosis.trim() === "") {
+            ctx.addIssue({
+               code: z.ZodIssueCode.custom,
+               message: "Vui lòng nhập chẩn đoán khi hoàn thành lượt khám",
+               path: ["diagnosis"],
+            });
+         }
+      }
+   });
 
 export type ExaminationFormValues = z.infer<typeof examinationSchema>;
 
@@ -181,23 +201,43 @@ const TARGET_INPUT_FIELDS: {
    key: TargetStringKey;
    label: string;
    placeholder: string;
+   containerClass: string;
+   labelClass: string;
 }[] = [
-   { key: "bpTarget", label: "Huyết áp", placeholder: "VD: < 130/80 mmHg" },
+   {
+      key: "bpTarget",
+      label: "Huyết áp mục tiêu",
+      placeholder: "VD: < 130/80 mmHg",
+      containerClass: "bg-rose-50/70 border-rose-200/90",
+      labelClass: "text-rose-900",
+   },
    {
       key: "lipidTarget",
-      label: "Lipid máu",
+      label: "Lipid máu mục tiêu",
       placeholder: "VD: LDL-C < 1.4 mmol/L",
+      containerClass: "bg-amber-50/70 border-amber-200/90",
+      labelClass: "text-amber-900",
    },
-   { key: "bmiTarget", label: "BMI", placeholder: "VD: 18.5 - 22.9 kg/m²" },
+   {
+      key: "bmiTarget",
+      label: "BMI mục tiêu",
+      placeholder: "VD: 18.5 - 22.9 kg/m²",
+      containerClass: "bg-emerald-50/70 border-emerald-200/90",
+      labelClass: "text-emerald-900",
+   },
    {
       key: "glycemicTarget",
-      label: "Đường huyết",
+      label: "Đường huyết mục tiêu",
       placeholder: "VD: HbA1c < 7.0%",
+      containerClass: "bg-purple-50/70 border-purple-200/90",
+      labelClass: "text-purple-900",
    },
    {
       key: "renalTarget",
-      label: "Chức năng thận",
+      label: "Chức năng thận mục tiêu",
       placeholder: "VD: eGFR > 60 mL/min",
+      containerClass: "bg-sky-50/70 border-sky-200/90",
+      labelClass: "text-sky-900",
    },
 ];
 
@@ -205,26 +245,36 @@ const TARGET_TEXTAREA_FIELDS: {
    key: TargetStringKey;
    label: string;
    placeholder: string;
+   containerClass: string;
+   labelClass: string;
 }[] = [
    {
       key: "dietAdvice",
-      label: "Tư vấn chế độ ăn",
+      label: "Tư vấn lối sống & Dinh dưỡng",
       placeholder: "Chế độ ăn giảm muối, hạn chế dầu mỡ...",
+      containerClass: "bg-teal-50/70 border-teal-200/90",
+      labelClass: "text-teal-900",
    },
    {
       key: "exerciseAdvice",
-      label: "Tư vấn vận động",
+      label: "Tư vấn vận động & Thể lực",
       placeholder: "Đi bộ nhanh 30 phút/ngày...",
+      containerClass: "bg-blue-50/70 border-blue-200/90",
+      labelClass: "text-blue-900",
    },
    {
       key: "smokingAdvice",
       label: "Tư vấn cai thuốc lá",
       placeholder: "Cai thuốc lá hoàn toàn...",
+      containerClass: "bg-orange-50/70 border-orange-200/90",
+      labelClass: "text-orange-900",
    },
    {
       key: "doctorNotes",
       label: "Ghi chú của bác sĩ",
       placeholder: "Ghi chú thêm về mục tiêu điều trị...",
+      containerClass: "bg-slate-50 border-slate-300",
+      labelClass: "text-slate-800",
    },
 ];
 
@@ -272,6 +322,8 @@ export function ExaminationForm({
    const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
    const [isCreateRiskModalOpen, setIsCreateRiskModalOpen] = useState(false);
+   const [isConsultationModalOpen, setIsConsultationModalOpen] =
+      useState(false);
    const [editingRiskAssessment, setEditingRiskAssessment] =
       useState<RiskAssessmentResult | null>(null);
    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -512,6 +564,7 @@ export function ExaminationForm({
       reset,
       setValue,
       getValues,
+      clearErrors,
       formState: { errors },
    } = useForm<ExaminationFormValues>({
       resolver: zodResolver(examinationSchema),
@@ -1035,7 +1088,7 @@ export function ExaminationForm({
                treatmentTargetId: targetId,
                treatmentTargetTemplateId: selectedTemplateId || undefined,
                treatmentTargetData,
-               reasonForVisit: values.reasonForVisit,
+               reasonForVisit: values.reasonForVisit || "",
                clinicalSymptoms: values.clinicalSymptoms || "",
                ...numericVitals,
                diagnosis: values.diagnosis || "",
@@ -1062,13 +1115,26 @@ export function ExaminationForm({
 
    const handleSaveWithStatus = (targetStatus: ExaminationStatus) => {
       setValue("status", targetStatus);
+      if (targetStatus !== "COMPLETED") {
+         clearErrors(["reasonForVisit", "diagnosis"]);
+      }
       handleSubmit(
          async (values) => {
             setSubmittingStatus(targetStatus);
             await onSubmit(values, targetStatus);
             setSubmittingStatus(null);
          },
-         () => setSubmittingStatus(null),
+         (invalidErrors) => {
+            setSubmittingStatus(null);
+            if (targetStatus === "COMPLETED") {
+               const firstError =
+                  invalidErrors.reasonForVisit?.message ||
+                  invalidErrors.diagnosis?.message;
+               if (firstError) {
+                  toast.error(firstError);
+               }
+            }
+         },
       )();
    };
 
@@ -1129,7 +1195,7 @@ export function ExaminationForm({
          className="flex flex-col gap-6"
       >
          {!canEdit && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-center gap-2">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-sm text-xs text-amber-800 flex items-center gap-2">
                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                <span>
                   Phiếu khám này đã{" "}
@@ -1151,9 +1217,8 @@ export function ExaminationForm({
 
                <div className="grid grid-cols-1 gap-4">
                   <div className="flex flex-col gap-1.5">
-                     <FormTextarea
+                     <FormInput
                         label="Lý do đến khám"
-                        required
                         placeholder="Ví dụ: Đau đầu, mệt mỏi, ho sốt..."
                         error={errors.reasonForVisit?.message}
                         {...register("reasonForVisit")}
@@ -1196,10 +1261,10 @@ export function ExaminationForm({
                         {canEdit && (
                            <CustomButton
                               type="button"
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
                               onClick={() => setIsCreateRiskModalOpen(true)}
-                              className="h-7 text-xs px-2.5 text-primary border-primary/30 hover:bg-primary/5 cursor-pointer"
+                              className="h-7 text-xs underline text-blue-500"
                            >
                               + Thực hiện phân tầng nguy cơ
                            </CustomButton>
@@ -1214,7 +1279,8 @@ export function ExaminationForm({
                               placeholder={
                                  isLoadingRisk || isFetchingRisk
                                     ? "Đang tải danh sách phân tầng..."
-                                    : riskAssessments.length === 0 && !updatedAssessment
+                                    : riskAssessments.length === 0 &&
+                                        !updatedAssessment
                                       ? "Bệnh nhân chưa có phiếu phân tầng nguy cơ nào"
                                       : "Chọn phiếu phân tầng nguy cơ"
                               }
@@ -1279,9 +1345,9 @@ export function ExaminationForm({
                            </div>
 
                            <p className="text-[11px] text-slate-900 italic">
-                              * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
-                              Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
-                              mạch châu Âu ESC
+                              * Phân tầng yếu tố nguy cơ theo thang điểm Score
+                              2; Score-OP; Score-dia được Khuyến cáo của hiệp
+                              hội tim mạch châu Âu ESC
                            </p>
 
                            {selectedRiskAssessment.doctorId ? (
@@ -1301,22 +1367,12 @@ export function ExaminationForm({
                                  <div className="flex items-center justify-end gap-2 flex-wrap pt-1">
                                     <CustomButton
                                        type="button"
-                                       variant="outline"
                                        onClick={() =>
                                           setIsDetailModalOpen(true)
                                        }
                                        className="h-8 w-fit text-xs cursor-pointer"
                                     >
                                        Xem chi tiết
-                                    </CustomButton>
-                                    <CustomButton
-                                       type="button"
-                                       onClick={() =>
-                                          setIsEvaluationModalOpen(true)
-                                       }
-                                       className="w-fit h-8 text-xs cursor-pointer"
-                                    >
-                                       Đánh giá lại
                                     </CustomButton>
                                  </div>
                               </div>
@@ -1329,7 +1385,9 @@ export function ExaminationForm({
                                     <CustomButton
                                        type="button"
                                        variant="outline"
-                                       onClick={() => setIsDetailModalOpen(true)}
+                                       onClick={() =>
+                                          setIsDetailModalOpen(true)
+                                       }
                                        className="h-8 w-fit text-xs cursor-pointer"
                                     >
                                        Xem chi tiết
@@ -1389,7 +1447,6 @@ export function ExaminationForm({
                <div className="grid grid-cols-1 gap-4">
                   <FormTextarea
                      label="Chẩn đoán"
-                     required
                      placeholder="Ví dụ: Tăng huyết áp độ 1..."
                      error={errors.diagnosis?.message}
                      {...register("diagnosis")}
@@ -1525,44 +1582,62 @@ export function ExaminationForm({
                            </div>
                         )}
 
-                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-md text-sm text-blue-700">
-                           <Info className="w-4 h-4" />
-                           <span>
-                              Mục tiêu điều trị căn cứ theo khuyến cáo hiệp hội
-                              tim mạch châu Âu ESC; hiệp hội đái tháo đường Mỹ
-                           </span>
+                        <div className="p-3 bg-blue-50/80 border border-blue-200/80 rounded-md text-xs text-blue-800 font-medium leading-relaxed">
+                           Mục tiêu điều trị căn cứ theo khuyến cáo hiệp hội tim
+                           mạch châu Âu ESC; hiệp hội đái tháo đường Mỹ
                         </div>
 
                         {/* Các chỉ số kiểm soát */}
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 gap-3">
                            {TARGET_INPUT_FIELDS.map(
-                              ({ key, label, placeholder }) => (
-                                 <FormInput
+                              ({
+                                 key,
+                                 label,
+                                 placeholder,
+                                 containerClass,
+                                 labelClass,
+                              }) => (
+                                 <div
                                     key={key}
-                                    label={label}
-                                    placeholder={placeholder}
-                                    value={treatmentTarget[key] || ""}
-                                    onChange={(e) =>
-                                       handleTargetFieldChange(
-                                          key,
-                                          e.target.value,
-                                       )
-                                    }
-                                    onClear={() =>
-                                       handleTargetFieldChange(key, "")
-                                    }
-                                    disabled={!canEdit}
-                                 />
+                                    className={cn(
+                                       "p-3 rounded-sm border transition-all shadow-2xs",
+                                       containerClass,
+                                    )}
+                                 >
+                                    <label
+                                       className={cn(
+                                          "text-xs font-semibold block mb-1.5",
+                                          labelClass,
+                                       )}
+                                    >
+                                       {label}
+                                    </label>
+                                    <FormInput
+                                       placeholder={placeholder}
+                                       value={treatmentTarget[key] || ""}
+                                       onChange={(e) =>
+                                          handleTargetFieldChange(
+                                             key,
+                                             e.target.value,
+                                          )
+                                       }
+                                       onClear={() =>
+                                          handleTargetFieldChange(key, "")
+                                       }
+                                       disabled={!canEdit}
+                                       className="bg-white border-slate-200"
+                                    />
+                                 </div>
                               ),
                            )}
 
                            {/* Mục tiêu điều trị tùy chỉnh / bổ sung */}
-                           <div className="space-y-2">
+                           <div className="p-3.5 rounded-sm border border-indigo-200/90 bg-indigo-50/70 shadow-2xs space-y-2.5">
                               <div className="flex items-center justify-between flex-wrap gap-2">
-                                 <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                 <label className="text-xs font-semibold text-indigo-900 flex items-center gap-1.5">
                                     <span>Mục tiêu bổ sung (Tùy chỉnh)</span>
                                     {customTargetList.length > 0 && (
-                                       <span className="text-[11px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                                       <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded-full border border-indigo-200/60">
                                           {customTargetList.length}
                                        </span>
                                     )}
@@ -1571,7 +1646,7 @@ export function ExaminationForm({
 
                               {canEdit && (
                                  <div className="flex flex-wrap gap-1.5 items-center">
-                                    <span className="text-[11px] text-slate-400">
+                                    <span className="text-[11px] text-indigo-700 font-medium">
                                        Gợi ý nhanh:
                                     </span>
                                     {COMMON_CUSTOM_TARGET_PRESETS.map(
@@ -1599,10 +1674,10 @@ export function ExaminationForm({
                                                    );
                                                 }}
                                                 className={cn(
-                                                   "text-[11px] px-2 py-0.5 rounded-full border transition-all cursor-pointer",
+                                                   "text-[11px] px-2 py-0.5 rounded-full border transition-all cursor-pointer font-medium",
                                                    isAdded
                                                       ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
-                                                      : "bg-white text-slate-600 hover:text-primary-600 hover:border-primary-300 border-slate-200 shadow-2xs",
+                                                      : "bg-white text-indigo-800 hover:bg-indigo-100/70 border-indigo-200 shadow-2xs",
                                                 )}
                                              >
                                                 + {preset.label}
@@ -1618,7 +1693,7 @@ export function ExaminationForm({
                                     {customTargetList.map((item, idx) => (
                                        <div
                                           key={item.id}
-                                          className="flex flex-col sm:flex-row gap-2 items-start sm:items-center"
+                                          className="p-2.5 bg-white/90 rounded-md border border-indigo-200/70 flex flex-col sm:flex-row gap-2 items-start sm:items-center"
                                        >
                                           <div className="flex-1 w-full sm:w-auto">
                                              <FormInput
@@ -1638,6 +1713,7 @@ export function ExaminationForm({
                                                 }
                                                 disabled={!canEdit}
                                                 containerClassName="w-full"
+                                                className="bg-white"
                                              />
                                           </div>
                                           <div className="flex-1 w-full sm:w-auto">
@@ -1658,6 +1734,7 @@ export function ExaminationForm({
                                                 }
                                                 disabled={!canEdit}
                                                 containerClassName="w-full"
+                                                className="bg-white"
                                              />
                                           </div>
                                           {canEdit && (
@@ -1669,12 +1746,12 @@ export function ExaminationForm({
                                                    )
                                                 }
                                                 className={cn(
-                                                   "p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors self-end sm:self-center cursor-pointer",
+                                                   "text-xs px-2.5 py-1.5 text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-300 rounded transition-colors self-end sm:self-center font-medium cursor-pointer shadow-2xs",
                                                    idx === 0 && "sm:mt-5",
                                                 )}
                                                 title="Xóa mục tiêu này"
                                              >
-                                                <Trash2 className="w-4 h-4" />
+                                                Xóa
                                              </button>
                                           )}
                                        </div>
@@ -1683,11 +1760,11 @@ export function ExaminationForm({
                               )}
 
                               {canEdit && (
-                                 <div className="flex justify-center">
+                                 <div className="flex justify-center pt-1">
                                     <CustomButton
                                        type="button"
                                        onClick={handleAddCustomTarget}
-                                       className="text-xs h-8 w-1/2"
+                                       className="text-xs h-8 w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white"
                                     >
                                        Thêm mục tiêu
                                     </CustomButton>
@@ -1696,24 +1773,45 @@ export function ExaminationForm({
                            </div>
 
                            {TARGET_TEXTAREA_FIELDS.map(
-                              ({ key, label, placeholder }) => (
-                                 <FormTextarea
+                              ({
+                                 key,
+                                 label,
+                                 placeholder,
+                                 containerClass,
+                                 labelClass,
+                              }) => (
+                                 <div
                                     key={key}
-                                    label={label}
-                                    placeholder={placeholder}
-                                    value={treatmentTarget[key] || ""}
-                                    onChange={(e) =>
-                                       handleTargetFieldChange(
-                                          key,
-                                          e.target.value,
-                                       )
-                                    }
-                                    onClear={() =>
-                                       handleTargetFieldChange(key, "")
-                                    }
-                                    rows={2}
-                                    disabled={!canEdit}
-                                 />
+                                    className={cn(
+                                       "p-3 rounded-sm border transition-all shadow-2xs",
+                                       containerClass,
+                                    )}
+                                 >
+                                    <label
+                                       className={cn(
+                                          "text-xs font-semibold block mb-1.5",
+                                          labelClass,
+                                       )}
+                                    >
+                                       {label}
+                                    </label>
+                                    <FormTextarea
+                                       placeholder={placeholder}
+                                       value={treatmentTarget[key] || ""}
+                                       onChange={(e) =>
+                                          handleTargetFieldChange(
+                                             key,
+                                             e.target.value,
+                                          )
+                                       }
+                                       onClear={() =>
+                                          handleTargetFieldChange(key, "")
+                                       }
+                                       rows={2}
+                                       disabled={!canEdit}
+                                       className="bg-white border-slate-200"
+                                    />
+                                 </div>
                               ),
                            )}
 
@@ -1839,9 +1937,9 @@ export function ExaminationForm({
                      disabled={isSubmitting || !canEdit}
                      onClick={() => handleSaveWithStatus("CANCELLED")}
                      className="h-9 px-3.5 text-xs gap-1.5 cursor-pointer"
-                     title="Hủy đợt khám (F4)"
+                     title="Hủy phiếu khám (F4)"
                   >
-                     <span>Hủy đợt khám</span>
+                     <span>Hủy phiếu khám</span>
                      <kbd>(F4)</kbd>
                   </CustomButton>
                )}
@@ -1871,6 +1969,19 @@ export function ExaminationForm({
                   <span>Lưu và hoàn thành</span>
                   <kbd>(F10)</kbd>
                </CustomButton>
+               {initialData?.status === "IN_PROGRESS" && (
+                  <CustomButton
+                     type="button"
+                     size="sm"
+                     disabled={isSubmitting}
+                     onClick={() => setIsConsultationModalOpen(true)}
+                     className="h-9 px-6 text-xs gap-1.5 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white"
+                     title="Hội chẩn"
+                     startIcon={<Monitor className="size-4" />}
+                  >
+                     Hội chẩn
+                  </CustomButton>
+               )}
             </div>
          </div>
 
@@ -1970,6 +2081,15 @@ export function ExaminationForm({
             customTargets={getCustomTargetsObject()}
             dictionaryCode={treatmentTarget?.dictionaryCode || "DEFAULT"}
          />
+         {initialData?.id && (
+            <CreateConsultationModal
+               open={isConsultationModalOpen}
+               onClose={() => setIsConsultationModalOpen(false)}
+               examinationId={initialData.id}
+               patientName={healthProfileData?.fullName}
+               diagnosis={initialData.diagnosis || getValues("diagnosis")}
+            />
+         )}
       </form>
    );
 }

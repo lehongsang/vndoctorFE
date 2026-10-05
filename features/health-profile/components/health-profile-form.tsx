@@ -769,50 +769,28 @@ export function HealthProfileForm({
                            name={item.name}
                            control={control}
                            render={({ field }) => (
-                              <div
-                                 role="button"
-                                 tabIndex={0}
-                                 onClick={() =>
-                                    !isView && field.onChange(!field.value)
-                                 }
-                                 onKeyDown={(e) => {
-                                    if (
-                                       !isView &&
-                                       (e.key === "Enter" || e.key === " ")
-                                    ) {
-                                       e.preventDefault();
-                                       field.onChange(!field.value);
-                                    }
-                                 }}
+                              <label
                                  className={cn(
-                                    "flex items-center justify-between py-2.5 px-4 rounded-sm border text-left select-none transition-colors",
+                                    "flex items-center gap-2 font-semibold text-sm text-slate-700 select-none",
                                     isView
-                                       ? "cursor-not-allowed opacity-80"
-                                       : "cursor-pointer hover:bg-slate-50",
-                                    field.value
-                                       ? "border-emerald-600 bg-emerald-100"
-                                       : "border-slate-300 bg-slate-50/40",
+                                       ? "cursor-not-allowed opacity-85"
+                                       : "cursor-pointer",
                                  )}
                               >
-                                 <span className="text-xs sm:text-sm font-medium text-slate-800 pr-2 flex items-center gap-1.5">
+                                 <Checkbox
+                                    checked={Boolean(field.value)}
+                                    onCheckedChange={(checked) => {
+                                       if (isView) return;
+                                       field.onChange(Boolean(checked));
+                                    }}
+                                    disabled={isView}
+                                    className="border border-primary"
+                                 />
+                                 <span className="flex items-center gap-1.5 flex-wrap">
                                     <span>{item.label}</span>
                                     {renderOcrBadge(item.name)}
                                  </span>
-                                 <div
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center shrink-0"
-                                 >
-                                    <Checkbox
-                                       checked={field.value}
-                                       onCheckedChange={(checked) =>
-                                          !isView &&
-                                          field.onChange(Boolean(checked))
-                                       }
-                                       disabled={isView}
-                                       className="size-4.5 rounded border-slate-400 data-checked:bg-emerald-600 data-checked:text-white"
-                                    />
-                                 </div>
-                              </div>
+                              </label>
                            )}
                         />
                      ))}
@@ -830,50 +808,28 @@ export function HealthProfileForm({
                            name={item.name}
                            control={control}
                            render={({ field }) => (
-                              <div
-                                 role="button"
-                                 tabIndex={0}
-                                 onClick={() =>
-                                    !isView && field.onChange(!field.value)
-                                 }
-                                 onKeyDown={(e) => {
-                                    if (
-                                       !isView &&
-                                       (e.key === "Enter" || e.key === " ")
-                                    ) {
-                                       e.preventDefault();
-                                       field.onChange(!field.value);
-                                    }
-                                 }}
+                              <label
                                  className={cn(
-                                    "flex items-center justify-between py-2.5 px-4 rounded-sm border text-left select-none transition-colors",
+                                    "flex items-center gap-2 font-semibold text-sm text-slate-700 select-none",
                                     isView
-                                       ? "cursor-not-allowed opacity-80"
-                                       : "cursor-pointer hover:bg-slate-50",
-                                    field.value
-                                       ? "border-emerald-600 bg-emerald-100"
-                                       : "border-slate-300 bg-slate-50/40",
+                                       ? "cursor-not-allowed opacity-85"
+                                       : "cursor-pointer",
                                  )}
                               >
-                                 <span className="text-xs sm:text-sm font-medium text-slate-800 pr-2 flex items-center gap-1.5">
+                                 <Checkbox
+                                    checked={Boolean(field.value)}
+                                    onCheckedChange={(checked) => {
+                                       if (isView) return;
+                                       field.onChange(Boolean(checked));
+                                    }}
+                                    disabled={isView}
+                                    className="border border-primary"
+                                 />
+                                 <span className="flex items-center gap-1.5 flex-wrap">
                                     <span>{item.label}</span>
                                     {renderOcrBadge(item.name)}
                                  </span>
-                                 <div
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center shrink-0"
-                                 >
-                                    <Checkbox
-                                       checked={field.value}
-                                       onCheckedChange={(checked) =>
-                                          !isView &&
-                                          field.onChange(Boolean(checked))
-                                       }
-                                       disabled={isView}
-                                       className="size-4.5 rounded border-slate-400 data-checked:bg-emerald-600 data-checked:text-white"
-                                    />
-                                 </div>
-                              </div>
+                              </label>
                            )}
                         />
                      ))}

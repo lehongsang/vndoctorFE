@@ -13,6 +13,7 @@ import { useGetDetailCareRequestQuery } from "@/store/api/care-request/care-requ
 import { STATUS_MAP } from "./care-request-table";
 import { formatDate } from "@/lib/utils";
 import Image from "next/image";
+import { useAuth } from "@/hooks/use-auth";
 
 interface CareRequestDetailModalProps {
    requestId: string | null;
@@ -27,12 +28,21 @@ export function CareRequestDetailModal({
    onReceive,
    onResolve,
 }: CareRequestDetailModalProps) {
+   const { user } = useAuth();
    const { data: detail, isLoading } = useGetDetailCareRequestQuery(
       requestId || "",
       { skip: !requestId },
    );
 
    if (!requestId) return null;
+
+   const assignedUserId = detail?.assignedUserId || detail?.assignedUser?.id;
+   const isAssignedToCurrentUser = Boolean(
+      user?.id && assignedUserId === user.id,
+   );
+   const canOperate =
+      detail?.status === "PENDING" ||
+      (detail?.status === "IN_PROGRESS" && isAssignedToCurrentUser);
 
    const statusInfo = detail?.status ? STATUS_MAP[detail.status] : null;
 
@@ -101,7 +111,7 @@ export function CareRequestDetailModal({
                         <div>
                            <span className="text-slate-500">Gói chăm sóc:</span>{" "}
                            <span className="font-medium text-slate-900">
-                              {detail.subscription.carePackage.packageName}
+                              {detail.subscription.carePackage.name}
                            </span>
                         </div>
                      )}
@@ -194,7 +204,7 @@ export function CareRequestDetailModal({
                         Đóng
                      </CustomButton>
 
-                     {detail.status === "PENDING" && onReceive && (
+                     {canOperate && detail.status === "PENDING" && onReceive && (
                         <CustomButton
                            size="sm"
                            onClick={() => {
@@ -207,7 +217,7 @@ export function CareRequestDetailModal({
                         </CustomButton>
                      )}
 
-                     {detail.status === "IN_PROGRESS" && onResolve && (
+                     {canOperate && detail.status === "IN_PROGRESS" && onResolve && (
                         <CustomButton
                            size="sm"
                            onClick={() => {

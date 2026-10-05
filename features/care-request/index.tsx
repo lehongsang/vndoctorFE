@@ -259,6 +259,7 @@ export default function CareRequestModule() {
                setIsReceiveOpen(false);
                setSelectedRequest(null);
             }}
+            doctorId={selectedRequest?.subscription?.assignedDoctorId}
             onConfirm={handleReceiveConfirm}
             isLoading={isReceiving}
          />

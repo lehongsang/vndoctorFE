@@ -11,71 +11,76 @@ import {
 } from "@/components/ui/table";
 import { CustomButton } from "@/components/common/custom-button";
 import { CloverLoading } from "@/components/common/clover-loading";
-import { CareRequest, CareRequestStatus } from "@/store/api/care-request/type";
+import { Consultation } from "@/store/api/consultation/type";
 import { formatDate } from "@/lib/utils";
-import { useAuth } from "@/hooks/use-auth";
 
-export interface CareRequestTableProps {
-   data: CareRequest[];
+export interface ConsultationTableProps {
+   data: Consultation[];
    isLoading: boolean;
    isFetching: boolean;
    page: number;
    limit: number;
-   onViewDetail: (item: CareRequest) => void;
-   onReceive: (item: CareRequest) => void;
-   onResolve: (item: CareRequest) => void;
-   onCancel: (item: CareRequest) => void;
+   onViewDetail: (item: Consultation) => void;
+   onProvideConclusion?: (item: Consultation) => void;
 }
 
 export const STATUS_CONFIG: Record<
-   CareRequestStatus,
-   { label: string; bg: string; text: string }
+   string,
+   { label: string; bg: string; text: string; border?: string }
 > = {
    PENDING: {
-      label: "Chờ tiếp nhận",
+      label: "Chờ hội chẩn",
       bg: "bg-amber-100",
       text: "text-amber-700",
+      border: "border-amber-200",
    },
    IN_PROGRESS: {
-      label: "Đang xử lý",
+      label: "Đang hội chẩn",
       bg: "bg-blue-100",
       text: "text-blue-700",
+      border: "border-blue-200",
    },
-   RESOLVED: {
-      label: "Đã hoàn thành",
+   COMPLETED: {
+      label: "Đã có kết luận",
       bg: "bg-emerald-100",
       text: "text-emerald-700",
+      border: "border-emerald-200",
+   },
+   RESOLVED: {
+      label: "Đã có kết luận",
+      bg: "bg-emerald-100",
+      text: "text-emerald-700",
+      border: "border-emerald-200",
    },
    CANCELLED: {
       label: "Đã hủy",
       bg: "bg-rose-100",
       text: "text-rose-700",
+      border: "border-rose-200",
    },
 };
 
 export const STATUS_MAP = STATUS_CONFIG;
+export const CONSULTATION_STATUS_CONFIG = STATUS_CONFIG;
 
-interface CareRequestColumn {
+interface ConsultationColumn {
    id: string;
    header: React.ReactNode;
    headerClassName?: string;
    cellClassName?: string;
-   cell: (item: CareRequest, index: number) => React.ReactNode;
+   cell: (item: Consultation, index: number) => React.ReactNode;
 }
 
-export function CareRequestTable({
+export function ConsultationTable({
    data,
    isLoading,
    isFetching,
    page,
    limit,
    onViewDetail,
-   onReceive,
-   onResolve,
-   onCancel,
-}: CareRequestTableProps) {
-   const { user } = useAuth();
-   const columns: CareRequestColumn[] = [
+   onProvideConclusion,
+}: ConsultationTableProps) {
+   const columns: ConsultationColumn[] = [
       {
          id: "stt",
          header: "STT",
@@ -90,21 +95,10 @@ export function CareRequestTable({
          cellClassName: "py-2.5",
          cell: (item) => {
             const patient =
-               item.subscription?.healthProfile ||
-               (
-                  item as unknown as {
-                     patient?: { fullName?: string; phoneNumber?: string };
-                  }
-               ).patient ||
-               (
-                  item as unknown as {
-                     healthProfile?: {
-                        fullName?: string;
-                        phoneNumber?: string;
-                     };
-                  }
-               ).healthProfile;
-            const patientName = patient?.fullName || item.requestCode || "—";
+               item.healthProfile ||
+               item.examination?.healthProfile;
+            const patientName =
+               patient?.fullName || item.consultationCode || "—";
             const phoneNumber = patient?.phoneNumber;
 
             return (
@@ -125,52 +119,51 @@ export function CareRequestTable({
          },
       },
       {
-         id: "title",
-         header: "Tiêu đề & Nội dung",
+         id: "code",
+         header: "Mã phiếu",
+         headerClassName: "text-xs font-semibold text-slate-600 min-w-32",
+         cellClassName: "py-2.5",
+         cell: (item) => (
+            <span
+               className="font-medium text-xs text-slate-800 hover:text-blue-800 cursor-pointer"
+               onClick={() => onViewDetail(item)}
+            >
+               {item.consultationCode || item.id.slice(0, 8)}
+            </span>
+         ),
+      },
+      {
+         id: "reason",
+         header: "Lý do & Nội dung hội chẩn",
          headerClassName:
             "text-xs font-semibold text-slate-600 min-w-64 max-w-sm",
          cellClassName: "py-2.5 whitespace-normal break-words max-w-sm",
          cell: (item) => (
             <div className="flex flex-col gap-0.5 whitespace-normal wrap-break-word max-w-sm">
                <span className="font-medium text-xs text-slate-900 whitespace-normal wrap-break-word">
-                  {item.title}
+                  {item.reason || "—"}
                </span>
-               <span className="text-xs text-slate-500 whitespace-normal wrap-break-word">
-                  {item.description}
-               </span>
-               {item.mediaUrls && item.mediaUrls.length > 0 && (
-                  <span className="text-[11px] text-blue-600 font-medium">
-                     [{item.mediaUrls.length} tệp đính kèm]
+               {item.conclusion && (
+                  <span className="text-xs text-emerald-700 font-medium whitespace-normal wrap-break-word">
+                     [Kết luận: {item.conclusion}]
                   </span>
                )}
             </div>
          ),
       },
       {
-         id: "assignedUser",
-         header: "Người tiếp nhận",
+         id: "requestingDoctor",
+         header: "Bác sĩ yêu cầu",
          headerClassName: "text-xs font-semibold text-slate-600 min-w-36",
          cellClassName: "py-2.5",
-         cell: (item) => {
-            const assignedUserId = item.assignedUserId || item.assignedUser?.id;
-            const isAssignedToCurrentUser = Boolean(
-               user?.id && assignedUserId === user.id,
-            );
-            return (
-               <span className="text-xs text-slate-700 font-medium flex items-center gap-1.5 flex-wrap">
-                  {item.assignedUser?.fullName || (
-                     <span className="text-slate-400 italic">
-                        Chưa tiếp nhận
-                     </span>
+         cell: (item) => (
+            <span className="text-xs text-slate-700 font-medium">
+               {item.requestingDoctor?.fullName ||
+                  item.examination?.doctor?.fullName || (
+                     <span className="text-slate-400 italic">Bác sĩ điều trị</span>
                   )}
-                  {isAssignedToCurrentUser && (
-                     <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">
-                        (Tôi)
-                     </span>
-                  )}
-               </span>
-            );
-         },
+            </span>
+         ),
       },
       {
          id: "status",
@@ -199,7 +192,9 @@ export function CareRequestTable({
          cellClassName: "py-2.5",
          cell: (item) => (
             <span className="text-xs text-slate-600 font-medium">
-               {item.createdAt ? formatDate(item.createdAt, true) : "—"}
+               {item.requestedAt || item.createdAt
+                  ? formatDate(item.requestedAt || item.createdAt, true)
+                  : "—"}
             </span>
          ),
       },
@@ -210,8 +205,10 @@ export function CareRequestTable({
          cellClassName: "py-2.5",
          cell: (item) => {
             const time =
-               item.resolvedAt ||
-               (item.status === "RESOLVED" ? item.updatedAt : undefined);
+               item.respondedAt ||
+               (item.status === "COMPLETED" || item.status === "RESOLVED"
+                  ? item.updatedAt
+                  : undefined);
             return (
                <span className="text-xs text-slate-600 font-medium">
                   {time ? (
@@ -229,65 +226,30 @@ export function CareRequestTable({
          headerClassName:
             "text-right text-xs font-semibold text-slate-600 pr-4",
          cellClassName: "py-2 text-right pr-4",
-         cell: (item) => {
-            // Khi chưa tiếp nhận (PENDING): người dùng có thể tiếp nhận hoặc hủy
-            if (item.status === "PENDING") {
-               return (
-                  <div className="flex items-center justify-end gap-1.5 flex-wrap">
+         cell: (item) => (
+            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+               {onProvideConclusion &&
+                  (item.status === "PENDING" ||
+                     item.status === "IN_PROGRESS") && (
                      <CustomButton
                         size="sm"
-                        className="h-8 px-2.5 text-xs"
-                        onClick={() => onReceive(item)}
+                        className="h-8 px-2.5 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => onProvideConclusion(item)}
                      >
-                        Tiếp nhận
+                        Hội chẩn
                      </CustomButton>
-                     <CustomButton
-                        size="sm"
-                        className="h-8 px-5 text-xs bg-rose-600 hover:bg-rose-700 text-white"
-                        onClick={() => onCancel(item)}
-                     >
-                        Hủy
-                     </CustomButton>
-                  </div>
-               );
-            }
+                  )}
 
-            // Sau khi đã tiếp nhận (IN_PROGRESS): kiểm tra xem yêu cầu đó có được chuyển đến mình hay không
-            if (item.status === "IN_PROGRESS") {
-               const assignedUserId =
-                  item.assignedUserId || item.assignedUser?.id;
-               const isAssignedToCurrentUser = Boolean(
-                  user?.id && assignedUserId === user.id,
-               );
-
-               // Nếu không phải người đang đăng nhập được chuyển đến -> chỉ được quyền xem, không được quyền thao tác
-               if (!isAssignedToCurrentUser) {
-                  return null;
-               }
-
-               // Nếu được chuyển đến mình -> có quyền thao tác (Xử lý, Hủy)
-               return (
-                  <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                     <CustomButton
-                        size="sm"
-                        className="h-8 px-5 text-xs"
-                        onClick={() => onResolve(item)}
-                     >
-                        Xử lý
-                     </CustomButton>
-                     <CustomButton
-                        size="sm"
-                        className="h-8 px-5 text-xs bg-rose-600 hover:bg-rose-700 text-white"
-                        onClick={() => onCancel(item)}
-                     >
-                        Hủy
-                     </CustomButton>
-                  </div>
-               );
-            }
-
-            return null;
-         },
+               <CustomButton
+                  size="sm"
+                  variant="outline"
+                  className="h-8 px-2.5 text-xs"
+                  onClick={() => onViewDetail(item)}
+               >
+                  Chi tiết
+               </CustomButton>
+            </div>
+         ),
       },
    ];
 
@@ -312,7 +274,7 @@ export function CareRequestTable({
                      >
                         <CloverLoading
                            size="md"
-                           text="Đang tải danh sách yêu cầu chăm sóc..."
+                           text="Đang tải danh sách phiếu hội chẩn..."
                         />
                      </TableCell>
                   </TableRow>
@@ -322,7 +284,7 @@ export function CareRequestTable({
                         colSpan={columns.length}
                         className="h-48 text-center text-sm text-slate-500"
                      >
-                        Chưa có yêu cầu chăm sóc nào.
+                        Chưa có phiếu hội chẩn nào.
                      </TableCell>
                   </TableRow>
                ) : (
@@ -348,4 +310,4 @@ export function CareRequestTable({
    );
 }
 
-export default CareRequestTable;
+export default ConsultationTable;

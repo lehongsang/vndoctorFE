@@ -119,7 +119,7 @@ const InfoRow = ({
    if (!hasValue(value)) return null;
 
    return (
-      <div className={cn("flex flex-col gap-1", className)}>
+      <div className={cn("flex flex-col gap-0.5", className)}>
          <span className="text-xs text-slate-500 font-medium">{label}</span>
          <div
             className={cn(
@@ -373,15 +373,15 @@ export function ExaminationDetail({
                         />
 
                         <InfoRow
-                           label="Chiều cao"
+                           label="Chiều cao(cm)"
                            value={profile.height}
-                           valueClassName="text-rose-700 font-bold"
+                           valueClassName="text-slate-800 font-medium"
                         />
 
                         <InfoRow
-                           label="Cân nặng"
+                           label="Cân nặng(kg)"
                            value={profile.weight}
-                           valueClassName="text-rose-700 font-bold"
+                           valueClassName="text-slate-800 font-medium"
                         />
                         <InfoRow
                            label="Tiền sử dị ứng"
@@ -660,51 +660,51 @@ export function ExaminationDetail({
                      {hasAnyTargetMetric && (
                         <div className="grid grid-cols-1 gap-3">
                            {hasBpTarget && (
-                              <div className="p-3 rounded-sm border border-slate-200 bg-white shadow-2xs">
-                                 <span className="text-xs text-slate-500 font-medium block mb-1">
+                              <div className="p-3.5 rounded-sm border border-rose-200/90 bg-rose-50/70 shadow-2xs">
+                                 <span className="text-xs text-rose-700 font-semibold block mb-1">
                                     Huyết áp mục tiêu
                                  </span>
-                                 <span className="text-sm font-bold text-slate-900">
+                                 <span className="text-sm font-bold text-rose-950">
                                     {treatmentTarget.bpTarget}
                                  </span>
                               </div>
                            )}
                            {hasLipidTarget && (
-                              <div className="p-3 rounded-sm border border-slate-200 bg-white shadow-2xs">
-                                 <span className="text-xs text-slate-500 font-medium block mb-1">
+                              <div className="p-3.5 rounded-sm border border-amber-200/90 bg-amber-50/70 shadow-2xs">
+                                 <span className="text-xs text-amber-700 font-semibold block mb-1">
                                     Lipid máu mục tiêu
                                  </span>
-                                 <span className="text-sm font-bold text-slate-900">
+                                 <span className="text-sm font-bold text-amber-950">
                                     {treatmentTarget.lipidTarget}
                                  </span>
                               </div>
                            )}
                            {hasBmiTarget && (
-                              <div className="p-3 rounded-sm border border-slate-200 bg-white shadow-2xs">
-                                 <span className="text-xs text-slate-500 font-medium block mb-1">
+                              <div className="p-3.5 rounded-sm border border-emerald-200/90 bg-emerald-50/70 shadow-2xs">
+                                 <span className="text-xs text-emerald-700 font-semibold block mb-1">
                                     BMI mục tiêu
                                  </span>
-                                 <span className="text-sm font-bold text-slate-900">
+                                 <span className="text-sm font-bold text-emerald-950">
                                     {treatmentTarget.bmiTarget}
                                  </span>
                               </div>
                            )}
                            {hasGlycemicTarget && (
-                              <div className="p-3 rounded-sm border border-slate-200 bg-white shadow-2xs">
-                                 <span className="text-xs text-slate-500 font-medium block mb-1">
+                              <div className="p-3.5 rounded-sm border border-purple-200/90 bg-purple-50/70 shadow-2xs">
+                                 <span className="text-xs text-purple-700 font-semibold block mb-1">
                                     Đường huyết mục tiêu
                                  </span>
-                                 <span className="text-sm font-bold text-slate-900">
+                                 <span className="text-sm font-bold text-purple-950">
                                     {treatmentTarget.glycemicTarget}
                                  </span>
                               </div>
                            )}
                            {hasRenalTarget && (
-                              <div className="p-3 rounded-sm border border-slate-200 bg-white shadow-2xs">
-                                 <span className="text-xs text-slate-500 font-medium block mb-1">
+                              <div className="p-3.5 rounded-sm border border-sky-200/90 bg-sky-50/70 shadow-2xs">
+                                 <span className="text-xs text-sky-700 font-semibold block mb-1">
                                     Chức năng thận mục tiêu
                                  </span>
-                                 <span className="text-sm font-bold text-slate-900">
+                                 <span className="text-sm font-bold text-sky-950">
                                     {treatmentTarget.renalTarget}
                                  </span>
                               </div>
@@ -713,17 +713,17 @@ export function ExaminationDetail({
                            {customTargetEntries.map((item) => (
                               <div
                                  key={item.key}
-                                 className="p-3 rounded-sm border border-slate-200 bg-white shadow-2xs"
+                                 className="p-3.5 rounded-sm border border-indigo-200/90 bg-indigo-50/70 shadow-2xs"
                               >
                                  <div className="flex items-center justify-between gap-1.5 mb-1">
-                                    <span className="text-xs text-slate-500 font-medium">
+                                    <span className="text-xs text-indigo-700 font-semibold">
                                        {item.label}
                                     </span>
-                                    <span className="text-[10px] font-medium text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded border border-primary-200/60">
+                                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-100/90 px-1.5 py-0.5 rounded border border-indigo-200">
                                        Mục tiêu bổ sung
                                     </span>
                                  </div>
-                                 <span className="text-sm font-bold text-slate-900">
+                                 <span className="text-sm font-bold text-indigo-950">
                                     {item.value}
                                  </span>
                               </div>
@@ -733,33 +733,55 @@ export function ExaminationDetail({
 
                      {/* Hướng dẫn lối sống & Ghi chú */}
                      {hasAnyAdvice && (
-                        <div className="grid grid-cols-1 gap-4">
-                           <InfoRow
-                              label="Tư vấn lối sống & Dinh dưỡng"
-                              value={treatmentTarget.dietAdvice}
-                              valueClassName="font-normal text-slate-800 rounded-sm p-4 border"
-                           />
-                           <InfoRow
-                              label="Tư vấn vận động & Thể lực"
-                              value={treatmentTarget.exerciseAdvice}
-                              valueClassName="font-normal text-slate-800 rounded-sm p-4 border"
-                           />
-                           <InfoRow
-                              label="Tư vấn cai thuốc lá"
-                              value={treatmentTarget.smokingAdvice}
-                              valueClassName="font-normal text-slate-800 rounded-sm p-4 border"
-                           />
-                           <InfoRow
-                              label="Ghi chú của bác sĩ"
-                              value={treatmentTarget.doctorNotes}
-                              valueClassName="font-normal text-slate-800 rounded-sm p-4 border"
-                           />
+                        <div className="grid grid-cols-1 gap-3">
+                           {hasValue(treatmentTarget.dietAdvice) && (
+                              <div className="p-3.5 rounded-sm border border-teal-200/90 bg-teal-50/70 shadow-2xs flex flex-col gap-1">
+                                 <span className="text-xs text-teal-700 font-semibold">
+                                    Tư vấn lối sống & Dinh dưỡng
+                                 </span>
+                                 <div className="text-sm font-normal text-teal-950 wrap-break-word whitespace-pre-wrap">
+                                    {treatmentTarget.dietAdvice}
+                                 </div>
+                              </div>
+                           )}
+                           {hasValue(treatmentTarget.exerciseAdvice) && (
+                              <div className="p-3.5 rounded-sm border border-blue-200/90 bg-blue-50/70 shadow-2xs flex flex-col gap-1">
+                                 <span className="text-xs text-blue-700 font-semibold">
+                                    Tư vấn vận động & Thể lực
+                                 </span>
+                                 <div className="text-sm font-normal text-blue-950 wrap-break-word whitespace-pre-wrap">
+                                    {treatmentTarget.exerciseAdvice}
+                                 </div>
+                              </div>
+                           )}
+                           {hasValue(treatmentTarget.smokingAdvice) && (
+                              <div className="p-3.5 rounded-sm border border-orange-200/90 bg-orange-50/70 shadow-2xs flex flex-col gap-1">
+                                 <span className="text-xs text-orange-700 font-semibold">
+                                    Tư vấn cai thuốc lá
+                                 </span>
+                                 <div className="text-sm font-normal text-orange-950 wrap-break-word whitespace-pre-wrap">
+                                    {treatmentTarget.smokingAdvice}
+                                 </div>
+                              </div>
+                           )}
+                           {hasValue(treatmentTarget.doctorNotes) && (
+                              <div className="p-3.5 rounded-sm border border-slate-300 bg-slate-50/80 shadow-2xs flex flex-col gap-1">
+                                 <span className="text-xs text-slate-700 font-semibold">
+                                    Ghi chú của bác sĩ
+                                 </span>
+                                 <div className="text-sm font-normal text-slate-900 wrap-break-word whitespace-pre-wrap">
+                                    {treatmentTarget.doctorNotes}
+                                 </div>
+                              </div>
+                           )}
                            {hasValue(treatmentTarget.expertNotes) && (
-                              <div className="md:col-span-2 p-4 rounded-sm bg-amber-50 border border-amber-200 text-amber-900 text-xs">
-                                 <span className="font-bold block mb-0.5">
+                              <div className="p-3.5 rounded-sm border border-amber-300 bg-amber-50/80 shadow-2xs flex flex-col gap-1">
+                                 <span className="text-xs text-amber-800 font-bold">
                                     Ghi chú của chuyên gia:
                                  </span>
-                                 {treatmentTarget.expertNotes}
+                                 <div className="text-xs font-normal text-amber-950 wrap-break-word whitespace-pre-wrap">
+                                    {treatmentTarget.expertNotes}
+                                 </div>
                               </div>
                            )}
                         </div>

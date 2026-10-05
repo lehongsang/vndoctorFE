@@ -14,6 +14,7 @@ import {
 import { STATUS_CONFIG } from "./care-request-table";
 import { formatDate } from "@/lib/utils";
 import Image from "next/image";
+import { useAuth } from "@/hooks/use-auth";
 
 interface CareRequestDetailViewProps {
    requestId: string;
@@ -47,6 +48,7 @@ export function CareRequestDetailView({
    onResolve,
    onCancel,
 }: CareRequestDetailViewProps) {
+   const { user } = useAuth();
    const {
       data: detail,
       isLoading,
@@ -76,6 +78,14 @@ export function CareRequestDetailView({
          </div>
       );
    }
+
+   const assignedUserId = detail.assignedUserId || detail.assignedUser?.id;
+   const isAssignedToCurrentUser = Boolean(
+      user?.id && assignedUserId === user.id,
+   );
+   const canOperate =
+      detail.status === "PENDING" ||
+      (detail.status === "IN_PROGRESS" && isAssignedToCurrentUser);
 
    const statusConfig = STATUS_CONFIG[detail.status] || {
       label: detail.status,
@@ -109,7 +119,7 @@ export function CareRequestDetailView({
             </div>
 
             <div className="flex items-center gap-2">
-               {detail.status === "PENDING" && onReceive && (
+               {canOperate && detail.status === "PENDING" && onReceive && (
                   <CustomButton
                      size="sm"
                      className="h-9 px-3 text-xs"
@@ -119,7 +129,7 @@ export function CareRequestDetailView({
                   </CustomButton>
                )}
 
-               {detail.status === "IN_PROGRESS" && onResolve && (
+               {canOperate && detail.status === "IN_PROGRESS" && onResolve && (
                   <CustomButton
                      size="sm"
                      className="h-9 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -129,8 +139,9 @@ export function CareRequestDetailView({
                   </CustomButton>
                )}
 
-               {(detail.status === "PENDING" ||
-                  detail.status === "IN_PROGRESS") &&
+               {canOperate &&
+                  (detail.status === "PENDING" ||
+                     detail.status === "IN_PROGRESS") &&
                   onCancel && (
                      <CustomButton
                         variant="outline"
@@ -212,7 +223,21 @@ export function CareRequestDetailView({
                            <RowItem
                               label="Gói chăm sóc liên kết"
                               value={
-                                 detail.subscription.carePackage.packageName
+                                 <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-medium text-slate-800 wrap-break-word whitespace-normal">
+                                       {detail.subscription.carePackage.name}
+                                    </span>
+                                    <span
+                                       className={`text-[11px] py-0.5 px-1.5 rounded-sm font-medium shrink-0 ${
+                                          detail.subscription.carePackage
+                                             .type === "STANDARD"
+                                             ? "text-blue-600 bg-blue-100"
+                                             : "text-amber-600 bg-amber-100"
+                                       }`}
+                                    >
+                                       {detail.subscription.carePackage.type}
+                                    </span>
+                                 </div>
                               }
                            />
                         )}

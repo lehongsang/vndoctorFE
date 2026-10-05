@@ -114,7 +114,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
       : "";
 
    return (
-      <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-5">
+      <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-4">
          {/* Left: hamburger + breadcrumb */}
          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto scrollbar-none py-1">
             <button

@@ -38,7 +38,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
          <div
             className={cn(
                "flex min-h-screen min-w-0 flex-col transition-[padding-left] duration-300 ease-in-out",
-               isCollapsed ? "lg:pl-18" : "lg:pl-60",
+               isCollapsed ? "lg:pl-16" : "lg:pl-58",
             )}
          >
             <Navbar onMenuClick={handleToggleMenu} isCollapsed={isCollapsed} />

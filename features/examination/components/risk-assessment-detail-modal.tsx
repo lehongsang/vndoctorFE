@@ -26,15 +26,7 @@ import {
 } from "@/components/common/risk-level-badge";
 import { toast } from "react-toastify";
 import { checkHealthProfileCarePackage } from "@/lib/care-package-utils";
-import {
-   Activity,
-   HeartPulse,
-   User,
-   CheckCircle2,
-   MinusCircle,
-   AlertTriangle,
-   FileText,
-} from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 const TARGET_ORGAN_DAMAGE_FIELDS: {
    key: keyof AssessmentInput;
@@ -42,19 +34,19 @@ const TARGET_ORGAN_DAMAGE_FIELDS: {
 }[] = [
    {
       key: "hasLeftVentricularHypertrophy",
-      label: "Phì đại thất trái (ECG / Siêu âm tim)",
+      label: "Phì đại thất trái trên siêu âm tim hoặc điện tim",
    },
    {
       key: "hasAlbuminuria",
-      label: "Có Albumin niệu / Microalbumin niệu",
+      label: "Có Albumin/Microalbumin niệu",
    },
    {
       key: "hasRetinopathy",
-      label: "Tổn thương võng mạc do THA / mạch cảnh",
+      label: "Có tổn thương đáy mắt",
    },
    {
       key: "hasSilentBrainInfarct",
-      label: "Nhồi máu não thầm lặng (Silent brain infarct)",
+      label: "Tổn thương thầm lặng trên não (slient infact)",
    },
 ];
 
@@ -66,79 +58,94 @@ const CARDIOVASCULAR_EVENT_FIELDS: {
    { key: "hasMyocardialInfarction", label: "Nhồi máu cơ tim" },
    { key: "hasAcuteCoronarySyndrome", label: "Hội chứng vành cấp" },
    { key: "hasCoronaryArteryDisease", label: "Bệnh lý mạch vành" },
-   { key: "hasTia", label: "Cơn thiếu máu não thoáng qua (TIA)" },
+   { key: "hasTia", label: "Cơn thiếu máu não cục bộ thoáng qua (TIA)" },
    { key: "hasAorticAneurysm", label: "Phình động mạch chủ" },
    { key: "hasPeripheralArteryDisease", label: "Bệnh mạch máu ngoại vi" },
    { key: "hasAtherosclerosis", label: "Vữa xơ mạch máu" },
    {
       key: "hasFamilialHypercholesterolemia",
-      label: "Tăng Cholesterol máu gia đình",
+      label: "Tăng mỡ máu gia đình",
    },
 ];
 
-const getPositiveFactors = (input?: AssessmentInput) => {
-   if (!input) return [];
-   const factors: { label: string; value?: string }[] = [];
-
-   if (input.diabetes) {
-      const details: string[] = [];
-      if (input.diabetesDurationYears)
-         details.push(`${input.diabetesDurationYears} năm`);
-      if (input.glycemicControl)
-         details.push(`kiểm soát ${input.glycemicControl}`);
-      factors.push({
-         label: "Đái tháo đường",
-         value: details.length > 0 ? `Có (${details.join(", ")})` : "Có",
-      });
-   }
-   if (input.hasLeftVentricularHypertrophy) {
-      factors.push({ label: "Phì đại thất trái (ECG / Siêu âm tim)" });
-   }
-   if (input.hasAlbuminuria) {
-      factors.push({ label: "Có Albumin niệu / Microalbumin niệu" });
-   }
-   if (input.hasRetinopathy) {
-      factors.push({ label: "Tổn thương võng mạc do THA / mạch cảnh" });
-   }
-   if (input.hasSilentBrainInfarct) {
-      factors.push({ label: "Nhồi máu não thầm lặng" });
-   }
-   if (input.stroke) {
-      factors.push({ label: "Đột quỵ não" });
-   }
-   if (input.hasMyocardialInfarction) {
-      factors.push({ label: "Nhồi máu cơ tim" });
-   }
-   if (input.hasAcuteCoronarySyndrome) {
-      factors.push({ label: "Hội chứng vành cấp" });
-   }
-   if (input.hasCoronaryArteryDisease) {
-      factors.push({ label: "Bệnh lý mạch vành" });
-   }
-   if (input.hasTia) {
-      factors.push({ label: "Cơn thiếu máu não thoáng qua (TIA)" });
-   }
-   if (input.hasAorticAneurysm) {
-      factors.push({ label: "Phình động mạch chủ" });
-   }
-   if (input.hasPeripheralArteryDisease) {
-      factors.push({ label: "Bệnh mạch máu ngoại vi" });
-   }
-   if (input.hasAtherosclerosis) {
-      factors.push({ label: "Vữa xơ mạch máu" });
-   }
-   if (input.hasFamilialHypercholesterolemia) {
-      factors.push({ label: "Tăng Cholesterol máu gia đình" });
-   }
-
-   return factors;
+const hasValue = (val: unknown): boolean => {
+   if (val === null || val === undefined || val === false || val === 0)
+      return false;
+   if (typeof val === "string") return val.trim().length > 0;
+   if (typeof val === "number") return !isNaN(val);
+   return true;
 };
 
 const formatMetric = (val?: number | string | null, unit: string = "") => {
-   if (val === null || val === undefined || val === "") return "—";
+   if (val === null || val === undefined || val === 0 || val === "") return "—";
    const num = Number(val);
    if (isNaN(num)) return `${val} ${unit}`.trim();
    return `${num} ${unit}`.trim();
+};
+
+interface MetricItem {
+   label: string;
+   value: string | React.ReactNode;
+   variant?: "default" | "danger" | "warning";
+}
+
+const renderMetricCards = (
+   items: MetricItem[],
+   gridCols = "grid-cols-2 sm:grid-cols-3 md:grid-cols-4",
+) => {
+   if (items.length === 0) return null;
+   return (
+      <div className={cn("grid gap-2", gridCols)}>
+         {items.map((item, idx) => (
+            <div
+               key={idx}
+               className={cn(
+                  "p-2 rounded border text-xs",
+                  item.variant === "danger"
+                     ? "bg-rose-50/70 border-rose-200 text-rose-950"
+                     : item.variant === "warning"
+                       ? "bg-amber-50/70 border-amber-200 text-amber-950"
+                       : "bg-slate-50 border-slate-200 text-slate-800",
+               )}
+            >
+               <span className="text-slate-500 block text-[11px] mb-0.5">
+                  {item.label}
+               </span>
+               <span
+                  className={cn(
+                     "font-semibold",
+                     item.variant === "danger"
+                        ? "text-rose-600"
+                        : item.variant === "warning"
+                          ? "text-amber-900"
+                          : "text-slate-800",
+                  )}
+               >
+                  {item.value}
+               </span>
+            </div>
+         ))}
+      </div>
+   );
+};
+
+const renderConditionCards = (
+   items: { label: string; tag?: string }[],
+   gridCols = "grid-cols-1 sm:grid-cols-2",
+) => {
+   if (items.length === 0) return null;
+   return (
+      <div className={cn("grid gap-2", gridCols)}>
+         {items.map((item, idx) => (
+            <div
+               key={idx}
+               className="p-2 rounded border text-xs flex items-center justify-between gap-2 bg-rose-50/80 border-rose-200 text-rose-900"
+            >
+               <span className="font-medium text-[11px]">{item.label}</span>
+            </div>
+         ))}
+      </div>
+   );
 };
 
 export interface RiskAssessmentDetailModalProps {
@@ -190,7 +197,6 @@ export function RiskAssessmentDetailModal({
    const input = (assessment.assessmentInput ||
       assessment ||
       {}) as AssessmentInput;
-   const positiveFactors = getPositiveFactors(input);
    const hasUnderlying = checkHasUnderlyingDisease(assessment);
 
    const dateStr = assessment.evaluatedAt || assessment.createdAt;
@@ -241,6 +247,12 @@ export function RiskAssessmentDetailModal({
              ).toFixed(1)
            : null;
 
+   const isMissingNonHdl =
+      !hasUnderlying &&
+      (!input.nonHdlCholesterol ||
+         !input.totalCholesterol ||
+         !input.hdlCholesterol);
+
    return (
       <Dialog
          open={isOpen}
@@ -281,7 +293,7 @@ export function RiskAssessmentDetailModal({
                                  <span className="text-slate-700 font-bold">
                                     Tỷ lệ biến cố:
                                  </span>
-                                 <span className="text-base font-extrabold text-primary">
+                                 <span className="text-2xl font-extrabold text-primary">
                                     {formatRiskRate(
                                        assessment.riskScore,
                                        hasUnderlying,
@@ -297,6 +309,20 @@ export function RiskAssessmentDetailModal({
                         {RISK_EXPLANATION_TEXT}
                      </div>
 
+                     {isMissingNonHdl && (
+                        <div className="flex items-start gap-2 p-2.5 rounded bg-amber-50/90 border border-amber-300 text-amber-900 text-xs">
+                           <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                           <div>
+                              <span className="font-semibold text-amber-950">
+                                 Lưu ý phân tầng:
+                              </span>{" "}
+                              Thiếu dữ liệu Non-HDL-Cholesterol do không nhập 1
+                              trong 2 hoặc không nhập cả 2 chỉ số: Cholesterol
+                              toàn phần và HDL-Cholesterol.
+                           </div>
+                        </div>
+                     )}
+
                      <p className="text-[11px] text-slate-900 italic">
                         * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
                         Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
@@ -307,14 +333,10 @@ export function RiskAssessmentDetailModal({
                   {/* 2. Thẩm định & Kết luận chuyên môn của bác sĩ (nếu có) */}
                   {(assessment.doctor || assessment.doctorNote) && (
                      <div className="p-3 bg-slate-50 rounded-sm border border-slate-200 flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-1.5">
-                           <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                              <FileText className="w-3.5 h-3.5 text-primary" />
-                              Thẩm định chuyên môn của bác sĩ
-                           </span>
+                        <div className="flex items-center gap-2 ">
                            {assessment.doctor && (
                               <span className="text-[11px] text-slate-600">
-                                 Bác sĩ thẩm định:{" "}
+                                 Bác sĩ xác nhận:{" "}
                                  <strong className="text-slate-800 font-semibold">
                                     {assessment.doctor.fullName}
                                  </strong>
@@ -325,7 +347,7 @@ export function RiskAssessmentDetailModal({
                         {assessment.doctorNote && (
                            <div className="text-xs text-slate-700">
                               <span className="font-semibold text-slate-900">
-                                 Ghi chú thẩm định:{" "}
+                                 Ghi chú:{" "}
                               </span>
                               {assessment.doctorNote}
                            </div>
@@ -338,7 +360,7 @@ export function RiskAssessmentDetailModal({
                      <div className="p-3 bg-rose-50/80 border border-rose-200 rounded-sm flex flex-col gap-2">
                         <div className="font-bold text-rose-800 uppercase tracking-wide text-[11px] flex items-center gap-1.5">
                            <AlertTriangle className="w-4 h-4 text-rose-600" />
-                           Cảnh báo nguy cơ cao (Red Flags)
+                           Cảnh báo nguy cơ cao
                         </div>
                         <div className="flex flex-col gap-1 pl-1">
                            {assessment.redFlags.map((flag, idx) => (
@@ -353,347 +375,318 @@ export function RiskAssessmentDetailModal({
                      </div>
                   )}
 
-                  {/* 4. DỮ LIỆU ĐẦU VÀO ĐÃ NHẬP: THÔNG TIN CHUNG & THỂ TRẠNG */}
-                  <div className="flex flex-col gap-2 pt-1">
-                     <div className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
-                        <User className="w-4 h-4 text-primary" />
-                        <span>Thông tin người bệnh & Thể trạng đầu vào</span>
-                     </div>
-                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Tuổi
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {input.age != null ? `${input.age} tuổi` : "—"}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Giới tính
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {input.gender || "—"}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Hút thuốc lá
-                           </span>
-                           <span
-                              className={cn(
-                                 "font-semibold",
-                                 input.isSmoking
-                                    ? "text-rose-600"
-                                    : "text-slate-800",
-                              )}
-                           >
-                              {input.isSmoking === true
-                                 ? "Có hút thuốc"
-                                 : input.isSmoking === false
-                                   ? "Không hút thuốc"
-                                   : "—"}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Nhóm phân tầng
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {hasUnderlying
-                                 ? "Có bệnh nền (Non-ASCVD)"
-                                 : "Chưa có bệnh nền (SCORE2)"}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Chiều cao
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.heightCm, "cm")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Cân nặng
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.weightKg, "kg")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Chỉ số BMI
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {computedBmi ? `${computedBmi} kg/m²` : "—"}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Bệnh nền ghi nhận
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {input.hasUnderlyingDisease ? "Có" : "Không"}
-                           </span>
-                        </div>
-                     </div>
-                  </div>
+                  {/* 4. DỮ LIỆU ĐẦU VÀO: NGƯỜI BỆNH CHƯA CÓ BỆNH NỀN (SCORE2) */}
+                  {!hasUnderlying &&
+                     (() => {
+                        const patientInfoItems: MetricItem[] = [];
+                        if (hasValue(input.age)) {
+                           patientInfoItems.push({
+                              label: "Tuổi",
+                              value: `${input.age} tuổi`,
+                           });
+                        }
+                        if (Boolean(input.gender)) {
+                           patientInfoItems.push({
+                              label: "Giới tính",
+                              value: input.gender,
+                           });
+                        }
+                        if (input.isSmoking === true) {
+                           patientInfoItems.push({
+                              label: "Hút thuốc lá",
+                              value: "Có hút thuốc",
+                              variant: "danger",
+                           });
+                        }
+                        if (hasValue(input.heightCm)) {
+                           patientInfoItems.push({
+                              label: "Chiều cao",
+                              value: formatMetric(input.heightCm, "cm"),
+                           });
+                        }
+                        if (hasValue(input.weightKg)) {
+                           patientInfoItems.push({
+                              label: "Cân nặng",
+                              value: formatMetric(input.weightKg, "kg"),
+                           });
+                        }
+                        if (computedBmi) {
+                           patientInfoItems.push({
+                              label: "Chỉ số BMI",
+                              value: `${computedBmi} kg/m²`,
+                           });
+                        }
 
-                  {/* 5. DỮ LIỆU ĐẦU VÀO ĐÃ NHẬP: HUYẾT ÁP & XÉT NGHIỆM CẬN LÂM SÀNG */}
-                  <div className="flex flex-col gap-2 pt-1">
-                     <div className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
-                        <Activity className="w-4 h-4 text-primary" />
-                        <span>Chỉ số huyết áp & Xét nghiệm cận lâm sàng</span>
-                     </div>
-                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Huyết áp
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {input.systolicBp && input.diastolicBp
+                        const lipidLabItems: MetricItem[] = [];
+                        if (
+                           hasValue(input.systolicBp) ||
+                           hasValue(input.diastolicBp)
+                        ) {
+                           const bpVal =
+                              input.systolicBp && input.diastolicBp
                                  ? `${input.systolicBp}/${input.diastolicBp} mmHg`
                                  : input.systolicBp
                                    ? `${input.systolicBp} mmHg`
-                                   : "—"}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Cholesterol toàn phần
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.totalCholesterol, "mmol/L")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              HDL-Cholesterol
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.hdlCholesterol, "mmol/L")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Non-HDL-Cholesterol
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.nonHdlCholesterol, "mmol/L")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              LDL-Cholesterol
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.ldlCholesterol, "mmol/L")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Triglycerides
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.triglycerides, "mmol/L")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Đường huyết lúc đói
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.glucoseFasting, "mmol/L")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Độ lọc cầu thận (eGFR)
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.egfr, "mL/min/1.73m²")}
-                           </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
-                           <span className="text-slate-500 block text-[11px]">
-                              Tỷ lệ ACR
-                           </span>
-                           <span className="font-semibold text-slate-800">
-                              {formatMetric(input.acr, "mg/g")}
-                           </span>
-                        </div>
-                     </div>
-                  </div>
+                                   : `${input.diastolicBp} mmHg`;
+                           lipidLabItems.push({
+                              label: "Huyết áp",
+                              value: bpVal,
+                           });
+                        }
+                        if (hasValue(input.totalCholesterol)) {
+                           lipidLabItems.push({
+                              label: "Cholesterol toàn phần",
+                              value: formatMetric(
+                                 input.totalCholesterol,
+                                 "mmol/L",
+                              ),
+                           });
+                        }
+                        if (hasValue(input.hdlCholesterol)) {
+                           lipidLabItems.push({
+                              label: "HDL-Cholesterol",
+                              value: formatMetric(
+                                 input.hdlCholesterol,
+                                 "mmol/L",
+                              ),
+                           });
+                        }
+                        if (hasValue(input.nonHdlCholesterol)) {
+                           lipidLabItems.push({
+                              label: "Non-HDL-Cholesterol",
+                              value: formatMetric(
+                                 input.nonHdlCholesterol,
+                                 "mmol/L",
+                              ),
+                           });
+                        }
+                        if (hasValue(input.ldlCholesterol)) {
+                           lipidLabItems.push({
+                              label: "LDL-Cholesterol",
+                              value: formatMetric(
+                                 input.ldlCholesterol,
+                                 "mmol/L",
+                              ),
+                           });
+                        }
+                        if (hasValue(input.triglycerides)) {
+                           lipidLabItems.push({
+                              label: "Triglycerides",
+                              value: formatMetric(
+                                 input.triglycerides,
+                                 "mmol/L",
+                              ),
+                           });
+                        }
+                        if (hasValue(input.glucoseFasting)) {
+                           lipidLabItems.push({
+                              label: "Đường huyết lúc đói",
+                              value: formatMetric(
+                                 input.glucoseFasting,
+                                 "mmol/L",
+                              ),
+                           });
+                        }
 
-                  {/* 6. THÔNG TIN ĐÁI THÁO ĐƯỜNG & THẬN (Nếu có) */}
-                  {(input.diabetes ||
-                     input.diabetesDurationYears != null ||
-                     input.glycemicControl) && (
-                     <div className="p-3 bg-amber-50/60 rounded border border-amber-200/80 flex flex-col gap-2">
-                        <div className="font-bold text-amber-900 text-xs sm:text-sm">
-                           Thông tin Đái tháo đường
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                           <div className="p-2 bg-white/80 rounded border border-amber-200">
-                              <span className="text-slate-500 block text-[11px]">
-                                 Tình trạng
-                              </span>
-                              <span className="font-semibold text-amber-900">
-                                 {input.diabetes ? "Có mắc ĐTĐ" : "Không"}
-                              </span>
-                           </div>
-                           <div className="p-2 bg-white/80 rounded border border-amber-200">
-                              <span className="text-slate-500 block text-[11px]">
-                                 Số năm mắc ĐTĐ
-                              </span>
-                              <span className="font-semibold text-slate-800">
-                                 {input.diabetesDurationYears != null
-                                    ? `${input.diabetesDurationYears} năm`
-                                    : "—"}
-                              </span>
-                           </div>
-                           <div className="p-2 bg-white/80 rounded border border-amber-200">
-                              <span className="text-slate-500 block text-[11px]">
-                                 Kiểm soát đường máu
-                              </span>
-                              <span className="font-semibold text-slate-800">
-                                 {input.glycemicControl || "—"}
-                              </span>
-                           </div>
-                        </div>
-                     </div>
-                  )}
+                        if (
+                           patientInfoItems.length === 0 &&
+                           lipidLabItems.length === 0
+                        ) {
+                           return null;
+                        }
 
-                  {/* 7. YẾU TỐ NGUY CƠ & BỆNH NỀN ĐÃ GHI NHẬN (CÁC YẾU TỐ DƯƠNG TÍNH) */}
-                  {positiveFactors.length > 0 && (
-                     <div className="flex flex-col gap-2 pt-1">
-                        <div className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
-                           <HeartPulse className="w-4 h-4 text-rose-600" />
-                           <span>
-                              Yếu tố nguy cơ & Bệnh lý nền ghi nhận (
-                              {positiveFactors.length})
-                           </span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                           {positiveFactors.map((factor, idx) => (
-                              <div
-                                 key={idx}
-                                 className="p-2.5 rounded bg-rose-50/70 border border-rose-200 text-xs flex items-center justify-between"
-                              >
-                                 <span className="font-medium text-rose-900">
-                                    {factor.label}
-                                 </span>
-                                 <span className="font-semibold text-rose-700 text-[11px]">
-                                    {factor.value || "Có"}
+                        return (
+                           <div className="flex flex-col gap-3 pt-1 border-t border-slate-200">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                 <span>
+                                    Dữ liệu đầu vào: Người bệnh chưa có bệnh nền
                                  </span>
                               </div>
-                           ))}
-                        </div>
-                     </div>
-                  )}
 
-                  {/* 8. TOÀN BỘ DANH MỤC BỆNH LÝ & BIẾN CỐ ĐÃ ĐƯỢC ĐÁNH GIÁ (FULL CHECKLIST) */}
-                  <div className="flex flex-col gap-2 pt-1">
-                     <div className="font-bold text-slate-800 text-xs sm:text-sm">
-                        Chi tiết tình trạng các bệnh lý & Tổn thương cơ quan
-                        đích
-                     </div>
-
-                     {/* Khối Tổn thương cơ quan đích */}
-                     <div className="space-y-1.5">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                           1. Tổn thương cơ quan đích
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                           {TARGET_ORGAN_DAMAGE_FIELDS.map((item) => {
-                              const isPositive = Boolean(input[item.key]);
-                              return (
-                                 <div
-                                    key={item.key}
-                                    className={cn(
-                                       "p-2 rounded border text-xs flex items-center justify-between gap-2",
-                                       isPositive
-                                          ? "bg-rose-50/80 border-rose-200 text-rose-900"
-                                          : "bg-slate-50/70 border-slate-200 text-slate-700",
-                                    )}
-                                 >
-                                    <span className="font-medium text-[11px]">
-                                       {item.label}
+                              {/* Nhóm 1: Thông tin người bệnh & Thể trạng */}
+                              {patientInfoItems.length > 0 && (
+                                 <div className="space-y-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                                       Thông tin người bệnh & Thể trạng (
+                                       {patientInfoItems.length})
                                     </span>
-                                    <span
-                                       className={cn(
-                                          "px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 shrink-0",
-                                          isPositive
-                                             ? "bg-rose-100 text-rose-700"
-                                             : "bg-slate-200/70 text-slate-500 font-normal",
-                                       )}
-                                    >
-                                       {isPositive ? (
-                                          <>
-                                             <CheckCircle2 className="w-3 h-3 text-rose-600" />
-                                             Có
-                                          </>
-                                       ) : (
-                                          <>
-                                             <MinusCircle className="w-3 h-3 text-slate-400" />
-                                             Không
-                                          </>
-                                       )}
+                                    {renderMetricCards(
+                                       patientInfoItems,
+                                       "grid-cols-2 sm:grid-cols-3 md:grid-cols-4",
+                                    )}
+                                 </div>
+                              )}
+
+                              {/* Nhóm 2: Chỉ số huyết áp & Xét nghiệm cận lâm sàng */}
+                              {lipidLabItems.length > 0 && (
+                                 <div className="space-y-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                                       Chỉ số huyết áp & Xét nghiệm cận lâm sàng
+                                       ({lipidLabItems.length})
+                                    </span>
+                                    {renderMetricCards(
+                                       lipidLabItems,
+                                       "grid-cols-2 sm:grid-cols-3 md:grid-cols-4",
+                                    )}
+                                 </div>
+                              )}
+                           </div>
+                        );
+                     })()}
+
+                  {/* 5. DỮ LIỆU ĐẦU VÀO: NGƯỜI BỆNH CÓ BỆNH NỀN (NON-ASCVD) */}
+                  {hasUnderlying &&
+                     (() => {
+                        // 1. Tổn thương cơ quan đích (chỉ các mục = true)
+                        const organDamageItems =
+                           TARGET_ORGAN_DAMAGE_FIELDS.filter((item) =>
+                              Boolean(input[item.key]),
+                           ).map((item) => ({ label: item.label, tag: "Có" }));
+
+                        // 2. Đái tháo đường & Thận (chỉ các mục có dữ liệu / true)
+                        const diabetesKidneyItems: MetricItem[] = [];
+                        if (Boolean(input.diabetes)) {
+                           diabetesKidneyItems.push({
+                              label: "Tình trạng ĐTĐ",
+                              value: "Có mắc ĐTĐ",
+                              variant: "warning",
+                           });
+                        }
+                        if (hasValue(input.diabetesDurationYears)) {
+                           diabetesKidneyItems.push({
+                              label: "Số năm mắc ĐTĐ",
+                              value: `${input.diabetesDurationYears} năm`,
+                           });
+                        }
+                        if (Boolean(input.glycemicControl)) {
+                           diabetesKidneyItems.push({
+                              label: "Kiểm soát đường máu",
+                              value: String(input.glycemicControl),
+                           });
+                        }
+                        if (hasValue(input.egfr)) {
+                           diabetesKidneyItems.push({
+                              label: "eGFR",
+                              value: formatMetric(input.egfr, "mL/min/1.73m²"),
+                           });
+                        }
+                        if (hasValue(input.acr)) {
+                           diabetesKidneyItems.push({
+                              label: "ACR niệu",
+                              value: formatMetric(input.acr, "mg/g"),
+                           });
+                        }
+
+                        // 3. Tiền sử biến cố tim mạch nặng & Vữa xơ (chỉ các mục = true)
+                        const cardioEventItems =
+                           CARDIOVASCULAR_EVENT_FIELDS.filter((item) =>
+                              Boolean(input[item.key]),
+                           ).map((item) => ({ label: item.label, tag: "Có" }));
+
+                        // 4. Các chỉ số sinh lý / cận lâm sàng kèm theo (nếu có nhập)
+                        const accompanyingMetrics: MetricItem[] = [];
+                        if (hasValue(input.age)) {
+                           accompanyingMetrics.push({
+                              label: "Tuổi",
+                              value: `${input.age} tuổi`,
+                           });
+                        }
+                        if (Boolean(input.gender)) {
+                           accompanyingMetrics.push({
+                              label: "Giới tính",
+                              value: input.gender,
+                           });
+                        }
+                        if (input.isSmoking === true) {
+                           accompanyingMetrics.push({
+                              label: "Hút thuốc lá",
+                              value: "Có hút thuốc",
+                              variant: "danger",
+                           });
+                        }
+                        if (hasValue(input.heightCm)) {
+                           accompanyingMetrics.push({
+                              label: "Chiều cao",
+                              value: formatMetric(input.heightCm, "cm"),
+                           });
+                        }
+                        if (hasValue(input.weightKg)) {
+                           accompanyingMetrics.push({
+                              label: "Cân nặng",
+                              value: formatMetric(input.weightKg, "kg"),
+                           });
+                        }
+
+                        const hasAnyData =
+                           organDamageItems.length > 0 ||
+                           diabetesKidneyItems.length > 0 ||
+                           cardioEventItems.length > 0 ||
+                           accompanyingMetrics.length > 0;
+
+                        if (!hasAnyData) return null;
+
+                        return (
+                           <div className="flex flex-col gap-3">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                 <div className="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5">
+                                    <span>
+                                       Dữ liệu đầu vào: Người bệnh có bệnh nền
                                     </span>
                                  </div>
-                              );
-                           })}
-                        </div>
-                     </div>
+                              </div>
 
-                     {/* Khối Tiền sử biến cố tim mạch */}
-                     <div className="space-y-1.5 pt-1">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
-                           2. Tiền sử biến cố tim mạch nặng & Vữa xơ
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                           {CARDIOVASCULAR_EVENT_FIELDS.map((item) => {
-                              const isPositive = Boolean(input[item.key]);
-                              return (
-                                 <div
-                                    key={item.key}
-                                    className={cn(
-                                       "p-2 rounded border text-xs flex items-center justify-between gap-2",
-                                       isPositive
-                                          ? "bg-rose-50/80 border-rose-200 text-rose-900"
-                                          : "bg-slate-50/70 border-slate-200 text-slate-700",
-                                    )}
-                                 >
-                                    <span className="font-medium text-[11px]">
-                                       {item.label}
+                              {/* 1. Dấu hiệu tổn thương cơ quan đích */}
+                              {organDamageItems.length > 0 && (
+                                 <div className="space-y-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500">
+                                       Dấu hiệu tổn thương cơ quan đích (
+                                       {organDamageItems.length})
                                     </span>
-                                    <span
-                                       className={cn(
-                                          "px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 shrink-0",
-                                          isPositive
-                                             ? "bg-rose-100 text-rose-700"
-                                             : "bg-slate-200/70 text-slate-500 font-normal",
-                                       )}
-                                    >
-                                       {isPositive ? (
-                                          <>
-                                             <CheckCircle2 className="w-3 h-3 text-rose-600" />
-                                             Có
-                                          </>
-                                       ) : (
-                                          <>
-                                             <MinusCircle className="w-3 h-3 text-slate-400" />
-                                             Không
-                                          </>
-                                       )}
-                                    </span>
+                                    {renderConditionCards(organDamageItems)}
                                  </div>
-                              );
-                           })}
-                        </div>
-                     </div>
-                  </div>
+                              )}
+
+                              {/* 2. Đái tháo đường & Thận */}
+                              {diabetesKidneyItems.length > 0 && (
+                                 <div className="space-y-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500">
+                                       Thông tin Đái tháo đường & Thận (
+                                       {diabetesKidneyItems.length})
+                                    </span>
+                                    {renderMetricCards(
+                                       diabetesKidneyItems,
+                                       "grid-cols-2 sm:grid-cols-3",
+                                    )}
+                                 </div>
+                              )}
+
+                              {/* 3. Tiền sử biến cố tim mạch nặng & Vữa xơ */}
+                              {cardioEventItems.length > 0 && (
+                                 <div className="space-y-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500">
+                                       Tiền sử biến cố tim mạch nặng & Vữa xơ (
+                                       {cardioEventItems.length})
+                                    </span>
+                                    {renderConditionCards(cardioEventItems)}
+                                 </div>
+                              )}
+
+                              {/* 4. Chỉ số sinh lý & Cận lâm sàng kèm theo */}
+                              {accompanyingMetrics.length > 0 && (
+                                 <div className="space-y-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500">
+                                       Chỉ số sinh lý & Cận lâm sàng kèm theo (
+                                       {accompanyingMetrics.length})
+                                    </span>
+                                    {renderMetricCards(
+                                       accompanyingMetrics,
+                                       "grid-cols-2 sm:grid-cols-3 md:grid-cols-4",
+                                    )}
+                                 </div>
+                              )}
+                           </div>
+                        );
+                     })()}
                </div>
             </ScrollArea>
 
@@ -727,9 +720,8 @@ export function RiskAssessmentDetailModal({
                {onEdit && (
                   <CustomButton
                      type="button"
-                     variant="outline"
                      size="sm"
-                     className="h-8 text-xs font-semibold px-4 cursor-pointer border-blue-300 text-blue-700 hover:bg-blue-50"
+                     className="h-8 text-xs "
                      onClick={() => {
                         onClose();
                         onEdit(assessment);
@@ -749,9 +741,7 @@ export function RiskAssessmentDetailModal({
                         onEvaluate(assessment);
                      }}
                   >
-                     {assessment.doctor
-                        ? "Thẩm định lại"
-                        : "Thẩm định & Xác nhận"}
+                     {assessment.doctor ? "Xác nhận lại" : "Xác nhận"}
                   </CustomButton>
                )}
             </div>

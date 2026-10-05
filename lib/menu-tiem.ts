@@ -3,10 +3,11 @@ import {
    Folders,
    LayoutDashboard,
    MessageCircle,
-   Book,
    type LucideIcon,
    Share2,
    Heart,
+   Users,
+   FilePenLine,
 } from "lucide-react";
 import { StaffRole } from "@/types/staff";
 
@@ -29,9 +30,16 @@ export const menuItems: MenuItem[] = [
       role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
    },
    {
+      id: "consultation",
+      label: "Hội chẩn",
+      icon: FilePenLine,
+      href: "/consultation",
+      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR_EXPERT"],
+   },
+   {
       id: "health-profile",
       label: "Quản lý khách hàng",
-      icon: Book,
+      icon: Users,
       href: "/health-profile",
       role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT", "NURSE"],
    },

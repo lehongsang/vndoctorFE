@@ -559,7 +559,9 @@ export function HealthProfileTable({
 
             return (
                <div className="flex items-center justify-end gap-1.5">
-                  {canExamine && user?.role === "DOCTOR" ? (
+                  {canExamine &&
+                  (user?.role === "DOCTOR" ||
+                     user?.role === "DOCTOR_EXPERT") ? (
                      <CustomButton
                         size="sm"
                         className="h-8 px-2.5 text-xs"

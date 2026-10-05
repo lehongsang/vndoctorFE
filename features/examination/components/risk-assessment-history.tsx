@@ -17,6 +17,7 @@ import {
    formatRiskRate,
    checkHasUnderlyingDisease,
 } from "@/components/common/risk-level-badge";
+import { Check } from "lucide-react";
 
 export interface RiskAssessmentHistoryProps {
    healthProfileId?: string;
@@ -90,8 +91,8 @@ const RiskAssessmentCardItem = ({
                      </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col min-w-0">
-                     <span className="text-[10px] text-slate-400 leading-tight">
-                        Người thực hiện
+                     <span className="text-[10px] leading-tight flex items-center gap-1 text-green-600">
+                        <Check className="size-3" /> Đã xác nhận
                      </span>
                      <span className="text-xs font-medium text-slate-800 truncate">
                         {record.doctor?.fullName}

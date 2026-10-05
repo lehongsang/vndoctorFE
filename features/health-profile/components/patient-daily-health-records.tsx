@@ -135,12 +135,83 @@ const formatXAxisTime = (dateStr?: string) => {
 interface MetricPoint {
    id: string;
    isOrigin?: boolean;
+   timeOnly: string;
+   dateOnly: string;
+   showDate: boolean;
    displayTime: string;
    fullTime: string;
    value: number;
    secondaryValue: number | null;
    note?: string | null;
    rawRecord: HealthRecord | null;
+}
+
+interface CustomXAxisTickProps {
+   x?: number;
+   y?: number;
+   payload?: {
+      value: string;
+      index?: number;
+   };
+   data?: MetricPoint[];
+}
+
+function CustomXAxisTick({
+   x = 0,
+   y = 0,
+   payload,
+   data,
+}: CustomXAxisTickProps) {
+   if (!payload || !data) return null;
+   const point =
+      (payload.index !== undefined ? data[payload.index] : undefined) ||
+      data.find((d) => d.id === payload.value);
+   if (!point) return null;
+
+   if (point.isOrigin) {
+      return (
+         <g transform={`translate(${x},${y})`}>
+            <text
+               x={0}
+               y={0}
+               dy={12}
+               textAnchor="middle"
+               fill="#94a3b8"
+               fontSize={10}
+               fontWeight={500}
+            >
+               0
+            </text>
+         </g>
+      );
+   }
+
+   return (
+      <g transform={`translate(${x},${y})`}>
+         <text
+            x={0}
+            y={0}
+            textAnchor="middle"
+            fill="#475569"
+            fontSize={10}
+         >
+            <tspan x={0} dy={11} fontWeight={500}>
+               {point.timeOnly}
+            </tspan>
+            {point.showDate && (
+               <tspan
+                  x={0}
+                  dy={13}
+                  fill="#64748b"
+                  fontSize={9}
+                  fontWeight={600}
+               >
+                  {point.dateOnly}
+               </tspan>
+            )}
+         </text>
+      </g>
+   );
 }
 
 // Bắt buộc trục Oy luôn có gốc tọa độ 0
@@ -386,6 +457,9 @@ export function PatientDailyHealthRecords({
          const originPoint: MetricPoint = {
             id: "origin",
             isOrigin: true,
+            timeOnly: "0",
+            dateOnly: "",
+            showDate: false,
             displayTime: "0",
             fullTime: "Gốc tọa độ 0",
             value: 0,
@@ -393,17 +467,40 @@ export function PatientDailyHealthRecords({
             rawRecord: null,
          };
 
-         // Danh sách các khung thời gian đã nhập thực tế
-         const enteredPoints: MetricPoint[] = metricRecs.map((r) => ({
-            id: r.id,
-            isOrigin: false,
-            displayTime: formatXAxisTime(r.measuredAt),
-            fullTime: formatDateTime(r.measuredAt),
-            value: r.valueNumeric,
-            secondaryValue: r.secondaryValue ?? null,
-            note: r.note,
-            rawRecord: r,
-         }));
+         // Danh sách các khung thời gian đã nhập thực tế:
+         // Nếu trong cùng 1 ngày có nhiều lượt nhập, chỉ hiển thị ngày ở lượt đầu tiên (1 lần duy nhất)
+         let lastDateKey = "";
+         const enteredPoints: MetricPoint[] = metricRecs.map((r) => {
+            const d = new Date(r.measuredAt);
+            const isValid = !isNaN(d.getTime());
+            const hours = isValid ? String(d.getHours()).padStart(2, "0") : "--";
+            const minutes = isValid ? String(d.getMinutes()).padStart(2, "0") : "--";
+            const day = isValid ? String(d.getDate()).padStart(2, "0") : "--";
+            const month = isValid ? String(d.getMonth() + 1).padStart(2, "0") : "--";
+            const year = isValid ? d.getFullYear() : "";
+
+            const dateKey = isValid ? `${year}-${month}-${day}` : "";
+            const timeOnly = `${hours}:${minutes}`;
+            const dateOnly = `${day}/${month}`;
+            const showDate = dateKey !== "" && dateKey !== lastDateKey;
+            if (showDate) {
+               lastDateKey = dateKey;
+            }
+
+            return {
+               id: r.id,
+               isOrigin: false,
+               timeOnly,
+               dateOnly,
+               showDate,
+               displayTime: `${hours}:${minutes} ${day}/${month}`,
+               fullTime: formatDateTime(r.measuredAt),
+               value: r.valueNumeric,
+               secondaryValue: r.secondaryValue ?? null,
+               note: r.note,
+               rawRecord: r,
+            };
+         });
 
          // Luôn bắt đầu từ gốc tọa độ 0 và nối đường line đến giá trị nhập đầu tiên
          map[metricKey] = [originPoint, ...enteredPoints];
@@ -810,7 +907,7 @@ export function PatientDailyHealthRecords({
                                           top: 10,
                                           right: 15,
                                           left: -15,
-                                          bottom: 0,
+                                          bottom: 8,
                                        }}
                                     >
                                        <CartesianGrid
@@ -819,13 +916,10 @@ export function PatientDailyHealthRecords({
                                           stroke="#f1f5f9"
                                        />
                                        <XAxis
-                                          dataKey="displayTime"
+                                          dataKey="id"
                                           interval={0}
-                                          tick={{
-                                             fontSize: 10,
-                                             fill: "#64748b",
-                                             fontWeight: 500,
-                                          }}
+                                          height={38}
+                                          tick={<CustomXAxisTick data={data} />}
                                           tickLine={false}
                                           axisLine={{ stroke: "#cbd5e1" }}
                                        />

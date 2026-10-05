@@ -186,7 +186,7 @@ const assessmentSchema = z
             });
          }
 
-         // 5. Cholesterol toàn phần: 2.0 - 15.0 mmol/L (theo thang BYT / SCORE2)
+         // 5. Cholesterol toàn phần: 2.0 - 15.0 mmol/L (chỉ Cholesterol toàn phần là bắt buộc)
          if (
             data.totalCholesterol === null ||
             data.totalCholesterol === undefined ||
@@ -194,8 +194,7 @@ const assessmentSchema = z
          ) {
             ctx.addIssue({
                code: z.ZodIssueCode.custom,
-               message:
-                  "Vui lòng nhập Cholesterol toàn phần (chưa tính được Non-HDL-Cholesterol)",
+               message: "Vui lòng nhập Cholesterol toàn phần",
                path: ["totalCholesterol"],
             });
          } else if (
@@ -208,57 +207,78 @@ const assessmentSchema = z
                   "Cholesterol toàn phần hợp lệ từ 2.0 - 15.0 mmol/L (theo BYT)",
                path: ["totalCholesterol"],
             });
+         } else {
+            // Cholesterol toàn phần phải cao hơn các chỉ số còn lại
+            if (
+               data.hdlCholesterol !== null &&
+               data.hdlCholesterol !== undefined &&
+               data.totalCholesterol <= data.hdlCholesterol
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Cholesterol toàn phần phải cao hơn HDL-Cholesterol",
+                  path: ["totalCholesterol"],
+               });
+            }
+            if (
+               data.ldlCholesterol !== null &&
+               data.ldlCholesterol !== undefined &&
+               data.totalCholesterol <= data.ldlCholesterol
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Cholesterol toàn phần phải cao hơn LDL-Cholesterol",
+                  path: ["totalCholesterol"],
+               });
+            }
+            if (
+               data.triglycerides !== null &&
+               data.triglycerides !== undefined &&
+               data.totalCholesterol <= data.triglycerides
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Cholesterol toàn phần phải cao hơn Triglycerides",
+                  path: ["totalCholesterol"],
+               });
+            }
          }
 
-         // 6. HDL-Cholesterol: 0.5 - 4.5 mmol/L (bắt buộc để tính Non-HDL)
+         // 6. HDL-Cholesterol: Không bắt buộc, nếu nhập thì 0.5 - 4.5 mmol/L và nhỏ hơn Cholesterol toàn phần
          if (
-            data.hdlCholesterol === null ||
-            data.hdlCholesterol === undefined
+            data.hdlCholesterol !== null &&
+            data.hdlCholesterol !== undefined
          ) {
-            ctx.addIssue({
-               code: z.ZodIssueCode.custom,
-               message:
-                  "Vui lòng nhập HDL-Cholesterol (chưa tính được Non-HDL-Cholesterol)",
-               path: ["hdlCholesterol"],
-            });
-         } else if (data.hdlCholesterol < 0.5 || data.hdlCholesterol > 4.5) {
-            ctx.addIssue({
-               code: z.ZodIssueCode.custom,
-               message: "HDL-Cholesterol hợp lệ từ 0.5 - 4.5 mmol/L",
-               path: ["hdlCholesterol"],
-            });
-         } else if (
-            data.totalCholesterol &&
-            data.hdlCholesterol >= data.totalCholesterol
-         ) {
-            ctx.addIssue({
-               code: z.ZodIssueCode.custom,
-               message: "HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần",
-               path: ["hdlCholesterol"],
-            });
+            if (data.hdlCholesterol < 0.5 || data.hdlCholesterol > 4.5) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "HDL-Cholesterol hợp lệ từ 0.5 - 4.5 mmol/L",
+                  path: ["hdlCholesterol"],
+               });
+            } else if (
+               data.totalCholesterol !== null &&
+               data.totalCholesterol !== undefined &&
+               data.hdlCholesterol >= data.totalCholesterol
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần",
+                  path: ["hdlCholesterol"],
+               });
+            }
          }
 
-         // 7. Non-HDL-Cholesterol: Tự động tính từ Cholesterol toàn phần - HDL-Cholesterol
+         // 7. Non-HDL-Cholesterol: Nếu không nhập HDL => non HDL choles = null (missing). Chỉ kiểm tra khi có tính được
          if (
             data.totalCholesterol !== null &&
             data.totalCholesterol !== undefined &&
             data.hdlCholesterol !== null &&
             data.hdlCholesterol !== undefined &&
-            data.hdlCholesterol < data.totalCholesterol
+            data.hdlCholesterol < data.totalCholesterol &&
+            data.nonHdlCholesterol !== null &&
+            data.nonHdlCholesterol !== undefined
          ) {
-            if (
-               data.nonHdlCholesterol === null ||
-               data.nonHdlCholesterol === undefined
-            ) {
-               ctx.addIssue({
-                  code: z.ZodIssueCode.custom,
-                  message: "Chưa tính được Non-HDL-Cholesterol",
-                  path: ["hdlCholesterol"],
-               });
-            } else if (
-               data.nonHdlCholesterol < 1.0 ||
-               data.nonHdlCholesterol > 15.0
-            ) {
+            if (data.nonHdlCholesterol < 1.0 || data.nonHdlCholesterol > 15.0) {
                ctx.addIssue({
                   code: z.ZodIssueCode.custom,
                   message: "Non-HDL-Cholesterol hợp lệ từ 1.0 - 15.0 mmol/L",
@@ -267,7 +287,7 @@ const assessmentSchema = z
             }
          }
 
-         // 8. LDL-Cholesterol (nếu nhập): 0.5 - 15.0 mmol/L
+         // 8. LDL-Cholesterol (nếu nhập): 0.5 - 15.0 mmol/L và nhỏ hơn Cholesterol toàn phần
          if (
             data.ldlCholesterol !== null &&
             data.ldlCholesterol !== undefined
@@ -302,12 +322,22 @@ const assessmentSchema = z
             }
          }
 
-         // 9. Triglycerides (nếu nhập): 0.2 - 30.0 mmol/L
+         // 9. Triglycerides (nếu nhập): 0.2 - 30.0 mmol/L và nhỏ hơn Cholesterol toàn phần
          if (data.triglycerides !== null && data.triglycerides !== undefined) {
             if (data.triglycerides < 0.2 || data.triglycerides > 30.0) {
                ctx.addIssue({
                   code: z.ZodIssueCode.custom,
                   message: "Triglycerides hợp lệ từ 0.2 - 30.0 mmol/L",
+                  path: ["triglycerides"],
+               });
+            } else if (
+               data.totalCholesterol !== null &&
+               data.totalCholesterol !== undefined &&
+               data.triglycerides >= data.totalCholesterol
+            ) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Triglycerides phải nhỏ hơn Cholesterol toàn phần",
                   path: ["triglycerides"],
                });
             }
@@ -740,8 +770,9 @@ export function RiskFactorAssessmentForm({
    const isEditMode = Boolean(initialAssessment) || Boolean(isDoctorEditMode);
    const [createdAssessment, setCreatedAssessment] =
       useState<RiskAssessmentResult | null>(null);
-   const [prevInitialAssessment, setPrevInitialAssessment] =
-      useState<RiskAssessmentResult | null | undefined>(initialAssessment);
+   const [prevInitialAssessment, setPrevInitialAssessment] = useState<
+      RiskAssessmentResult | null | undefined
+   >(initialAssessment);
 
    if (prevInitialAssessment !== initialAssessment) {
       setPrevInitialAssessment(initialAssessment);
@@ -754,7 +785,10 @@ export function RiskFactorAssessmentForm({
 
    useEffect(() => {
       if (createdAssessment && resultRef.current) {
-         resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+         resultRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+         });
       }
    }, [createdAssessment]);
    const [isEvaluationModalOpen, setIsEvaluationModalOpen] =
@@ -1356,7 +1390,9 @@ export function RiskFactorAssessmentForm({
       ) {
          return null;
       }
-      const num = Number(val);
+      const cleaned =
+         typeof val === "string" ? val.replace(",", ".").trim() : val;
+      const num = Number(cleaned);
       if (isNaN(num) || num <= 0) return null;
       return num;
    };
@@ -1397,16 +1433,46 @@ export function RiskFactorAssessmentForm({
          return undefined;
       }
       if (hasTotal && !hasHdl) {
-         return "Chưa tính được Non-HDL-Cholesterol do chưa nhập HDL-Cholesterol";
+         return "Không nhập HDL-Cholesterol => Non-HDL-Cholesterol = null (thiếu dữ liệu này khi phân tầng)";
       }
       if (!hasTotal && hasHdl) {
-         return "Chưa tính được Non-HDL-Cholesterol do chưa nhập Cholesterol toàn phần";
+         return "Chưa nhập Cholesterol toàn phần => Non-HDL-Cholesterol = null (thiếu dữ liệu này khi phân tầng)";
       }
       if (hasTotal && hasHdl && numTotalChol <= numHdlChol) {
          return "Chưa tính được Non-HDL-Cholesterol: HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần";
       }
       return undefined;
    }, [hasUnderlyingDisease, numTotalChol, numHdlChol]);
+
+   // Kiểm tra lỗi thời gian thực cho Cholesterol toàn phần: phải lớn hơn các chỉ số mỡ máu còn lại
+   const totalCholError = useMemo(() => {
+      if (numTotalChol === null) return undefined;
+      if (numTotalChol < 2.0 || numTotalChol > 15.0) {
+         return "Cholesterol toàn phần hợp lệ từ 2.0 - 15.0 mmol/L (theo BYT)";
+      }
+      if (numHdlChol !== null && numTotalChol <= numHdlChol) {
+         return "Cholesterol toàn phần phải cao hơn HDL-Cholesterol";
+      }
+      if (numLdlChol !== null && numTotalChol <= numLdlChol) {
+         return "Cholesterol toàn phần phải cao hơn LDL-Cholesterol";
+      }
+      if (numTriglycerides !== null && numTotalChol <= numTriglycerides) {
+         return "Cholesterol toàn phần phải cao hơn Triglycerides";
+      }
+      return undefined;
+   }, [numTotalChol, numHdlChol, numLdlChol, numTriglycerides]);
+
+   // Kiểm tra lỗi thời gian thực cho HDL-Cholesterol
+   const hdlError = useMemo(() => {
+      if (numHdlChol === null) return undefined;
+      if (numHdlChol < 0.5 || numHdlChol > 4.5) {
+         return "HDL-Cholesterol hợp lệ từ 0.5 - 4.5 mmol/L";
+      }
+      if (numTotalChol !== null && numHdlChol >= numTotalChol) {
+         return "HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần";
+      }
+      return undefined;
+   }, [numHdlChol, numTotalChol]);
 
    // Kiểm tra lỗi thời gian thực cho LDL-Cholesterol
    const ldlError = useMemo(() => {
@@ -1430,8 +1496,36 @@ export function RiskFactorAssessmentForm({
       if (numTriglycerides < 0.2 || numTriglycerides > 30.0) {
          return "Triglycerides hợp lệ từ 0.2 - 30.0 mmol/L";
       }
+      if (numTotalChol !== null && numTriglycerides >= numTotalChol) {
+         return "Triglycerides phải nhỏ hơn Cholesterol toàn phần";
+      }
       return undefined;
-   }, [numTriglycerides]);
+   }, [numTriglycerides, numTotalChol]);
+
+   // // Kiểm tra kết quả phân tầng có bị thiếu dữ liệu Non-HDL-Cholesterol không
+   // const isMissingNonHdl = useMemo(() => {
+   //    if (!assessmentResult) return false;
+   //    const hasUnderlying = checkHasUnderlyingDisease(assessmentResult);
+   //    if (hasUnderlying) return false;
+
+   //    const input = assessmentResult.assessmentInput;
+   //    if (input) {
+   //       const hasTotal =
+   //          input.totalCholesterol !== null &&
+   //          input.totalCholesterol !== undefined &&
+   //          input.totalCholesterol !== "";
+   //       const hasHdl =
+   //          input.hdlCholesterol !== null &&
+   //          input.hdlCholesterol !== undefined &&
+   //          input.hdlCholesterol !== "";
+   //       const hasNonHdl =
+   //          input.nonHdlCholesterol !== null &&
+   //          input.nonHdlCholesterol !== undefined &&
+   //          input.nonHdlCholesterol !== "";
+   //       return !hasNonHdl || !hasTotal || !hasHdl;
+   //    }
+   //    return numTotalChol === null || numHdlChol === null;
+   // }, [assessmentResult, numTotalChol, numHdlChol]);
 
    const handleApplyOcr = (values: OcrExtractedFormValues) => {
       const newSources: Partial<
@@ -1710,8 +1804,8 @@ export function RiskFactorAssessmentForm({
                systolicBp: data.systolicBp ?? undefined,
                diastolicBp: data.diastolicBp ?? undefined,
                totalCholesterol: data.totalCholesterol ?? undefined,
-               hdlCholesterol: data.hdlCholesterol ?? undefined,
-               nonHdlCholesterol: data.nonHdlCholesterol ?? undefined,
+               hdlCholesterol: data.hdlCholesterol ?? null,
+               nonHdlCholesterol: data.nonHdlCholesterol ?? null,
                ldlCholesterol: data.ldlCholesterol ?? null,
                triglycerides: data.triglycerides ?? null,
                glucoseFasting: data.glucoseFasting ?? null,
@@ -1856,12 +1950,10 @@ export function RiskFactorAssessmentForm({
                            <span className="text-slate-700 font-bold">
                               Tỷ lệ biến cố:
                            </span>
-                           <span className="text-base font-extrabold text-primary">
+                           <span className="text-2xl font-extrabold text-primary">
                               {formatRiskRate(
                                  assessmentResult.riskScore,
-                                 checkHasUnderlyingDisease(
-                                    assessmentResult,
-                                 ),
+                                 checkHasUnderlyingDisease(assessmentResult),
                               )}
                            </span>
                         </div>
@@ -1875,9 +1967,8 @@ export function RiskFactorAssessmentForm({
                </div>
 
                <p className="text-[11px] text-slate-900 italic">
-                  * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
-                  Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
-                  mạch châu Âu ESC
+                  * Phân tầng yếu tố nguy cơ theo thang điểm Score 2; Score-OP;
+                  Score-dia được Khuyến cáo của hiệp hội tim mạch châu Âu ESC
                </p>
 
                {/* Thông tin bác sĩ thẩm định & nút thao tác */}
@@ -2267,10 +2358,20 @@ export function RiskFactorAssessmentForm({
                         min={0}
                         step="any"
                         placeholder="Ví dụ: 5.0"
-                        error={errors.totalCholesterol?.message}
+                        error={
+                           errors.totalCholesterol?.message || totalCholError
+                        }
                         {...register("totalCholesterol", {
-                           setValueAs: (v) =>
-                              v === "" || isNaN(v) ? null : Number(v),
+                           setValueAs: (v) => {
+                              if (v === "" || v === null || v === undefined)
+                                 return null;
+                              if (typeof v === "string") {
+                                 const clean = v.replace(",", ".");
+                                 const num = parseFloat(clean);
+                                 return isNaN(num) ? null : num;
+                              }
+                              return isNaN(Number(v)) ? null : Number(v);
+                           },
                         })}
                      />
 
@@ -2282,41 +2383,22 @@ export function RiskFactorAssessmentForm({
                         type="number"
                         min={0}
                         step="any"
+                        required
                         placeholder="Ví dụ: 1.2"
-                        error={
-                           errors.hdlCholesterol?.message ||
-                           (numTotalChol !== null &&
-                           numHdlChol !== null &&
-                           numHdlChol >= numTotalChol
-                              ? "HDL-Cholesterol phải nhỏ hơn Cholesterol toàn phần"
-                              : undefined)
-                        }
+                        error={errors.hdlCholesterol?.message || hdlError}
                         {...register("hdlCholesterol", {
-                           setValueAs: (v) =>
-                              v === "" || isNaN(v) ? null : Number(v),
+                           setValueAs: (v) => {
+                              if (v === "" || v === null || v === undefined)
+                                 return null;
+                              if (typeof v === "string") {
+                                 const clean = v.replace(",", ".");
+                                 const num = parseFloat(clean);
+                                 return isNaN(num) ? null : num;
+                              }
+                              return isNaN(Number(v)) ? null : Number(v);
+                           },
                         })}
                      />
-
-                     {nonHdlWarning && (
-                        <div className="col-span-full flex items-center gap-2 p-2.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                           <AlertTriangle className="size-4 text-amber-600 shrink-0" />
-                           <span className="font-medium">{nonHdlWarning}</span>
-                        </div>
-                     )}
-
-                     {!nonHdlWarning &&
-                        watchedNonHdlChol !== null &&
-                        watchedNonHdlChol !== undefined && (
-                           <div className="col-span-full flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
-                              <Sparkles className="size-4 text-emerald-600 shrink-0" />
-                              <span>
-                                 Non-HDL-Cholesterol:{" "}
-                                 <strong className="text-emerald-950 font-bold text-sm">
-                                    {watchedNonHdlChol} mmol/L
-                                 </strong>
-                              </span>
-                           </div>
-                        )}
 
                      <FormInput
                         label={renderFieldLabel(
@@ -2329,8 +2411,16 @@ export function RiskFactorAssessmentForm({
                         placeholder="Ví dụ: 2.6"
                         error={errors.ldlCholesterol?.message || ldlError}
                         {...register("ldlCholesterol", {
-                           setValueAs: (v) =>
-                              v === "" || isNaN(v) ? null : Number(v),
+                           setValueAs: (v) => {
+                              if (v === "" || v === null || v === undefined)
+                                 return null;
+                              if (typeof v === "string") {
+                                 const clean = v.replace(",", ".");
+                                 const num = parseFloat(clean);
+                                 return isNaN(num) ? null : num;
+                              }
+                              return isNaN(Number(v)) ? null : Number(v);
+                           },
                         })}
                      />
 
@@ -2347,8 +2437,16 @@ export function RiskFactorAssessmentForm({
                            errors.triglycerides?.message || triglyceridesError
                         }
                         {...register("triglycerides", {
-                           setValueAs: (v) =>
-                              v === "" || isNaN(v) ? null : Number(v),
+                           setValueAs: (v) => {
+                              if (v === "" || v === null || v === undefined)
+                                 return null;
+                              if (typeof v === "string") {
+                                 const clean = v.replace(",", ".");
+                                 const num = parseFloat(clean);
+                                 return isNaN(num) ? null : num;
+                              }
+                              return isNaN(Number(v)) ? null : Number(v);
+                           },
                         })}
                      />
 
@@ -2368,35 +2466,50 @@ export function RiskFactorAssessmentForm({
                         })}
                      />
 
-                     <div className="col-span-full grid grid-cols-2 gap-2">
-                        <FormInput
-                           label={renderFieldLabel(
-                              "Chiều cao (cm)",
-                              "heightCm",
-                           )}
-                           type="number"
-                           min={0}
-                           disabled={isHeightFromProfile}
-                           placeholder="Ví dụ: 165"
-                           error={errors.heightCm?.message}
-                           {...register("heightCm", {
-                              setValueAs: (v) =>
-                                 v === "" || isNaN(v) ? null : Number(v),
-                           })}
-                        />
-                        <FormInput
-                           label={renderFieldLabel("Cân nặng (kg)", "weightKg")}
-                           type="number"
-                           min={0}
-                           disabled={isWeightFromProfile}
-                           placeholder="Ví dụ: 65"
-                           error={errors.weightKg?.message}
-                           {...register("weightKg", {
-                              setValueAs: (v) =>
-                                 v === "" || isNaN(v) ? null : Number(v),
-                           })}
-                        />
-                     </div>
+                     <FormInput
+                        label={renderFieldLabel("Chiều cao (cm)", "heightCm")}
+                        type="number"
+                        min={0}
+                        disabled={isHeightFromProfile}
+                        placeholder="Ví dụ: 165"
+                        error={errors.heightCm?.message}
+                        {...register("heightCm", {
+                           setValueAs: (v) =>
+                              v === "" || isNaN(v) ? null : Number(v),
+                        })}
+                     />
+                     <FormInput
+                        label={renderFieldLabel("Cân nặng (kg)", "weightKg")}
+                        type="number"
+                        min={0}
+                        disabled={isWeightFromProfile}
+                        placeholder="Ví dụ: 65"
+                        error={errors.weightKg?.message}
+                        {...register("weightKg", {
+                           setValueAs: (v) =>
+                              v === "" || isNaN(v) ? null : Number(v),
+                        })}
+                     />
+
+                     {nonHdlWarning && (
+                        <div className="col-span-full flex items-center gap-2 p-2.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                           <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                           <span className="font-medium">{nonHdlWarning}</span>
+                        </div>
+                     )}
+                     {!nonHdlWarning &&
+                        watchedNonHdlChol !== null &&
+                        watchedNonHdlChol !== undefined && (
+                           <div className="col-span-full flex items-center gap-2 p-2 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
+                              <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                              <span>
+                                 Non-HDL-Cholesterol:{" "}
+                                 <strong className="text-emerald-950 font-bold text-sm">
+                                    {watchedNonHdlChol} mmol/L
+                                 </strong>
+                              </span>
+                           </div>
+                        )}
                   </div>
                </div>
             )}

@@ -17,6 +17,7 @@ import { FormTextarea } from "@/components/common/form-textarea";
 import { FormSelect } from "@/components/common/form-select";
 import { CustomButton } from "@/components/common/custom-button";
 import { cn } from "@/lib/utils";
+import { AlertTriangle } from "lucide-react";
 import {
    RiskLevelBadge,
    getRiskContainerClass,
@@ -43,6 +44,13 @@ function EvaluationFormContent({
    onSuccess?: (updated: RiskAssessmentResult) => void;
 }) {
    const hasUnderlying = checkHasUnderlyingDisease(assessment);
+   const input = assessment.assessmentInput;
+   const isMissingNonHdl =
+      !hasUnderlying &&
+      input &&
+      (!input.nonHdlCholesterol ||
+         !input.totalCholesterol ||
+         !input.hdlCholesterol);
    const [riskLevel, setRiskLevel] = useState<RiskLevel>(
       assessment.riskLevel || "LOW",
    );
@@ -62,10 +70,6 @@ function EvaluationFormContent({
       if (!assessment.id) return;
 
       const newErrors: { doctorNote?: string; riskLevel?: string } = {};
-      if (!doctorNote.trim()) {
-         newErrors.doctorNote =
-            "Vui lòng nhập ghi chú / kết luận thẩm định của bác sĩ";
-      }
       if (!riskLevel) {
          newErrors.riskLevel = "Vui lòng chọn mức phân tầng nguy cơ";
       }
@@ -84,14 +88,14 @@ function EvaluationFormContent({
             },
          }).unwrap();
 
-         toast.success("Thẩm định và xác nhận phân tầng nguy cơ thành công!");
+         toast.success("xác nhận và xác nhận phân tầng nguy cơ thành công!");
          onSuccess?.(res);
          onClose();
       } catch (error: unknown) {
          console.error("Failed to evaluate risk assessment:", error);
          const apiError = error as { data?: { message?: string } };
          toast.error(
-            apiError?.data?.message || "Có lỗi xảy ra khi xác nhận thẩm định",
+            apiError?.data?.message || "Có lỗi xảy ra khi xác nhận xác nhận",
          );
       }
    };
@@ -100,7 +104,7 @@ function EvaluationFormContent({
       <>
          <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">
-               Thẩm định & Xác nhận phân tầng nguy cơ
+               xác nhận & Xác nhận phân tầng nguy cơ
             </DialogTitle>
          </DialogHeader>
 
@@ -126,10 +130,7 @@ function EvaluationFormContent({
                            Tỷ lệ biến cố:
                         </span>
                         <span className="text-base font-extrabold text-primary">
-                           {formatRiskRate(
-                              assessment.riskScore,
-                              hasUnderlying,
-                           )}
+                           {formatRiskRate(assessment.riskScore, hasUnderlying)}
                         </span>
                      </div>
                   )}
@@ -141,16 +142,29 @@ function EvaluationFormContent({
                {RISK_EXPLANATION_TEXT}
             </div>
 
+            {isMissingNonHdl && (
+               <div className="flex items-start gap-2 p-2.5 rounded bg-amber-50/90 border border-amber-300 text-amber-900 text-xs">
+                  <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                     <span className="font-semibold text-amber-950">
+                        Lưu ý phân tầng:
+                     </span>{" "}
+                     Thiếu dữ liệu Non-HDL-Cholesterol do không nhập 1 trong 2
+                     hoặc không nhập cả 2 chỉ số: Cholesterol toàn phần và
+                     HDL-Cholesterol.
+                  </div>
+               </div>
+            )}
+
             <p className="text-[11px] text-slate-900 italic">
-               * Phân tầng yếu tố nguy cơ theo thang điểm Score 2;
-               Score-OP; Score-dia được Khuyến cáo của hiệp hội tim
-               mạch châu Âu ESC
+               * Phân tầng yếu tố nguy cơ theo thang điểm Score 2; Score-OP;
+               Score-dia được Khuyến cáo của hiệp hội tim mạch châu Âu ESC
             </p>
          </div>
 
          <form onSubmit={handleSubmit} className="space-y-4 py-2 text-xs">
             <FormSelect
-               label="Mức phân tầng thẩm định"
+               label="Mức phân tầng xác nhận"
                required
                options={RISK_LEVEL_OPTIONS}
                value={riskLevel}
@@ -165,8 +179,7 @@ function EvaluationFormContent({
             />
 
             <FormTextarea
-               label="Ghi chú & Kết luận của bác sĩ thẩm định"
-               required
+               label="Ghi chú"
                rows={4}
                value={doctorNote}
                onChange={(e) => {

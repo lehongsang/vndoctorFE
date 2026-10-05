@@ -60,7 +60,7 @@ export type CreateRiskAssessmentGeneral = {
    systolicBp?: number;
    diastolicBp?: number;
    totalCholesterol?: number;
-   hdlCholesterol?: number;
+   hdlCholesterol?: number | null;
    nonHdlCholesterol?: number | null;
    ldlCholesterol?: number | null;
    triglycerides?: number | null;

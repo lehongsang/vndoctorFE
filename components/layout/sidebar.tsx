@@ -95,8 +95,10 @@ export const Sidebar = ({
                if (isDesktop) setIsHovered(false);
             }}
             className={cn(
-               "fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-slate-200 bg-white text-slate-800 transition-all duration-300 ease-in-out",
-               isExpanded ? "w-64 lg:w-72" : "w-64 lg:w-18",
+               "fixed left-0 top-0 z-50 flex h-screen flex-col border-r bg-white text-slate-800 transition-all duration-300 ease-in-out",
+               isExpanded
+                  ? "w-56 lg:w-64 border-slate-200"
+                  : "w-64 lg:w-16 border-slate-300",
                isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
                className,
             )}
@@ -140,7 +142,7 @@ export const Sidebar = ({
                </button>
             </div>
 
-            <nav className="flex-1 space-y-3 overflow-y-auto p-3 select-none">
+            <nav className="flex-1 space-y-1 overflow-y-auto p-1 select-none">
                {visibleMenuItems.map((item) => {
                   const Icon = item.icon;
                   const isActive =

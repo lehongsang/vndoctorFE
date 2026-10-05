@@ -1,3 +1,6 @@
+import { CarePackage } from "../care-package/type";
+import { Staff } from "../staff/type";
+
 export type CareRequestStatus =
    | "PENDING"
    | "IN_PROGRESS"
@@ -13,12 +16,7 @@ export type CareRequestListItem = {
    facilityId?: string;
    subscriptionId: string;
    assignedUserId?: string;
-   assignedUser?: {
-      id: string;
-      fullName?: string;
-      staffCode?: string;
-      phoneNumber?: string;
-   };
+   assignedUser?: Staff;
    status: CareRequestStatus;
    title: string;
    description: string;
@@ -36,11 +34,8 @@ export type CareRequestListItem = {
          dob?: string;
          gender?: string;
       };
-      carePackage?: {
-         id: string;
-         packageName: string;
-         packageCode?: string;
-      };
+      carePackage?: CarePackage;
+      assignedDoctorId?: string;
    };
 };
 

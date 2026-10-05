@@ -142,5 +142,6 @@ export const baseApi = createApi({
       "TreatmentTarget",
       "CareRequest",
       "HealthRecord",
+      "Consultation",
    ],
 });
