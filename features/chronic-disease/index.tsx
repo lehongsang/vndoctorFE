@@ -258,8 +258,8 @@ export default function ChronicDiseaseFeature() {
 
                <div>
                   <Table>
-                     <TableHeader className="bg-slate-50/60">
-                        <TableRow className="hover:bg-transparent border-b border-slate-300">
+                     <TableHeader>
+                        <TableRow className="hover:bg-transparent hover:shadow-none">
                            {columns.map((col) => (
                               <TableHead
                                  key={col.id}
@@ -296,7 +296,7 @@ export default function ChronicDiseaseFeature() {
                            diseaseList.map((disease, index) => (
                               <TableRow
                                  key={disease.id}
-                                 className="border-b border-slate-300 transition-colors hover:bg-slate-100"
+                                 
                               >
                                  {columns.map((col) => (
                                     <TableCell

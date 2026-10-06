@@ -264,7 +264,7 @@ export function HealthProfileTable({
       {
          id: "stt",
          header: "STT",
-         headerClassName: "w-14 pl-4 text-sm font-semibold text-slate-600",
+         headerClassName: "w-14 text-sm font-semibold text-slate-600",
          cellClassName: "w-14 pl-4text-xs text-slate-600 font-medium",
          cell: (_profile, index) => (page - 1) * limit + index + 1,
       },

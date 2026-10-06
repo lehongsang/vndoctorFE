@@ -266,8 +266,8 @@ export default function CoordinateTable({
    return (
       <>
          <Table>
-            <TableHeader className="bg-slate-50/60">
-               <TableRow className="hover:bg-transparent border-b border-slate-300">
+            <TableHeader>
+               <TableRow className="hover:bg-transparent hover:shadow-none">
                   {columns.map((col) => (
                      <TableHead key={col.id} className={col.headerClassName}>
                         {col.header}
@@ -298,7 +298,7 @@ export default function CoordinateTable({
                   careSubcriptions.map((profile, index) => (
                      <TableRow
                         key={profile.id}
-                        className="border-b border-slate-300 transition-colors hover:bg-slate-100"
+                        
                      >
                         {columns.map((col) => (
                            <TableCell

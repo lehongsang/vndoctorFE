@@ -243,8 +243,8 @@ export function ConsultationTable({
    return (
       <div className="w-full">
          <Table>
-            <TableHeader className="bg-slate-50/60">
-               <TableRow className="hover:bg-transparent border-b border-slate-300">
+            <TableHeader>
+               <TableRow className="hover:bg-transparent hover:shadow-none">
                   {columns.map((col) => (
                      <TableHead key={col.id} className={col.headerClassName}>
                         {col.header}
@@ -278,7 +278,7 @@ export function ConsultationTable({
                   data.map((item, index) => (
                      <TableRow
                         key={item.id}
-                        className="border-b border-slate-300 transition-colors hover:bg-slate-100"
+                        
                      >
                         {columns.map((col) => (
                            <TableCell

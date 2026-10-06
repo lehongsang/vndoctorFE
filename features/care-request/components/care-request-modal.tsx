@@ -44,7 +44,10 @@ const careRequestFormSchema = z.object({
    resolutionNote: z
       .string()
       .trim()
-      .min(1, "Vui lòng nhập kết luận / lời dặn trước khi lưu"),
+      .min(
+         5,
+         "Vui lòng nhập kết luận / lời dặn trước khi lưu, tối thiểu 5 kí tự",
+      ),
 });
 
 type CareRequestFormData = z.infer<typeof careRequestFormSchema>;

@@ -102,9 +102,7 @@ const assessmentSchema = z
    .superRefine((data, ctx) => {
       // 1. Tuổi: Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên
       const ageVal =
-         data.age !== null && data.age !== undefined
-            ? Number(data.age)
-            : null;
+         data.age !== null && data.age !== undefined ? Number(data.age) : null;
 
       if (ageVal !== null && !isNaN(ageVal) && ageVal < 40) {
          ctx.addIssue({
@@ -1934,8 +1932,8 @@ export function RiskFactorAssessmentForm({
                   </div>
                   <div className="text-xs text-amber-700">
                      Người bệnh hiện tại{" "}
-                     <span className="font-bold">{numericCurrentAge} tuổi</span>. Hệ
-                     thống chỉ cho phép phân tầng nguy cơ cho người từ{" "}
+                     <span className="font-bold">{numericCurrentAge} tuổi</span>
+                     . Hệ thống chỉ cho phép phân tầng nguy cơ cho người từ{" "}
                      <span className="font-bold">40 tuổi trở lên</span>.
                   </div>
                </div>
@@ -2397,7 +2395,6 @@ export function RiskFactorAssessmentForm({
                         type="number"
                         min={0}
                         step="any"
-                        required
                         placeholder="Ví dụ: 1.2"
                         error={errors.hdlCholesterol?.message || hdlError}
                         {...register("hdlCholesterol", {
