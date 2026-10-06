@@ -169,7 +169,10 @@ export const ExaminationPage = () => {
                   Đợt khám
                </CustomButton>
                <CustomButton
-                  onClick={() => setSelectedOption("assessment")}
+                  onClick={() => {
+                     setSelectedOption("assessment");
+                     setEditingAssessment(null);
+                  }}
                   variant={
                      selectedOption === "assessment" ? "default" : "outline"
                   }
@@ -223,9 +226,6 @@ export const ExaminationPage = () => {
                         initialAssessment={editingAssessment}
                         isDoctorEditMode={Boolean(editingAssessment)}
                         onCancelEdit={() => setEditingAssessment(null)}
-                        onAssessmentSuccess={(newAssessment) => {
-                           setEditingAssessment(newAssessment);
-                        }}
                         onStartExaminationWithAssessment={(
                            _assessment,
                            initialVitals,

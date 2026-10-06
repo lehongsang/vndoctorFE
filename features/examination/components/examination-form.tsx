@@ -104,6 +104,33 @@ const examinationSchema = z
       status: z.enum(["IN_PROGRESS", "COMPLETED", "CANCELLED"]),
    })
    .superRefine((data, ctx) => {
+      if (data.nextAppointmentDate && data.nextAppointmentDate.trim() !== "") {
+         const now = new Date();
+         const today = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+         );
+
+         const parts = data.nextAppointmentDate.split("-").map(Number);
+         if (
+            parts.length === 3 &&
+            !isNaN(parts[0]) &&
+            !isNaN(parts[1]) &&
+            !isNaN(parts[2])
+         ) {
+            const selectedDate = new Date(parts[0], parts[1] - 1, parts[2]);
+
+            if (selectedDate < today) {
+               ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  message: "Ngày hẹn tái khám không được trong quá khứ",
+                  path: ["nextAppointmentDate"],
+               });
+            }
+         }
+      }
+
       if (data.status === "COMPLETED") {
          if (!data.reasonForVisit || data.reasonForVisit.trim() === "") {
             ctx.addIssue({
@@ -556,6 +583,14 @@ export function ExaminationForm({
 
       return opts;
    }, [riskAssessments, initialAssessmentInputId, updatedAssessment]);
+
+   const todayDateStr = useMemo(() => {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+   }, []);
 
    const {
       register,
@@ -1126,6 +1161,10 @@ export function ExaminationForm({
          },
          (invalidErrors) => {
             setSubmittingStatus(null);
+            if (invalidErrors.nextAppointmentDate?.message) {
+               toast.error(invalidErrors.nextAppointmentDate.message);
+               return;
+            }
             if (targetStatus === "COMPLETED") {
                const firstError =
                   invalidErrors.reasonForVisit?.message ||
@@ -1612,7 +1651,7 @@ export function ExaminationForm({
                                     >
                                        {label}
                                     </label>
-                                    <FormInput
+                                    <FormTextarea
                                        placeholder={placeholder}
                                        value={treatmentTarget[key] || ""}
                                        onChange={(e) =>
@@ -1693,7 +1732,7 @@ export function ExaminationForm({
                                     {customTargetList.map((item, idx) => (
                                        <div
                                           key={item.id}
-                                          className="p-2.5 bg-white/90 rounded-md border border-indigo-200/70 flex flex-col sm:flex-row gap-2 items-start sm:items-center"
+                                          className="p-2.5 bg-white/90 rounded-sm border border-indigo-200/70 flex flex-col sm:flex-row gap-2 items-start sm:items-center"
                                        >
                                           <div className="flex-1 w-full sm:w-auto">
                                              <FormInput
@@ -1738,21 +1777,22 @@ export function ExaminationForm({
                                              />
                                           </div>
                                           {canEdit && (
-                                             <button
+                                             <CustomButton
                                                 type="button"
+                                                variant="destructive"
                                                 onClick={() =>
                                                    handleRemoveCustomTarget(
                                                       item.id,
                                                    )
                                                 }
                                                 className={cn(
-                                                   "text-xs px-2.5 py-1.5 text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-300 rounded transition-colors self-end sm:self-center font-medium cursor-pointer shadow-2xs",
-                                                   idx === 0 && "sm:mt-5",
+                                                   "text-xs",
+                                                   idx === 0 && "sm:mt-4.5",
                                                 )}
                                                 title="Xóa mục tiêu này"
                                              >
                                                 Xóa
-                                             </button>
+                                             </CustomButton>
                                           )}
                                        </div>
                                     ))}
@@ -1879,6 +1919,7 @@ export function ExaminationForm({
                      <FormInput
                         type="date"
                         label="Ngày hẹn tái khám"
+                        min={todayDateStr}
                         error={errors.nextAppointmentDate?.message}
                         {...register("nextAppointmentDate")}
                      />

@@ -21,8 +21,23 @@ import { CustomButton } from "@/components/common/custom-button";
 import { FormInput } from "@/components/common/form-input";
 import { FormNumberInput } from "@/components/common/form-number-input";
 import { FormTextarea } from "@/components/common/form-textarea";
+import { FormSelect } from "@/components/common/form-select";
 import { CloverLoading } from "@/components/common/clover-loading";
 import { Icd10SuggestInput } from "@/features/examination/components/icd10-suggest-input";
+import {
+   useGetStaffRiskAssessmentsQuery,
+   useGetRiskAssessmentDetailQuery,
+} from "@/store/api/risk-factor-assessment/risk-factor-assessment-api";
+import { RiskAssessmentResult } from "@/store/api/risk-factor-assessment/type";
+import { RiskAssessmentDetailModal } from "@/features/examination/components/risk-assessment-detail-modal";
+import {
+   RiskLevelBadge,
+   getRiskLevelLabel,
+   getRiskContainerClass,
+   RISK_EXPLANATION_TEXT,
+   formatRiskRate,
+   checkHasUnderlyingDisease,
+} from "@/components/common/risk-level-badge";
 import {
    ArrowLeft,
    ArrowRight,
@@ -39,6 +54,7 @@ interface ConsultationDetailPageProps {
 interface FormState {
    reasonForVisit: string;
    clinicalSymptoms: string;
+   assessmentInputId: string;
    diagnosis: string;
    icd10Code: string;
    systolicBp: number | null;
@@ -304,6 +320,7 @@ function ConsultationDetailContent({
       return {
          reasonForVisit: examination?.reasonForVisit || "",
          clinicalSymptoms: examination?.clinicalSymptoms || "",
+         assessmentInputId: examination?.assessmentInputId || "",
          diagnosis: examination?.diagnosis || "",
          icd10Code: examination?.icd10Code || "",
          systolicBp: examination?.systolicBp ?? null,
@@ -335,6 +352,115 @@ function ConsultationDetailContent({
       consultation.status === "COMPLETED" ||
       consultation.status === "RESOLVED",
    );
+
+   const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
+
+   const healthProfileId =
+      consultation.healthProfileId ||
+      consultation.healthProfile?.id ||
+      examination?.healthProfileId ||
+      "";
+
+   const {
+      data: staffRiskAssessmentsData,
+      isLoading: isLoadingRisk,
+   } = useGetStaffRiskAssessmentsQuery(
+      { healthProfileId, limit: 50 },
+      { skip: !healthProfileId },
+   );
+
+   const riskAssessments: RiskAssessmentResult[] = useMemo(() => {
+      if (!staffRiskAssessmentsData) return [];
+      return (
+         staffRiskAssessmentsData.data ||
+         staffRiskAssessmentsData.items ||
+         []
+      );
+   }, [staffRiskAssessmentsData]);
+
+   const { data: detailRiskAssessment } = useGetRiskAssessmentDetailQuery(
+      formState.assessmentInputId || "",
+      {
+         skip:
+            !formState.assessmentInputId ||
+            formState.assessmentInputId === "none",
+      },
+   );
+
+   const selectedRiskAssessment = useMemo(() => {
+      const currentId = formState.assessmentInputId;
+      if (!currentId || currentId === "none") return null;
+      return (
+         riskAssessments.find(
+            (a) =>
+               a.id === currentId ||
+               a.assessmentInputId === currentId ||
+               a.assessmentInput?.id === currentId,
+         ) ||
+         detailRiskAssessment ||
+         null
+      );
+   }, [formState.assessmentInputId, riskAssessments, detailRiskAssessment]);
+
+   const riskAssessmentOptions = useMemo(() => {
+      const opts: { value: string; label: string }[] = [
+         { value: "none", label: "Không liên kết phân tầng nguy cơ" },
+      ];
+
+      riskAssessments.forEach((item) => {
+         const id =
+            item.assessmentInputId || item.assessmentInput?.id || item.id;
+         const dateStr =
+            item.createdAt || item.assessmentInput?.assessmentDate;
+         let formattedDate = "";
+         if (dateStr) {
+            try {
+               const d = new Date(dateStr);
+               if (!isNaN(d.getTime())) {
+                  formattedDate = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+               }
+            } catch {
+               formattedDate = dateStr;
+            }
+         }
+         const hasUnderlying = checkHasUnderlyingDisease(item);
+         const rateFormatted = formatRiskRate(item.riskScore, hasUnderlying);
+         const scoreStr =
+            rateFormatted !== "—" ? `(Tỷ lệ biến cố: ${rateFormatted})` : "";
+         opts.push({
+            value: id,
+            label: `${formattedDate ? `[${formattedDate}] ` : ""}${getRiskLevelLabel(item.riskLevel)} ${scoreStr}`,
+         });
+      });
+
+      const initialId = examination?.assessmentInputId;
+      if (initialId && !opts.some((o) => o.value === initialId)) {
+         opts.push({
+            value: initialId,
+            label: `Phiếu phân tầng đã liên kết (${initialId.slice(0, 8)}...)`,
+         });
+      }
+
+      return opts;
+   }, [riskAssessments, examination?.assessmentInputId]);
+
+   const getAssessmentDiffLabel = (id?: string) => {
+      if (!id || id === "none") return "Không liên kết";
+      const found = riskAssessments.find(
+         (a) =>
+            a.id === id ||
+            a.assessmentInputId === id ||
+            a.assessmentInput?.id === id,
+      );
+      if (found) {
+         const rate = formatRiskRate(
+            found.riskScore,
+            checkHasUnderlyingDisease(found),
+         );
+         return `${getRiskLevelLabel(found.riskLevel)} ${rate !== "—" ? `(${rate})` : ""}`;
+      }
+      return id.slice(0, 8);
+   };
 
    // Compute changes count
    const changedFieldsCount = useMemo(() => {
@@ -433,6 +559,11 @@ function ConsultationDetailContent({
                icd10Code: formState.icd10Code || undefined,
                reasonForVisit: formState.reasonForVisit || undefined,
                clinicalSymptoms: formState.clinicalSymptoms || undefined,
+               assessmentInputId:
+                  formState.assessmentInputId === "none" ||
+                  !formState.assessmentInputId
+                     ? null
+                     : formState.assessmentInputId,
                heartRate: formState.heartRate ?? 0,
                systolicBp: formState.systolicBp ?? 0,
                diastolicBp: formState.diastolicBp ?? 0,
@@ -639,7 +770,7 @@ function ConsultationDetailContent({
                   {/* PHẦN 1: THÔNG TIN KHÁM */}
                   <div className="space-y-3">
                      <h3 className="text-sm font-bold text-slate-800">
-                        1. Thông tin khám
+                        1. Thông tin khám & Phân tầng nguy cơ
                      </h3>
 
                      <div className="grid grid-cols-1 gap-4">
@@ -741,6 +872,128 @@ function ConsultationDetailContent({
                                  handleRevertField("clinicalSymptoms")
                               }
                            />
+                        </div>
+
+                        {/* Phân tầng yếu tố nguy cơ tim mạch */}
+                        <div className="flex flex-col gap-2 pt-2 border-t border-slate-200">
+                           <FormSelect
+                              label="Phiếu phân tầng nguy cơ tim mạch liên kết"
+                              placeholder={
+                                 isLoadingRisk
+                                    ? "Đang tải danh sách phân tầng..."
+                                    : riskAssessments.length === 0
+                                      ? "Bệnh nhân chưa có phiếu phân tầng nguy cơ nào"
+                                      : "Chọn phiếu phân tầng nguy cơ"
+                              }
+                              options={riskAssessmentOptions}
+                              value={formState.assessmentInputId || "none"}
+                              defaultValue="none"
+                              onValueChange={(val) =>
+                                 handleInputChange(
+                                    "assessmentInputId",
+                                    val === "none" ? "" : val,
+                                 )
+                              }
+                              disabled={hasConclusion || isLoadingRisk}
+                              className="text-xs bg-white"
+                           />
+                           <InlineFieldDiff
+                              oldValue={getAssessmentDiffLabel(
+                                 originalState?.assessmentInputId,
+                              )}
+                              newValue={getAssessmentDiffLabel(
+                                 formState.assessmentInputId,
+                              )}
+                              isWordDiff={false}
+                              onRevert={() =>
+                                 handleRevertField("assessmentInputId")
+                              }
+                           />
+
+                           {selectedRiskAssessment && (
+                              <div
+                                 className={cn(
+                                    "p-4 rounded-sm border flex flex-col gap-2.5 text-xs mt-1",
+                                    getRiskContainerClass(
+                                       selectedRiskAssessment.riskLevel,
+                                    ),
+                                 )}
+                              >
+                                 <div className="flex items-center justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                       <span className="font-bold text-xs sm:text-sm">
+                                          Nguy cơ biến cố tim mạch trong 10 năm:
+                                       </span>
+                                       <RiskLevelBadge
+                                          level={selectedRiskAssessment.riskLevel}
+                                       />
+                                    </div>
+                                    {selectedRiskAssessment.riskScore !== null &&
+                                       selectedRiskAssessment.riskScore !==
+                                          undefined &&
+                                       selectedRiskAssessment.riskScore !== "" && (
+                                          <div className="text-xs flex items-center gap-1.5 flex-wrap">
+                                             <span className="text-slate-700 font-bold">
+                                                Tỷ lệ biến cố:
+                                             </span>
+                                             <span className="text-base font-extrabold text-primary">
+                                                {formatRiskRate(
+                                                   selectedRiskAssessment.riskScore,
+                                                   checkHasUnderlyingDisease(
+                                                      selectedRiskAssessment,
+                                                   ),
+                                                )}
+                                             </span>
+                                          </div>
+                                       )}
+                                 </div>
+
+                                 {/* Giải thích tỷ lệ biến cố */}
+                                 <div className="text-[11px] text-slate-900 bg-white/80 p-2.5 rounded border border-slate-200/70 leading-relaxed">
+                                    <strong className="text-slate-900">
+                                       Giải thích:
+                                    </strong>{" "}
+                                    {RISK_EXPLANATION_TEXT}
+                                 </div>
+
+                                 <p className="text-[11px] text-slate-900 italic">
+                                    * Phân tầng yếu tố nguy cơ theo thang điểm Score
+                                    2; Score-OP; Score-dia được Khuyến cáo của hiệp
+                                    hội tim mạch châu Âu ESC
+                                 </p>
+
+                                 <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-200/60">
+                                    {selectedRiskAssessment.doctorId ? (
+                                       <div className="text-slate-600 flex flex-col gap-0.5">
+                                          <span className="font-medium text-slate-700">
+                                             Xác nhận bởi:{" "}
+                                             {selectedRiskAssessment.doctor?.fullName}
+                                          </span>
+                                          {selectedRiskAssessment.doctorNote && (
+                                             <div className="text-slate-600 line-clamp-2">
+                                                <span className="font-medium text-slate-700">
+                                                   Kết luận:{" "}
+                                                </span>
+                                                {selectedRiskAssessment.doctorNote}
+                                             </div>
+                                          )}
+                                       </div>
+                                    ) : (
+                                       <span className="font-medium text-amber-600">
+                                          Chưa được xác nhận bởi bác sĩ
+                                       </span>
+                                    )}
+                                    <CustomButton
+                                       type="button"
+                                       size="sm"
+                                       onClick={() => setIsRiskModalOpen(true)}
+                                       className="h-8 px-3 text-xs ml-auto"
+                                    >
+                                       Xem chi tiết phân tầng
+                                    </CustomButton>
+                                 </div>
+                              </div>
+                           )}
                         </div>
                      </div>
                   </div>
@@ -970,12 +1223,13 @@ function ConsultationDetailContent({
                            <label className="text-xs font-semibold block mb-1.5 text-rose-900">
                               Huyết áp mục tiêu
                            </label>
-                           <FormInput
+                           <FormTextarea
                               placeholder="VD: < 130/80 mmHg"
                               value={formState.bpTarget}
                               onChange={(e) =>
                                  handleInputChange("bpTarget", e.target.value)
                               }
+                              rows={2}
                               className="text-xs bg-white border-slate-200"
                            />
                            <InlineFieldDiff
@@ -991,7 +1245,7 @@ function ConsultationDetailContent({
                            <label className="text-xs font-semibold block mb-1.5 text-amber-900">
                               Lipid máu mục tiêu
                            </label>
-                           <FormInput
+                           <FormTextarea
                               placeholder="VD: LDL-C < 1.4 mmol/L"
                               value={formState.lipidTarget}
                               onChange={(e) =>
@@ -1000,6 +1254,7 @@ function ConsultationDetailContent({
                                     e.target.value,
                                  )
                               }
+                              rows={2}
                               className="text-xs bg-white border-slate-200"
                            />
                            <InlineFieldDiff
@@ -1015,12 +1270,13 @@ function ConsultationDetailContent({
                            <label className="text-xs font-semibold block mb-1.5 text-emerald-900">
                               BMI mục tiêu
                            </label>
-                           <FormInput
+                           <FormTextarea
                               placeholder="VD: 18.5 - 22.9 kg/m²"
                               value={formState.bmiTarget}
                               onChange={(e) =>
                                  handleInputChange("bmiTarget", e.target.value)
                               }
+                              rows={2}
                               className="text-xs bg-white border-slate-200"
                            />
                            <InlineFieldDiff
@@ -1036,7 +1292,7 @@ function ConsultationDetailContent({
                            <label className="text-xs font-semibold block mb-1.5 text-purple-900">
                               Đường huyết mục tiêu
                            </label>
-                           <FormInput
+                           <FormTextarea
                               placeholder="VD: HbA1c < 7.0%"
                               value={formState.glycemicTarget}
                               onChange={(e) =>
@@ -1045,6 +1301,7 @@ function ConsultationDetailContent({
                                     e.target.value,
                                  )
                               }
+                              rows={2}
                               className="text-xs bg-white border-slate-200"
                            />
                            <InlineFieldDiff
@@ -1062,7 +1319,7 @@ function ConsultationDetailContent({
                            <label className="text-xs font-semibold block mb-1.5 text-sky-900">
                               Chức năng thận mục tiêu
                            </label>
-                           <FormInput
+                           <FormTextarea
                               placeholder="VD: eGFR > 60 mL/min"
                               value={formState.renalTarget}
                               onChange={(e) =>
@@ -1071,6 +1328,7 @@ function ConsultationDetailContent({
                                     e.target.value,
                                  )
                               }
+                              rows={2}
                               className="text-xs bg-white border-slate-200"
                            />
                            <InlineFieldDiff
@@ -1319,6 +1577,11 @@ function ConsultationDetailContent({
                </div>
             </div>
          </div>
+         <RiskAssessmentDetailModal
+            assessment={selectedRiskAssessment}
+            isOpen={isRiskModalOpen}
+            onClose={() => setIsRiskModalOpen(false)}
+         />
       </div>
    );
 }

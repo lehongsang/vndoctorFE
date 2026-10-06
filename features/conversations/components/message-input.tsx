@@ -218,7 +218,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                >
                   <Paperclip className="w-5 h-5" />
                </DropdownMenuTrigger>
-               <DropdownMenuContent align="start" className="w-52 text-xs">
+               <DropdownMenuContent
+                  align="start"
+                  className="w-52 text-xs rounded-sm!"
+               >
                   <DropdownMenuItem
                      onClick={() => openSpecialAttachmentModal("IMAGE")}
                      className="cursor-pointer"

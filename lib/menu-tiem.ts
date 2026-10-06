@@ -22,13 +22,13 @@ export type MenuItem = {
 };
 
 export const menuItems: MenuItem[] = [
-   {
-      id: "dashboard",
-      label: "Tổng quan",
-      icon: LayoutDashboard,
-      href: "/dashboard",
-      role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
-   },
+   // {
+   //    id: "dashboard",
+   //    label: "Tổng quan",
+   //    icon: LayoutDashboard,
+   //    href: "/dashboard",
+   //    role: ["VNDOCTOR_ADMIN", "ADMIN", "DOCTOR", "DOCTOR_EXPERT"],
+   // },
    {
       id: "consultation",
       label: "Hội chẩn",

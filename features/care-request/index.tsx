@@ -5,17 +5,17 @@ import { toast } from "react-toastify";
 import {
    useGetCareRequestsQuery,
    useReceiveCareRequestMutation,
-   useResolveCareRequestMutation,
    useUpdateStatusCareRequestMutation,
 } from "@/store/api/care-request/care-request-api";
 import { CareRequest, CareRequestStatus } from "@/store/api/care-request/type";
+import { Staff } from "@/store/api/staff/type";
+import { useAuth } from "@/hooks/use-auth";
 import { ConfirmModal } from "@/components/common/confirm-modal";
 import { CustomPagination } from "@/components/common/custom-pagination";
 import { CareRequestToolbar } from "./components/care-request-toolbar";
 import { CareRequestTable } from "./components/care-request-table";
 import { CareRequestDetailView } from "./components/care-request-detail-view";
-import { ReceiveModal } from "./components/receive-modal";
-import { ResolveModal } from "./components/resolve-modal";
+import { CareRequestModal } from "./components/care-request-modal";
 
 export default function CareRequestModule() {
    const [searchText, setSearchText] = useState("");
@@ -29,8 +29,6 @@ export default function CareRequestModule() {
    const [selectedRequest, setSelectedRequest] = useState<CareRequest | null>(
       null,
    );
-   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
-   const [isResolveOpen, setIsResolveOpen] = useState(false);
    const [isCancelOpen, setIsCancelOpen] = useState(false);
 
    const {
@@ -58,10 +56,8 @@ export default function CareRequestModule() {
       return [];
    }, [responseData]);
 
-   const [receiveCareRequest, { isLoading: isReceiving }] =
-      useReceiveCareRequestMutation();
-   const [resolveCareRequest, { isLoading: isResolving }] =
-      useResolveCareRequestMutation();
+   const { user } = useAuth();
+   const [receiveCareRequest] = useReceiveCareRequestMutation();
    const [updateStatus, { isLoading: isUpdatingStatus }] =
       useUpdateStatusCareRequestMutation();
 
@@ -104,43 +100,6 @@ export default function CareRequestModule() {
       return filteredRequests.slice(start, start + limit);
    }, [filteredRequests, page, limit, responseData]);
 
-   const handleReceiveConfirm = async (data: {
-      assignedUserId: string;
-      note: string;
-   }) => {
-      if (!selectedRequest?.id) return;
-      try {
-         await receiveCareRequest({
-            id: selectedRequest.id,
-            body: data,
-         }).unwrap();
-         toast.success("Tiếp nhận yêu cầu chăm sóc thành công");
-         setIsReceiveOpen(false);
-         setSelectedRequest(null);
-         refetch();
-      } catch (err: unknown) {
-         const error = err as { data?: { message?: string } };
-         toast.error(error.data?.message || "Không thể tiếp nhận yêu cầu");
-      }
-   };
-
-   const handleResolveConfirm = async (resolutionNote: string) => {
-      if (!selectedRequest?.id) return;
-      try {
-         await resolveCareRequest({
-            id: selectedRequest.id,
-            body: { resolutionNote },
-         }).unwrap();
-         toast.success("Hoàn thành yêu cầu chăm sóc thành công");
-         setIsResolveOpen(false);
-         setSelectedRequest(null);
-         refetch();
-      } catch (err: unknown) {
-         const error = err as { data?: { message?: string } };
-         toast.error(error.data?.message || "Không thể hoàn thành yêu cầu");
-      }
-   };
-
    const handleCancelConfirm = async () => {
       if (!selectedRequest?.id) return;
       try {
@@ -175,14 +134,37 @@ export default function CareRequestModule() {
       refetch();
    };
 
-   const handleOpenReceive = (item: CareRequest) => {
-      setSelectedRequest(item);
-      setIsReceiveOpen(true);
+   const handleOpenReceive = async (item: CareRequest) => {
+      if (!user?.id) {
+         toast.error("Không tìm thấy thông tin tài khoản người dùng");
+         return;
+      }
+      try {
+         const res = await receiveCareRequest({
+            id: item.id,
+            body: {
+               assignedUserId: user.id,
+               note: "",
+            },
+         }).unwrap();
+         toast.success("Tiếp nhận yêu cầu chăm sóc thành công");
+         refetch();
+         setSelectedRequest(
+            res || {
+               ...item,
+               assignedUserId: user.id,
+               assignedUser: user as unknown as Staff,
+               status: "IN_PROGRESS",
+            },
+         );
+      } catch (err: unknown) {
+         const error = err as { data?: { message?: string } };
+         toast.error(error.data?.message || "Không thể tiếp nhận yêu cầu");
+      }
    };
 
    const handleOpenResolve = (item: CareRequest) => {
       setSelectedRequest(item);
-      setIsResolveOpen(true);
    };
 
    const handleOpenCancel = (item: CareRequest) => {
@@ -252,27 +234,13 @@ export default function CareRequestModule() {
             </>
          )}
 
-         <ReceiveModal
-            open={isReceiveOpen}
-            request={selectedRequest}
+         <CareRequestModal
+            isOpen={!!selectedRequest}
             onClose={() => {
-               setIsReceiveOpen(false);
                setSelectedRequest(null);
             }}
-            doctorId={selectedRequest?.subscription?.assignedDoctorId}
-            onConfirm={handleReceiveConfirm}
-            isLoading={isReceiving}
-         />
-
-         <ResolveModal
-            open={isResolveOpen}
-            request={selectedRequest}
-            onClose={() => {
-               setIsResolveOpen(false);
-               setSelectedRequest(null);
-            }}
-            onConfirm={handleResolveConfirm}
-            isLoading={isResolving}
+            requestData={selectedRequest}
+            onSuccess={refetch}
          />
 
          <ConfirmModal

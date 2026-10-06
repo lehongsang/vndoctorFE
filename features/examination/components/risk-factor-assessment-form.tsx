@@ -36,7 +36,7 @@ import {
    OcrMedicalRecordModal,
 } from "./ocr-medical-record-modal";
 import { Examination } from "@/store/api/examination/type";
-import { cn } from "@/lib/utils";
+import { cn, calculateAge } from "@/lib/utils";
 import {
    RiskLevelBadge,
    getRiskContainerClass,
@@ -100,22 +100,29 @@ const assessmentSchema = z
       hasFamilialHypercholesterolemia: z.boolean(),
    })
    .superRefine((data, ctx) => {
+      // 1. Tuổi: Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên
+      const ageVal =
+         data.age !== null && data.age !== undefined
+            ? Number(data.age)
+            : null;
+
+      if (ageVal !== null && !isNaN(ageVal) && ageVal < 40) {
+         ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+               "Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên",
+            path: ["age"],
+         });
+      }
+
       if (!data.hasUnderlyingDisease) {
-         // 1. Tuổi: Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên
-         if (data.age === null || data.age === undefined) {
+         if (ageVal === null || isNaN(ageVal)) {
             ctx.addIssue({
                code: z.ZodIssueCode.custom,
                message: "Vui lòng nhập tuổi của người bệnh",
                path: ["age"],
             });
-         } else if (data.age < 40) {
-            ctx.addIssue({
-               code: z.ZodIssueCode.custom,
-               message:
-                  "Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên",
-               path: ["age"],
-            });
-         } else if (data.age > 100) {
+         } else if (ageVal > 100) {
             ctx.addIssue({
                code: z.ZodIssueCode.custom,
                message: "Tuổi đánh giá tối đa là 100 tuổi",
@@ -814,12 +821,7 @@ export function RiskFactorAssessmentForm({
    );
 
    // Tuổi tính từ ngày sinh hồ sơ
-   const profileAge = activeProfile?.dob
-      ? Math.max(
-           0,
-           new Date().getFullYear() - new Date(activeProfile.dob).getFullYear(),
-        )
-      : null;
+   const profileAge = calculateAge(activeProfile?.dob);
 
    const profileGender =
       activeProfile?.gender === "MALE"
@@ -1369,11 +1371,14 @@ export function RiskFactorAssessmentForm({
    const watchedAge = useWatch({ control, name: "age" });
    const currentAge =
       (isAgeLocked ? effectiveAge : watchedAge) ?? effectiveAge ?? watchedAge;
+   const numericCurrentAge =
+      currentAge !== null && currentAge !== undefined
+         ? Number(currentAge)
+         : null;
    const isUnder40 =
-      !hasUnderlyingDisease &&
-      typeof currentAge === "number" &&
-      !isNaN(currentAge) &&
-      currentAge < 40;
+      numericCurrentAge !== null &&
+      !isNaN(numericCurrentAge) &&
+      numericCurrentAge < 40;
    const diabetes = Boolean(useWatch({ control, name: "diabetes" }));
    const watchedTotalChol = useWatch({ control, name: "totalCholesterol" });
    const watchedHdlChol = useWatch({ control, name: "hdlCholesterol" });
@@ -1773,18 +1778,27 @@ export function RiskFactorAssessmentForm({
             ? effectiveWeight
             : data.weightKg;
 
+         const numericFinalAge =
+            finalAge !== null && finalAge !== undefined
+               ? Number(finalAge)
+               : null;
+
+         if (
+            numericFinalAge !== null &&
+            !isNaN(numericFinalAge) &&
+            numericFinalAge < 40
+         ) {
+            toast.warning(
+               `Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên (Hiện tại: ${numericFinalAge} tuổi)`,
+            );
+            return;
+         }
+
          let payload: CreateRiskAssessmentRequest;
 
          if (!data.hasUnderlyingDisease && !hasRecordedUnderlying) {
-            if (finalAge === null || finalAge === undefined) {
+            if (numericFinalAge === null || isNaN(numericFinalAge)) {
                toast.warning("Vui lòng cung cấp thông tin tuổi của người bệnh");
-               return;
-            }
-
-            if (finalAge < 40) {
-               toast.warning(
-                  `Hệ thống chỉ cho phép phân tầng cho người từ 40 tuổi trở lên (Hiện tại: ${finalAge} tuổi)`,
-               );
                return;
             }
 
@@ -1920,7 +1934,7 @@ export function RiskFactorAssessmentForm({
                   </div>
                   <div className="text-xs text-amber-700">
                      Người bệnh hiện tại{" "}
-                     <span className="font-bold">{currentAge} tuổi</span>.Hệ
+                     <span className="font-bold">{numericCurrentAge} tuổi</span>. Hệ
                      thống chỉ cho phép phân tầng nguy cơ cho người từ{" "}
                      <span className="font-bold">40 tuổi trở lên</span>.
                   </div>

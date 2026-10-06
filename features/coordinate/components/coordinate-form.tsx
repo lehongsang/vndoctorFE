@@ -77,6 +77,7 @@ export function CoordinateForm({
             search: searchStaff,
             page: pageStaff,
             limit: limitStaff,
+            isActive: true,
          },
          {
             skip: !subscriptionId,

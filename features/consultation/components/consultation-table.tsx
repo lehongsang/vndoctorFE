@@ -95,8 +95,7 @@ export function ConsultationTable({
          cellClassName: "py-2.5",
          cell: (item) => {
             const patient =
-               item.healthProfile ||
-               item.examination?.healthProfile;
+               item.healthProfile || item.examination?.healthProfile;
             const patientName =
                patient?.fullName || item.consultationCode || "—";
             const phoneNumber = patient?.phoneNumber;
@@ -117,20 +116,6 @@ export function ConsultationTable({
                </div>
             );
          },
-      },
-      {
-         id: "code",
-         header: "Mã phiếu",
-         headerClassName: "text-xs font-semibold text-slate-600 min-w-32",
-         cellClassName: "py-2.5",
-         cell: (item) => (
-            <span
-               className="font-medium text-xs text-slate-800 hover:text-blue-800 cursor-pointer"
-               onClick={() => onViewDetail(item)}
-            >
-               {item.consultationCode || item.id.slice(0, 8)}
-            </span>
-         ),
       },
       {
          id: "reason",
@@ -160,7 +145,9 @@ export function ConsultationTable({
             <span className="text-xs text-slate-700 font-medium">
                {item.requestingDoctor?.fullName ||
                   item.examination?.doctor?.fullName || (
-                     <span className="text-slate-400 italic">Bác sĩ điều trị</span>
+                     <span className="text-slate-400 italic">
+                        Bác sĩ điều trị
+                     </span>
                   )}
             </span>
          ),
