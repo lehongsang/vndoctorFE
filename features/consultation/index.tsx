@@ -8,7 +8,6 @@ import { CustomPagination } from "@/components/common/custom-pagination";
 import { ConsultationStats } from "./components/consultation-stats";
 import { ConsultationToolbar } from "./components/consultation-toolbar";
 import { ConsultationTable } from "./components/consultation-table";
-import { Monitor } from "lucide-react";
 
 export default function ConsultationModule() {
    const router = useRouter();
@@ -126,24 +125,6 @@ export default function ConsultationModule() {
 
    return (
       <div className="flex flex-col gap-4">
-         {/* Header */}
-         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-               <div className="size-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
-                  <Monitor className="size-5" />
-               </div>
-               <div>
-                  <h1 className="text-lg font-bold text-slate-900">
-                     Danh sách phiếu hội chẩn
-                  </h1>
-                  <p className="text-xs text-slate-500">
-                     Dành cho chuyên gia theo dõi, đánh giá ca bệnh và đưa ra ý
-                     kiến chuyên môn
-                  </p>
-               </div>
-            </div>
-         </div>
-
          {/* Thống kê nhanh */}
          <ConsultationStats consultations={consultations} />
 

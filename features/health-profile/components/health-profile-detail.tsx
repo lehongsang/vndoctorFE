@@ -29,7 +29,11 @@ import { RiskAssessmentResult } from "@/store/api/risk-factor-assessment/type";
 import { RiskAssessmentDetailModal } from "@/features/examination/components/risk-assessment-detail-modal";
 import { cn } from "@/lib/utils";
 import { HealthProfile } from "@/store/api/health-profile/type";
-import { RiskLevelBadge } from "@/components/common/risk-level-badge";
+import {
+   checkHasUnderlyingDisease,
+   formatRiskRate,
+   RiskLevelBadge,
+} from "@/components/common/risk-level-badge";
 
 interface HealthProfileDetailProps {
    profileId: string;
@@ -131,6 +135,9 @@ const RiskAssessmentItem = ({
       return `${day}/${month}/${year} - ${hours}:${minutes}`;
    };
 
+   const hasUnderlying = checkHasUnderlyingDisease(record);
+   const formattedRate = formatRiskRate(record?.riskScore, hasUnderlying);
+
    return (
       <div
          className="flex flex-col gap-1.5 p-3 rounded-sm border shadow-sm cursor-pointer hover:border-primary/70"
@@ -146,13 +153,13 @@ const RiskAssessmentItem = ({
             </div>
          </div>
 
-         {record?.riskScore && (
-            <span className="text-xs text-slate-500">
-               Xác suất biến cố 10 năm:{" "}
-               <span className="font-semibold text-slate-700">
-                  {record.riskScore}%
+         {formattedRate !== "—" && (
+            <div className="text-xs flex items-center gap-1.5 flex-wrap">
+               <span className="text-slate-700 font-bold">Tỷ lệ biến cố:</span>
+               <span className="text-base font-extrabold text-primary">
+                  {formattedRate}
                </span>
-            </span>
+            </div>
          )}
 
          {record.doctor?.fullName && (
